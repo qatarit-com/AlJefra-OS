@@ -1,0 +1,38 @@
+{
+  "component_id": 8,
+  "component_name": "timer",
+  "source_files": [
+    "drivers/timer.asm"
+  ],
+  "critical_functions": [
+    "timer_interrupt_handler",
+    "b_delay",
+    "b_tsc"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "TSC calibration value must remain accurate - incorrect calibration breaks all timing",
+    "Timer frequency must match configured APIC timer divisor",
+    "APIC timer LVT entry format is hardware-defined",
+    "RDTSC instruction pair (RDTSC + shl + or) for full 64-bit timestamp must remain intact",
+    "Timer interrupt must increment system tick counter atomically",
+    "PIT (8254) frequency for calibration: 1.193182 MHz is hardware-fixed",
+    "b_delay must not return early - minimum delay guarantee must be preserved"
+  ],
+  "known_opportunities": [
+    "RDTSC optimization: use RDTSCP for serialized timestamp reads (avoids LFENCE+RDTSC)",
+    "Busy-wait to PAUSE: insert PAUSE in delay spin loops to reduce power and pipeline contention",
+    "TSC deadline mode: use IA32_TSC_DEADLINE MSR for precise one-shot timer instead of periodic",
+    "Constant-TSC detection: skip calibration on CPUs with invariant TSC (CPUID.80000007H:EDX[8])",
+    "Timer coalescing: batch multiple pending timer events into single handler invocation",
+    "MWAIT-based delay for long waits to reduce CPU power consumption",
+    "Avoid redundant RDTSC calls by caching recent timestamp within same handler"
+  ],
+  "immutable_regions": []
+}

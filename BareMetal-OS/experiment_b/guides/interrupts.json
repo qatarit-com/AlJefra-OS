@@ -1,0 +1,41 @@
+{
+  "component_id": 7,
+  "component_name": "interrupts",
+  "source_files": [
+    "interrupt.asm",
+    "drivers/apic.asm",
+    "drivers/ioapic.asm",
+    "drivers/msi.asm"
+  ],
+  "critical_functions": [
+    "interrupt_handlers",
+    "apic_configuration"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "IRETQ stack frame format must be exactly: SS, RSP, RFLAGS, CS, RIP (bottom to top) - hardware defined",
+    "IDT layout: each entry is 16 bytes with offset[15:0], selector, IST, type/DPL, offset[31:16], offset[63:32], reserved",
+    "APIC EOI (End of Interrupt) must be written to acknowledge every interrupt before IRETQ",
+    "Interrupt gate type (0xE) vs trap gate type (0xF) distinction must be preserved",
+    "CLI/STI pairing must be maintained - never leave interrupts disabled across function boundaries",
+    "NMI handler must never execute HLT or any interruptible instruction",
+    "Exception handlers (vectors 0-31) must preserve all registers per ABI",
+    "APIC base address (0xFEE00000) is hardware-defined and immutable"
+  ],
+  "known_opportunities": [
+    "Fast interrupt path: minimize register saves for leaf interrupt handlers",
+    "EOI optimization: use directed EOI for edge-triggered interrupts",
+    "Reduce interrupt latency by keeping handler code within single cache line (64 bytes)",
+    "Use IST (Interrupt Stack Table) for critical exceptions to avoid stack-switch overhead",
+    "Batch EOI with x2APIC self-IPI for timer coalescing",
+    "SWAPGS optimization: avoid redundant SWAPGS when already in kernel mode",
+    "MSI-X vector allocation to distribute interrupts across cores for load balancing"
+  ],
+  "immutable_regions": []
+}

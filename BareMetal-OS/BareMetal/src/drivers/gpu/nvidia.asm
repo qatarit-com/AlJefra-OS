@@ -384,8 +384,9 @@ gpu_init_interrupts:
 	jc gpu_init_interrupts_no_msi
 
 	; MSI found - configure it via the MSI driver
-	mov edx, [os_GPU_BusAddr]
-	call os_msi_enable
+	; TODO: implement os_msi_enable for GPU
+	; mov edx, [os_GPU_BusAddr]
+	; call os_msi_enable
 
 gpu_init_interrupts_no_msi:
 	; Fall back to legacy interrupts or MSI-X
@@ -839,13 +840,13 @@ gpu_get_status:
 gpu_get_status_no_compute:
 
 	; Calculate pending commands
-	push ebx
+	push rbx
 	mov ebx, [os_GPU_CmdQ_Tail]
 	sub ebx, [os_GPU_CmdQ_Head]
 	and ebx, (GPU_CMDQ_SIZE - 1)
 	shl ebx, 16
 	or eax, ebx
-	pop ebx
+	pop rbx
 
 gpu_get_status_done:
 	ret

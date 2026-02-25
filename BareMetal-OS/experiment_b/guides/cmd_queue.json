@@ -1,0 +1,41 @@
+{
+  "component_id": 12,
+  "component_name": "cmd_queue",
+  "source_files": [
+    "drivers/gpu/nvidia.asm"
+  ],
+  "critical_functions": [
+    "cmdq_init",
+    "cmdq_submit",
+    "cmdq_advance",
+    "cmdq_wait",
+    "cmdq_reset"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Queue entry format: exactly 16 bytes per entry - opcode(4), flags(4), address(8) must not change",
+    "Head/tail pointer arithmetic must wrap correctly at queue boundary (modulo queue size)",
+    "Head pointer is GPU-owned (read-only by CPU), tail pointer is CPU-owned (read-only by GPU)",
+    "Queue base address at 0x400000 with 64KB size must not change",
+    "SFENCE must precede doorbell write to ensure all queue entries are visible to GPU",
+    "Queue full condition: (tail + 1) mod size == head must prevent overflow",
+    "Queue empty condition: head == tail must be checked before wait returns"
+  ],
+  "known_opportunities": [
+    "Queue batching: accumulate multiple commands and submit with single doorbell write",
+    "Cache-line alignment: align queue entries to 64-byte cache lines to prevent false sharing",
+    "Prefetch next queue entry while processing current one",
+    "Shadow tail pointer: update local copy and write to MMIO only on flush",
+    "Command coalescing: merge consecutive same-type commands into single batch command",
+    "Ring buffer power-of-2 sizing: replace modulo with AND mask for wrap-around",
+    "Write-combining for queue memory region to batch MMIO writes",
+    "Doorbell coalescing: single doorbell for multiple queued commands"
+  ],
+  "immutable_regions": []
+}

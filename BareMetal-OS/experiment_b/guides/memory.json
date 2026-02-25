@@ -1,0 +1,36 @@
+{
+  "component_id": 1,
+  "component_name": "memory",
+  "source_files": [
+    "init/64.asm"
+  ],
+  "critical_functions": [
+    "init_64",
+    "page_table_setup"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Page table structure must follow x86-64 4-level paging format (PML4 -> PDPT -> PD -> PT)",
+    "Identity mapping of first 4GB must be preserved for kernel addressing",
+    "CR3 must point to a valid, aligned PML4 base address",
+    "Page table entries must have correct Present, Read/Write, and User/Supervisor bits",
+    "2MB large page entries must be 2MB-aligned",
+    "NX (No-Execute) bit usage must remain consistent for security",
+    "Write-protect (WP) bit in CR0 must be set after page table initialization"
+  ],
+  "known_opportunities": [
+    "TLB flush optimization: use INVLPG for single-page invalidation instead of full CR3 reload",
+    "Page walk reduction: promote 4KB pages to 2MB large pages where contiguous",
+    "Reduce page table setup loop iterations by unrolling",
+    "Use REP STOSQ for bulk page table zeroing instead of manual loops",
+    "PCID (Process Context ID) support to avoid TLB flushes on context switch",
+    "Global page bit (PGE) for kernel pages to survive CR3 reloads"
+  ],
+  "immutable_regions": []
+}

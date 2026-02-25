@@ -1,0 +1,51 @@
+{
+  "component_id": 2,
+  "component_name": "smp",
+  "source_files": [
+    "syscalls/smp.asm"
+  ],
+  "critical_functions": [
+    "b_smp_reset",
+    "b_smp_wakeup",
+    "b_smp_wakeup_all",
+    "b_smp_get_id",
+    "b_smp_set",
+    "b_smp_get",
+    "b_smp_setflag",
+    "b_smp_busy",
+    "b_smp_config",
+    "b_smp_lock",
+    "b_smp_unlock",
+    "b_smp_read_lock",
+    "b_smp_read_unlock",
+    "b_smp_write_lock",
+    "b_smp_write_unlock"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "LOCK prefix must be present on ALL atomic operations - removing it causes data races",
+    "APIC ID mapping must remain consistent with hardware topology",
+    "Spinlock acquire/release pairs must maintain memory ordering (no reordering across lock boundaries)",
+    "MFENCE/SFENCE/LFENCE barriers must not be removed or reordered",
+    "Read-write lock upgrade/downgrade sequence must be atomic",
+    "IPI (Inter-Processor Interrupt) delivery mechanism must not be altered",
+    "AP wakeup sequence follows Intel MP specification timing requirements",
+    "XCHG-based lock acquisition is implicitly locked - do not substitute with non-atomic MOV"
+  ],
+  "known_opportunities": [
+    "Lock contention reduction: replace test-and-set with test-and-test-and-set (TTAS) pattern",
+    "Spinlock-to-PAUSE optimization: insert PAUSE instruction in spin loops to reduce pipeline flush penalty",
+    "Exponential backoff in high-contention spin loops",
+    "Cache-line alignment of lock variables to prevent false sharing (64-byte alignment)",
+    "Replace LOCK CMPXCHG with LOCK BTS for simple flag operations",
+    "Reader-writer lock fairness improvement to prevent writer starvation",
+    "Batch IPI delivery using shorthand destinations where possible"
+  ],
+  "immutable_regions": []
+}

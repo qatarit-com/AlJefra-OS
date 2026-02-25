@@ -1,0 +1,39 @@
+{
+  "component_id": 4,
+  "component_name": "storage",
+  "source_files": [
+    "syscalls/nvs.asm",
+    "drivers/nvs/virtio-blk.asm",
+    "init/nvs.asm"
+  ],
+  "critical_functions": [
+    "b_nvs_read",
+    "b_nvs_write"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Virtio block protocol must follow virtio-blk specification exactly",
+    "Sector alignment: all I/O must be aligned to 512-byte sector boundaries",
+    "Request header format: type (4 bytes), reserved (4 bytes), sector (8 bytes) - layout is fixed",
+    "Status byte must be checked after every I/O completion (0=OK, 1=IOERR, 2=UNSUPPORTED)",
+    "Descriptor chain order: header -> data -> status must be preserved",
+    "Write ordering: SFENCE before queue notify to ensure data is visible to device",
+    "Available ring update must be atomic with respect to device reads"
+  ],
+  "known_opportunities": [
+    "Command batching: submit multiple I/O requests before single queue notify",
+    "Queue depth optimization: use multiple in-flight descriptors for pipelined I/O",
+    "Read-ahead: speculatively issue sequential reads for locality",
+    "Write coalescing: merge adjacent sector writes into single large request",
+    "Indirect descriptor tables: reduce descriptor chain overhead for complex I/O",
+    "DISCARD/TRIM support for virtio-blk to improve SSD performance",
+    "Polling mode for low-latency I/O instead of interrupt-driven completion"
+  ],
+  "immutable_regions": []
+}

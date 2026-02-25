@@ -3,3 +3,12 @@ src/*
 sys/*
 .vscode/*
 bochslog.txt
+
+# Build artifacts
+*.o
+*.app
+*.bin
+experiment_b/build/
+experiment_b/evolve_bin
+experiment_b/tmp/
+programs/netstack/bearssl/build/

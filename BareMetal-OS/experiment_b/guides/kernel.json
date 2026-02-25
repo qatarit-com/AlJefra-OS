@@ -1,0 +1,45 @@
+{
+  "component_id": 0,
+  "component_name": "kernel",
+  "source_files": [
+    "kernel.asm",
+    "init/sys.asm"
+  ],
+  "critical_functions": [
+    "start",
+    "bsp",
+    "start_payload",
+    "ap_clear",
+    "ap_halt"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Jump table at 0x100010-0x1000A8 must remain IMMUTABLE - offsets are hardcoded by userland ABI",
+    "Boot sequence order: BSP init -> memory init -> driver init -> payload must be preserved",
+    "GDT and IDT base addresses must not change after setup",
+    "Stack pointer RSP must be valid at all times during boot",
+    "64-bit long mode transition sequence must remain intact",
+    "AP (Application Processor) startup sequence order is fixed by Intel MP spec"
+  ],
+  "known_opportunities": [
+    "Scheduler loop optimization: replace busy-wait with conditional PAUSE/MWAIT",
+    "HLT-to-MWAIT substitution for power-efficient idle on supported CPUs",
+    "NOP sled elimination in alignment padding between functions",
+    "Register allocation improvement in bsp initialization path",
+    "Branch prediction hints (likely/unlikely) on hot paths",
+    "Fuse CMP+JCC sequences into single macro-op where possible"
+  ],
+  "immutable_regions": [
+    {
+      "start": "0x100010",
+      "end": "0x1000A8",
+      "reason": "Jump table - ABI contract with all userland programs and libraries"
+    }
+  ]
+}

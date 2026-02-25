@@ -60,10 +60,16 @@ init_net_probe_found:
 
 	cmp bx, 0x1AF4
 	je init_net_probe_found_virtio
+	cmp bx, 0x8086
+	je init_net_probe_found_e1000
 	jmp init_net_probe_not_found
 
 init_net_probe_found_virtio:
 	call net_virtio_init
+	jmp init_net_probe_found_finish
+
+init_net_probe_found_e1000:
+	call net_e1000_init
 	jmp init_net_probe_found_finish
 
 init_net_probe_found_finish:

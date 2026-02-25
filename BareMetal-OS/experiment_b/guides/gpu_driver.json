@@ -1,0 +1,55 @@
+{
+  "component_id": 5,
+  "component_name": "gpu_driver",
+  "source_files": [
+    "drivers/gpu/nvidia.asm",
+    "syscalls/gpu.asm",
+    "init/gpu.asm"
+  ],
+  "critical_functions": [
+    "gpu_init",
+    "b_gpu_status",
+    "b_gpu_compute",
+    "b_gpu_mem_alloc",
+    "b_gpu_mem_free",
+    "b_gpu_mem_copy_to",
+    "b_gpu_mem_copy_from",
+    "b_gpu_fence_wait",
+    "b_gpu_mmio_read",
+    "b_gpu_mmio_write",
+    "b_gpu_vram_info",
+    "b_gpu_benchmark"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "PCIe BAR0 discovery must follow PCI configuration space protocol exactly",
+    "BAR1 VRAM aperture base address must be read from PCIe config, never hardcoded",
+    "MMIO register read/write protocol: write-then-read-back for verification on control registers",
+    "Command queue format: each entry is 16 bytes with opcode, flags, address, size fields",
+    "GPU fence synchronization: fence write must complete before dependent operations proceed",
+    "VRAM bitmap must be consistent - alloc/free must be atomic with bitmap update",
+    "GPU initialization order: PCIe discovery -> BAR mapping -> engine reset -> queue setup"
+  ],
+  "known_opportunities": [
+    "MMIO batching: combine multiple register writes into single uncacheable write sequence",
+    "Command queue optimization: pre-build command chains to minimize queue submissions",
+    "Fence wait optimization: exponential backoff PAUSE loop instead of tight polling",
+    "VRAM allocator: batch small allocations into 2MB super-pages",
+    "Memory copy optimization: use GPU DMA engine for large transfers instead of CPU MMIO",
+    "Register shadow: cache frequently-read MMIO values in system RAM",
+    "Pipeline command queue submissions to overlap CPU and GPU work"
+  ],
+  "immutable_regions": [
+    {
+      "start": "0x000000",
+      "end": "0x000FFF",
+      "reason": "GPU register offsets defined by NVIDIA hardware - cannot be changed"
+    }
+  ]
+}

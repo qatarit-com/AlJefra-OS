@@ -1,0 +1,41 @@
+{
+  "component_id": 11,
+  "component_name": "vram_alloc",
+  "source_files": [
+    "drivers/gpu/nvidia.asm"
+  ],
+  "critical_functions": [
+    "vram_alloc",
+    "vram_free",
+    "vram_bitmap_set",
+    "vram_bitmap_clear",
+    "vram_bitmap_test"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Bitmap consistency: every allocated block must have its bit set, every freed block must have its bit cleared",
+    "2MB page alignment: all VRAM allocations must be aligned to 2MB (0x200000) boundaries",
+    "Bitmap location at SystemVariables + 0x3000 (2KB) must not change",
+    "Alloc/free must be atomic with bitmap update - no partial updates visible to other CPUs",
+    "Double-free protection: freeing an already-free block must be detected or safely ignored",
+    "Bitmap size must accurately represent total VRAM capacity",
+    "Returned allocation addresses must be within valid VRAM aperture range (BAR1)"
+  ],
+  "known_opportunities": [
+    "First-fit to best-fit: reduce fragmentation by finding smallest sufficient free region",
+    "Bitmap scan optimization: use BSF/BSR (bit scan forward/reverse) instead of byte-by-byte loop",
+    "POPCNT for fast free-space counting without full bitmap traversal",
+    "Cache last-allocation position for next-fit to avoid rescanning from start",
+    "Bulk allocation: allocate contiguous N pages in single bitmap update using BITMASK operations",
+    "Buddy allocator upgrade: replace flat bitmap with buddy system for O(log n) alloc/free",
+    "LZCNT/TZCNT for leading/trailing zero count to find free runs faster",
+    "Prefetch bitmap cache lines ahead of scan direction"
+  ],
+  "immutable_regions": []
+}

@@ -5,6 +5,10 @@
 ; Linear Frame Buffer Output
 ; =============================================================================
 
+; Font compile-time constants (must be defined before %if directives below)
+; Corresponding font data is included at the end of this file
+font_h equ 12
+font_w equ 6
 
 ; -----------------------------------------------------------------------------
 ; lfb_init -- Initialize the linear frame buffer display

@@ -1,0 +1,46 @@
+{
+  "component_id": 14,
+  "component_name": "scheduler",
+  "source_files": [
+    "syscalls/ai_scheduler.asm"
+  ],
+  "critical_functions": [
+    "b_ai_sched_init",
+    "b_ai_sched_submit",
+    "b_ai_sched_status",
+    "ai_sched_dispatch_one"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Work queue entry format: exactly 32 bytes per entry - must not change (function_ptr(8), arg(8), priority(4), flags(4), result(8))",
+    "Lock-free submission: CAS (LOCK CMPXCHG) on tail pointer must remain atomic",
+    "Queue memory at 0x120000 (8KB) must not change base address",
+    "Priority ordering: higher priority values must be dispatched before lower ones",
+    "Dispatch must verify entry is valid (non-null function pointer) before execution",
+    "Submit must return error (carry flag set) when queue is full, never silently drop work",
+    "Status query must be safe to call from any CPU without locking"
+  ],
+  "known_opportunities": [
+    "Priority queue optimization: replace linear scan with binary heap for O(log n) dispatch",
+    "Work-stealing improvement: idle CPUs steal from busy CPU queues using lock-free dequeue",
+    "Per-CPU work queues to eliminate contention on single shared queue",
+    "Batch submission: accept array of work items with single atomic tail update",
+    "Cache-line aligned queue entries (pad 32-byte entries to 64 bytes) to prevent false sharing",
+    "Adaptive spinning: spin briefly then MONITOR/MWAIT when queue is empty",
+    "NUMA-aware scheduling: prefer dispatching to CPU on same NUMA node as data",
+    "Speculative dispatch: begin executing probable next work item while current completes"
+  ],
+  "immutable_regions": [
+    {
+      "start": "0x120000",
+      "end": "0x121FFF",
+      "reason": "Work queue entry structure offsets are hardcoded in submit/dispatch - changing layout breaks ABI"
+    }
+  ]
+}

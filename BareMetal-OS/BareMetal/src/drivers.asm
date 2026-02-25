@@ -24,6 +24,7 @@
 
 ; Network
 %include "drivers/net/virtio-net.asm"
+%include "drivers/net/e1000.asm"
 
 ; GPU (NVIDIA RTX 5090 / Blackwell)
 %ifndef NO_GPU
@@ -48,6 +49,18 @@ dw 0x1000		; Device ID - legacy
 dw 0x1041		; Device ID - v1.0
 dw 0x0000
 %endif
+
+; Intel e1000/e1000e
+dw 0x8086		; Driver ID
+dw 0x8086		; Vendor ID
+dw 0x100E		; 82540EM (QEMU default e1000)
+dw 0x100F		; 82545EM
+dw 0x10D3		; 82574L (QEMU e1000e)
+dw 0x153A		; I217-LM
+dw 0x15B7		; I219-LM
+dw 0x15B8		; I219-V (common on modern laptops)
+dw 0x156F		; I219-LM (Skylake)
+dw 0x0000
 
 ; End of list
 dw 0x0000

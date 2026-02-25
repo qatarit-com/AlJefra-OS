@@ -1,0 +1,41 @@
+{
+  "component_id": 10,
+  "component_name": "syscalls",
+  "source_files": [
+    "syscalls/system.asm",
+    "syscalls/debug.asm",
+    "syscalls/evolve.asm"
+  ],
+  "critical_functions": [
+    "b_system",
+    "b_system_timecounter",
+    "b_evolve_benchmark",
+    "b_evolve_status"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "System call table layout must match offsets documented in ABI (0x0050-0x00A0 for GPU syscalls)",
+    "Function pointer table entries must be 8-byte aligned (64-bit pointers)",
+    "b_system dispatch must correctly index into function table using caller-provided subfunction ID",
+    "Register preservation across syscall boundaries: RBX, RBP, R12-R15 must be callee-saved",
+    "Evolution benchmark must return consistent metrics format for fitness comparison",
+    "Debug syscalls must not have side effects on production code paths",
+    "Syscall entry must save and restore all caller-saved registers correctly"
+  ],
+  "known_opportunities": [
+    "Dispatch optimization: replace indirect jump table with direct CMP chain for top-3 hot syscalls",
+    "Fast-path for common syscalls: inline b_system_timecounter to avoid function call overhead",
+    "Syscall table alignment: align each entry to 8-byte boundary for single-load dispatch",
+    "Branch prediction: order CMP chain by frequency to hit common cases first",
+    "Eliminate redundant register saves when syscall handler does not clobber callee-saved registers",
+    "Evolution benchmark: use RDTSCP for precise cycle counting instead of timer-based measurement",
+    "Batch syscall interface: allow multiple syscall requests in single kernel entry"
+  ],
+  "immutable_regions": []
+}

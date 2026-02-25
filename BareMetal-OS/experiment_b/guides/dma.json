@@ -1,0 +1,41 @@
+{
+  "component_id": 13,
+  "component_name": "dma",
+  "source_files": [
+    "drivers/gpu/nvidia.asm"
+  ],
+  "critical_functions": [
+    "dma_copy_to_vram",
+    "dma_copy_from_vram",
+    "dma_fence_create",
+    "dma_fence_wait"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "DMA alignment: source and destination addresses must meet GPU alignment requirements (typically 256 bytes)",
+    "Fence synchronization: CPU must not access DMA target memory until fence signals completion",
+    "DMA transfer size must not exceed hardware maximum per-transfer limit",
+    "CLFLUSH/CLWB on source buffer before DMA to ensure cache coherency with GPU",
+    "DMA descriptor format must match GPU DMA engine specification exactly",
+    "Fence value must monotonically increase - reuse causes race conditions",
+    "WBINVD must not be used during active DMA - invalidating cache with in-flight DMA corrupts data",
+    "Physical addresses must be used for DMA, not virtual addresses"
+  ],
+  "known_opportunities": [
+    "DMA size optimization: use largest possible transfer granularity (4KB pages vs byte-by-byte)",
+    "Scatter-gather: chain multiple non-contiguous buffers into single DMA operation",
+    "Double-buffering: overlap DMA transfer N with CPU preparation of transfer N+1",
+    "Fence batching: single fence for multiple sequential DMA operations",
+    "MOVNTDQA (non-temporal load) for reading back DMA results to avoid cache pollution",
+    "Pinned memory pool: pre-allocate DMA-capable buffers to avoid repeated pinning overhead",
+    "Async DMA: fire-and-forget with deferred fence check to maximize CPU/GPU overlap",
+    "DMA chunk size tuning: find optimal size that balances setup overhead vs throughput"
+  ],
+  "immutable_regions": []
+}

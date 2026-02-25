@@ -1,0 +1,183 @@
+AlJefra OS AI — Binary Evolution Engine
+========================================
+
+Checking prerequisites...
+  OK
+
+Initializing GPU...
+CUDA: Using NVIDIA GeForce RTX 5090 (170 SMs, 32109 MB VRAM)
+  GPU acceleration: ENABLED (NVIDIA GeForce RTX 5090)
+
+Loading kernel binary...
+  Loaded 20480 bytes
+
+Parsing listing file...
+  Parsed 8137 listing lines
+Decoding kernel instructions...
+  Decoded 8192 instructions
+
+Building component map...
+  Found 503 labels in listing
+  Component kernel      : 0x100000 - 0x103fcf (4098 instructions, 64 functions)
+  Component memory      : 0x10018c - 0x100391 (127 instructions, 10 functions)
+  Component smp         : 0x1000c0 - 0x100bef (194 instructions, 29 functions)
+  Component network     : 0x1004b9 - 0x1020a2 (853 instructions, 64 functions)
+  Component storage     : 0x10046f - 0x101830 (332 instructions, 27 functions)
+  Component bus         : 0x100391 - 0x101528 (229 instructions, 33 functions)
+  Component interrupts  : 0x100e55 - 0x103035 (691 instructions, 49 functions)
+  Component timer       : 0x101293 - 0x101483 (161 instructions, 25 functions)
+  Component io          : 0x100593 - 0x102b48 (1154 instructions, 64 functions)
+  Component syscalls    : 0x1006d6 - 0x100e55 (353 instructions, 58 functions)
+  Found 10 active components
+
+
+=== Evolving: interrupts ===
+  Region: 0x100e55 - 0x103035 (691 instructions)
+  Running baseline QEMU benchmark...
+QEMU 9.2.1 monitor - type 'help' for more information
+(qemu)   Baseline QEMU score: 0.0000
+
+  Functions sorted by cost (top 20):
+     1. ps2_init                         36 instrs  [0x1018-0x10ae] (150 bytes)
+     2. ps2_keyboard_interrupt           29 instrs  [0x10af-0x10e7] (56 bytes)
+     3. msix_init_enable                 23 instrs  [0x0f25-0x0f6d] (72 bytes)
+     4. msix_init_create_entry           23 instrs  [0x0f6d-0x0fa0] (51 bytes)
+     5. keylayoutlower                   23 instrs  [0x11a2-0x11dd] (59 bytes)
+     6. keylayoutupper                   23 instrs  [0x11dd-0x1218] (59 bytes)
+     7. msi_init_enable                  21 instrs  [0x0fb8-0x100c] (84 bytes)
+     8. os_ioapic_redirection            20 instrs  [0x0ed4-0x0f0a] (54 bytes)
+     9. msix_init                        11 instrs  [0x0f0d-0x0f25] (24 bytes)
+    10. os_ioapic_mask_clear             11 instrs  [0x0ebb-0x0ed4] (25 bytes)
+    11. serial_recv                      11 instrs  [0x125f-0x1276] (23 bytes)
+    12. msix_init_error                   8 instrs  [0x0fa0-0x0fa9] (9 bytes)
+    13. msi_init                          8 instrs  [0x0fa9-0x0fb8] (15 bytes)
+    14. os_timer_init                     8 instrs  [0x1293-0x12af] (28 bytes)
+    15. os_timer_init_phys                7 instrs  [0x12af-0x12db] (44 bytes)
+    16. init_timer_hpet                   7 instrs  [0x12fd-0x1325] (40 bytes)
+    17. msi_init_done                     6 instrs  [0x100c-0x1012] (6 bytes)
+    18. serial_send_wait                  6 instrs  [0x124a-0x1257] (13 bytes)
+    19. msi_init_error                    6 instrs  [0x1012-0x1018] (6 bytes)
+    20. os_ioapic_write                   6 instrs  [0x0eab-0x0ebb] (16 bytes)
+    [GPU] 1 threads x 0 iters = 0.0M evals | range [0x0-0x1]
+    [GPU] Launching 1 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=65.46
+
+  Baseline GPU fitness: 65.46
+
+  ── GPU Evolution + Security Analysis ──
+  Ratio allocation: scaling GPU time by function size
+  Total: 64 functions, 411 instructions
+
+  [1/64] ps2_init                       36 instrs [0x1018-0x10ae] → 500K iters
+    [GPU] 65536 threads x 500000 iters = 32768.0M evals | range [0x1018-0x10ae]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 2051 fitness=65.69
+    Security: fragility=6.3% worst=64.60 avg_muts=15308 [FRAGILE!]
+    Optimize: 65.46 → 65.69 (+0.23, +0.35%)
+    ACCEPTED ✓ (cumulative fitness: 65.69)
+  [2/64] ps2_keyboard_interrupt         29 instrs [0x10af-0x10e7] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0x10af-0x10e7]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=65.67
+    Security: fragility=5.8% worst=64.84 avg_muts=4102 [FRAGILE!]
+    no improvement (65.67)
+  [3/64] msix_init_enable               23 instrs [0x0f25-0x0f6d] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0xf25-0xf6d]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 6143 fitness=65.87
+    Security: fragility=5.8% worst=64.85 avg_muts=24282 [FRAGILE!]
+    Optimize: 65.69 → 65.87 (+0.18, +0.27%)
+    ACCEPTED ✓ (cumulative fitness: 65.87)
+  [4/64] msix_init_create_entry         23 instrs [0x0f6d-0x0fa0] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0xf6d-0xfa0]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 10 fitness=66.13
+    Security: fragility=5.5% worst=65.03 avg_muts=12223 [FRAGILE!]
+    Optimize: 65.87 → 66.13 (+0.26, +0.39%)
+    ACCEPTED ✓ (cumulative fitness: 66.13)
+  [5/64] keylayoutlower                 23 instrs [0x11a2-0x11dd] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0x11a2-0x11dd]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.13
+    Security: fragility=3.9% worst=66.13 avg_muts=0 [DEAD CODE?]
+    no improvement (66.13)
+  [6/64] keylayoutupper                 23 instrs [0x11dd-0x1218] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0x11dd-0x1218]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.13
+    Security: fragility=3.9% worst=66.13 avg_muts=0 [DEAD CODE?]
+    no improvement (66.13)
+  [7/64] msi_init_enable                21 instrs [0x0fb8-0x100c] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0xfb8-0x100c]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 1 fitness=66.39
+    Security: fragility=5.1% worst=65.30 avg_muts=16536 [FRAGILE!]
+    Optimize: 66.13 → 66.39 (+0.27, +0.40%)
+    ACCEPTED ✓ (cumulative fitness: 66.39)
+  [8/64] os_ioapic_redirection          20 instrs [0x0ed4-0x0f0a] → 350K iters
+    [GPU] 65536 threads x 350000 iters = 22937.6M evals | range [0xed4-0xf0a]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 34 fitness=66.72
+    Security: fragility=4.8% worst=65.51 avg_muts=16540
+    Optimize: 66.39 → 66.72 (+0.33, +0.50%)
+    ACCEPTED ✓ (cumulative fitness: 66.72)
+  [9/64] msix_init                      11 instrs [0x0f0d-0x0f25] → 150K iters
+    [GPU] 65536 threads x 150000 iters = 9830.4M evals | range [0xf0d-0xf25]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.72
+    Security: fragility=2.9% worst=66.72 avg_muts=5469
+    no improvement (66.72)
+  [10/64] os_ioapic_mask_clear           11 instrs [0x0ebb-0x0ed4] → 150K iters
+    [GPU] 65536 threads x 150000 iters = 9830.4M evals | range [0xebb-0xed4]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.75
+    Security: fragility=3.0% worst=66.68 avg_muts=11876
+    Optimize: 66.72 → 66.75 (+0.03, +0.04%)
+    ACCEPTED ✓ (cumulative fitness: 66.75)
+  [11/64] serial_recv                    11 instrs [0x125f-0x1276] → 150K iters
+    [GPU] 65536 threads x 150000 iters = 9830.4M evals | range [0x125f-0x1276]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.75
+    Security: fragility=2.9% worst=66.75 avg_muts=2853
+    no improvement (66.75)
+  [12/64] msix_init_error                8 instrs [0x0fa0-0x0fa9] → 150K iters
+    [GPU] 65536 threads x 150000 iters = 9830.4M evals | range [0xfa0-0xfa9]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.75
+    Security: fragility=2.9% worst=66.75 avg_muts=0 [DEAD CODE?]
+    no improvement (66.75)
+  [13/64] msi_init                       8 instrs [0x0fa9-0x0fb8] → 150K iters
+    [GPU] 65536 threads x 150000 iters = 9830.4M evals | range [0xfa9-0xfb8]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.75
+    Security: fragility=2.9% worst=66.75 avg_muts=4376
+    no improvement (66.75)
+  [14/64] os_timer_init                  8 instrs [0x1293-0x12af] → 150K iters
+    [GPU] 65536 threads x 150000 iters = 9830.4M evals | range [0x1293-0x12af]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.75
+    Security: fragility=2.9% worst=66.75 avg_muts=1242
+    no improvement (66.75)
+  [15/64] os_timer_init_phys             7 instrs [0x12af-0x12db] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x12af-0x12db]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.78
+    Security: fragility=3.3% worst=66.48 avg_muts=1066
+    Optimize: 66.75 → 66.78 (+0.03, +0.04%)
+    ACCEPTED ✓ (cumulative fitness: 66.78)
+  [16/64] init_timer_hpet                7 instrs [0x12fd-0x1325] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x12fd-0x1325]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 10 fitness=66.86
+    Security: fragility=4.1% worst=65.92 avg_muts=876
+    Optimize: 66.78 → 66.86 (+0.08, +0.12%)
+    ACCEPTED ✓ (cumulative fitness: 66.86)
+  [17/64] msi_init_done                  6 instrs [0x100c-0x1012] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x100c-0x1012]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.86
+    Security: fragility=2.8% worst=66.86 avg_muts=0 [DEAD CODE?]
+    no improvement (66.86)
+  [18/64] serial_send_wait               6 instrs [0x124a-0x1257] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x124a-0x1257]
+    [GPU] Launching 256 blocks x 256 threads...

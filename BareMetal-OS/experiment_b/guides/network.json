@@ -1,0 +1,41 @@
+{
+  "component_id": 3,
+  "component_name": "network",
+  "source_files": [
+    "syscalls/net.asm",
+    "drivers/net/virtio-net.asm",
+    "init/net.asm"
+  ],
+  "critical_functions": [
+    "b_net_status",
+    "b_net_config",
+    "b_net_tx",
+    "b_net_rx"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Virtio ring buffer protocol must follow virtio 1.0+ specification exactly",
+    "Descriptor format: addr (8 bytes), len (4 bytes), flags (2 bytes), next (2 bytes) - layout is fixed",
+    "Available ring index must only be incremented after descriptor is fully written",
+    "Used ring must be read with proper memory barriers (LFENCE after reading used->idx)",
+    "Virtio queue notify must happen after available ring update with SFENCE",
+    "MAC address storage and retrieval must remain consistent",
+    "Network buffer alignment must meet DMA requirements"
+  ],
+  "known_opportunities": [
+    "Zero-copy TX path: pass userland buffer directly to virtio descriptor instead of copying",
+    "Batch processing: submit multiple descriptors before single queue notify",
+    "RX buffer pre-allocation: keep a pool of pre-mapped receive buffers",
+    "Interrupt coalescing: use virtio USED_EVENT_IDX to reduce notification frequency",
+    "Checksum offload: leverage virtio-net CSUM feature flag",
+    "Mergeable receive buffers for jumbo frame support",
+    "NAPI-style polling under high packet load to avoid interrupt storms"
+  ],
+  "immutable_regions": []
+}

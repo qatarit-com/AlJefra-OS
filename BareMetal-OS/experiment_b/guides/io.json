@@ -1,0 +1,43 @@
+{
+  "component_id": 9,
+  "component_name": "io",
+  "source_files": [
+    "syscalls/io.asm",
+    "drivers/serial.asm",
+    "drivers/ps2.asm",
+    "drivers/vga.asm",
+    "drivers/lfb/lfb.asm",
+    "init/hid.asm"
+  ],
+  "critical_functions": [
+    "b_input",
+    "b_output",
+    "b_output_serial"
+  ],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "Serial port base address 0x3F8 (COM1) is hardware-defined and immutable",
+    "Serial port register offsets (THR=0, RBR=0, IER=1, FCR=2, LCR=3, MCR=4, LSR=5) are fixed",
+    "PS/2 controller ports (0x60 data, 0x64 status/command) are hardware-defined",
+    "PS/2 protocol: must check status register bit 0 before reading data port",
+    "VGA text mode memory at 0xB8000 with 2-byte character format (char + attribute)",
+    "Linear framebuffer (LFB) base address comes from VESA/GOP - must not be hardcoded",
+    "Serial LSR (Line Status Register) bit 5 must be checked before transmitting"
+  ],
+  "known_opportunities": [
+    "Output buffering: collect characters and flush in batch to reduce per-byte I/O port overhead",
+    "Serial FIFO: enable and use 16550 FIFO (FCR) for burst writes up to 16 bytes",
+    "REP OUTSB for bulk serial output instead of individual OUT instructions",
+    "Framebuffer scrolling: use REP MOVSQ for fast memory-to-memory scroll instead of byte copy",
+    "Double-buffering for LFB to reduce visible tearing",
+    "PS/2 keyboard scancode table: align to cache line for fast lookup",
+    "Combine VGA attribute and character into single 16-bit write"
+  ],
+  "immutable_regions": []
+}

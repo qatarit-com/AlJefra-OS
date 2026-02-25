@@ -1,0 +1,37 @@
+{
+  "component_id": 6,
+  "component_name": "bus",
+  "source_files": [
+    "syscalls/bus.asm",
+    "drivers/bus/pcie.asm",
+    "drivers/bus/pci.asm",
+    "drivers/virtio.asm",
+    "init/bus.asm"
+  ],
+  "critical_functions": [],
+  "valid_mutations": [
+    "substitute",
+    "nop_elim",
+    "reorder",
+    "alignment",
+    "fusion"
+  ],
+  "critical_invariants": [
+    "PCIe configuration space protocol: address = 0xCF8, data = 0xCFC port I/O must not change",
+    "BAR allocation must respect size alignment requirements (BAR size = power of 2)",
+    "PCIe ECAM (Enhanced Configuration Access Mechanism) memory-mapped offsets are hardware-defined",
+    "Virtio device discovery must check vendor ID 0x1AF4 and device ID ranges",
+    "PCI capability list traversal must follow next-pointer chain correctly",
+    "Bus/Device/Function (BDF) encoding in config address is fixed by PCI spec",
+    "MSI/MSI-X capability structure offsets are defined by PCI specification"
+  ],
+  "known_opportunities": [
+    "Bus scan optimization: cache discovered devices instead of re-scanning",
+    "Skip known-empty bus/device/function combinations after initial probe",
+    "Batch PCI config space reads using 32-bit reads instead of multiple 8/16-bit reads",
+    "Early-exit bus scan when no device found at function 0 (non-multifunction device)",
+    "Parallel bus scanning across independent bus numbers",
+    "ECAM (memory-mapped) config access instead of legacy CF8/CFC port I/O where available"
+  ],
+  "immutable_regions": []
+}
