@@ -15,11 +15,13 @@ init_nvs:
 	call os_debug_string
 
 	; Check Bus Table for any other supported controllers
+	; EVOLVED: Added prefetch to reduce bus table scan latency
 	mov rsi, bus_table		; Load Bus Table address to RSI
 	sub rsi, 16
 	add rsi, 8			; Add offset to Class Code
 init_nvs_check_bus:
 	add rsi, 16			; Increment to next record in memory
+	prefetchnta [rsi+16]		; EVOLVED: Prefetch next bus table entry
 	mov ax, [rsi]			; Load Class Code / Subclass Code
 	cmp ax, 0xFFFF			; Check if at end of list
 	je init_nvs_done		; No storage controller found

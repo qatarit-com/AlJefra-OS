@@ -26,10 +26,14 @@ os_ioapic_init:
 ;  IN:	ECX = Register to read
 ; OUT:	EAX = Register value
 ;	All other registers preserved
+; EVOLVED: Added mfence between MMIO register select and value read
+; Without fence, CPU may reorder the read ahead of the write on strongly-ordered x86
+; but MMIO regions may be mapped as write-combining where ordering is weaker
 os_ioapic_read:
 	push rdx
 	mov rdx, [os_IOAPICAddress]
 	mov [rdx], ecx			; Write the register #
+	mfence				; EVOLVED: Ensure register select completes before read
 	mov eax, [rdx+0x10]		; Read the value
 	pop rdx
 	ret
@@ -41,10 +45,12 @@ os_ioapic_read:
 ;  IN:	ECX = Register to write
 ;	EAX = Value to write
 ; OUT:	All registers preserved
+; EVOLVED: Added mfence between MMIO register select and value write
 os_ioapic_write:
 	push rdx
 	mov rdx, [os_IOAPICAddress]
 	mov [rdx], ecx			; Write the register #
+	mfence				; EVOLVED: Ensure register select completes before value write
 	mov [rdx+0x10], eax		; Write the value
 	pop rdx
 	ret

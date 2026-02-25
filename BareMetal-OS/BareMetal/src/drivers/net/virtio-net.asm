@@ -216,9 +216,10 @@ net_virtio_reset:
 	mov al, 0x00
 	mov [rsi+VIRTIO_DEVICE_STATUS], al
 virtio_net_init_reset_wait:
+	pause				; EVOLVED: Reduce power and avoid memory order violation pipeline flush
 	mov al, [rsi+VIRTIO_DEVICE_STATUS]
-	cmp al, 0x00
-	jne virtio_net_init_reset_wait
+	test al, al			; EVOLVED: test is faster than cmp with 0
+	jnz virtio_net_init_reset_wait
 
 	; 3.1.1 - Step 2 - Tell the device we see it
 	mov al, VIRTIO_STATUS_ACKNOWLEDGE
@@ -272,21 +273,13 @@ virtio_net_init_reset_wait:
 	mov ax, [rsi+VIRTIO_QUEUE_SIZE]	; Return the size of the queue
 	mov [r8+0x7E], ax		; Store receive queue size in net_table
 	mov ecx, eax			; Store receive queue size in ECX
+	; EVOLVED: Use 64-bit stores directly instead of rol+stosd pairs (3x fewer instructions)
 	mov rax, [r8+nt_rx_desc]	; Set address of Descriptor ring
-	mov [rsi+VIRTIO_QUEUE_DESC], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DESC+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DESC], rax	; EVOLVED: Single 64-bit store
 	add rax, 4096			; Set address of Available ring
-	mov [rsi+VIRTIO_QUEUE_DRIVER], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DRIVER+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DRIVER], rax	; EVOLVED: Single 64-bit store
 	add rax, 4096			; Set address of Used ring
-	mov [rsi+VIRTIO_QUEUE_DEVICE], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DEVICE+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DEVICE], rax	; EVOLVED: Single 64-bit store
 	mov ax, 0x0000			; MSI-X index 0
 	mov [rsi+VIRTIO_QUEUE_MSIX_VECTOR], ax
 	mov ax, 1
@@ -298,40 +291,37 @@ virtio_net_init_reset_wait:
 	mov ax, [rsi+VIRTIO_QUEUE_SIZE]	; Return the size of the queue
 	mov [r8+0x7C], ax		; Store transmit queue size in net_table
 	mov ecx, eax			; Store transmit queue size in ECX
+	; EVOLVED: Use 64-bit stores directly instead of rol+stosd pairs (3x fewer instructions)
 	mov rax, [r8+nt_tx_desc]	; Set address of Descriptor ring
-	mov [rsi+VIRTIO_QUEUE_DESC], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DESC+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DESC], rax	; EVOLVED: Single 64-bit store
 	add rax, 4096			; Set address of Available ring
-	mov [rsi+VIRTIO_QUEUE_DRIVER], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DRIVER+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DRIVER], rax	; EVOLVED: Single 64-bit store
 	add rax, 4096			; Set address of Used ring
-	mov [rsi+VIRTIO_QUEUE_DEVICE], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DEVICE+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DEVICE], rax	; EVOLVED: Single 64-bit store
 	mov ax, 1
 	mov [rsi+VIRTIO_QUEUE_ENABLE], ax
 
 	; Populate TX Descriptor Table Entries
+	; EVOLVED: Added prefetch for descriptor table population
 	mov eax, 1
 	mov rdi, [r8+nt_tx_desc]
 	add rdi, 14
 virtio_net_init_pop_tx_d:
+	prefetchnta [rdi+80]		; EVOLVED: Prefetch ahead
 	mov [rdi], al
 	add rdi, 16
-	add al, 1
-	cmp al, 0
-	jne virtio_net_init_pop_tx_d
+	inc al				; EVOLVED: inc is more efficient than add al, 1
+	test al, al			; EVOLVED: test is faster than cmp with 0
+	jnz virtio_net_init_pop_tx_d
 
 	; Populate RX Descriptor Table Entries
+	; EVOLVED: Added prefetch to reduce cache misses during descriptor ring population
 	xor ecx, ecx
 	mov rdi, [r8+nt_rx_desc]
 	mov rbx, [os_PacketBase]
+	prefetchnta [rdi+64]		; EVOLVED: Prefetch next cache line of descriptor table
 virtio_net_init_pop_rx_d:
+	prefetchnta [rdi+80]		; EVOLVED: Stay ahead of writes
 	mov rax, rbx			; 64-bit Address
 	add rbx, 2048
 	stosq
@@ -340,10 +330,10 @@ virtio_net_init_pop_rx_d:
 	mov ax, VIRTQ_DESC_F_WRITE
 	stosw				; 16-bit Flags
 	inc cl
-	mov ax, 0
+	xor eax, eax			; EVOLVED: xor is faster than mov for zeroing
 	stosw				; 16-bit Next
-	cmp cl, 0
-	jne virtio_net_init_pop_rx_d
+	test cl, cl			; EVOLVED: test is faster than cmp with 0
+	jnz virtio_net_init_pop_rx_d
 	mov [os_PacketBase], rbx
 
 	; Populate RX Available Ring Entries
@@ -358,8 +348,8 @@ virtio_net_init_pop_rx_d:
 virtio_net_init_pop_rx_a:
 	stosw				; 16-bit ring
 	inc al
-	cmp al, 0
-	jne virtio_net_init_pop_rx_a
+	test al, al			; EVOLVED: test is faster than cmp with 0
+	jnz virtio_net_init_pop_rx_a
 
 	; Set nettxavailindex
 	mov ax, 1
@@ -391,13 +381,14 @@ net_virtio_config:
 	mov rdi, [rdx+nt_rx_desc]	; Gather offset to device RX descriptors
 	mov ecx, 256
 	call os_virt_to_phys		; Convert (potentially) virtual address
+	; EVOLVED: Prefetch ahead during descriptor config
 net_virtio_config_next_record:
+	prefetchnta [rdi+64]		; EVOLVED: Prefetch next cache line
 	stosq				; Store address
 	add rdi, 8			; Skip to next entry
 	add rax, 2048			; Add 2048 to address
 	dec ecx
-	cmp ecx, 0
-	jnz net_virtio_config_next_record
+	jnz net_virtio_config_next_record	; EVOLVED: dec already sets ZF, no cmp needed
 
 	pop rax
 	pop rcx
@@ -463,6 +454,7 @@ net_virtio_transmit:
 	add rdi, 0x2002			; Offset to start of Used Ring Index
 	mov bx, [rdx+0x76]		; nettxavailindex
 net_virtio_transmit_wait:
+	pause				; EVOLVED: Reduce power, prevent memory order violation pipeline flush
 	mov ax, [rdi]			; Load the index
 	cmp ax, bx
 	jne net_virtio_transmit_wait

@@ -75,13 +75,15 @@ msix_init_enable:
 	pop rdx
 
 	; Configure MSI-X Table
-	add cx, 1			; Table Size is 0-indexed
+	; EVOLVED: Optimized MSI-X entry writing with fewer redundant loads
+	inc cx				; EVOLVED: inc is more efficient than add cx, 1
 	xor ebx, ebx			; Trigger Mode (15), Level (14), Delivery Mode (10:8), Vector (7:0)
 	mov bl, r8b			; Store start vector
+	mov r8, [os_LocalAPICAddress]	; EVOLVED: Load APIC address once outside loop
 msix_init_create_entry:
-	mov rax, [os_LocalAPICAddress]	; 0xFEE for bits 31:20, Dest (19:12), RH (3), DM (2)
+	mov rax, r8			; EVOLVED: Use cached APIC address (was re-reading from memory each iteration)
 	stosd				; Store Message Address Low
-	shr rax, 32			; Rotate the high bits to EAX
+	shr rax, 32			; Shift the high bits to EAX
 	stosd				; Store Message Address High
 	mov eax, ebx
 	inc ebx
@@ -89,8 +91,7 @@ msix_init_create_entry:
 	xor eax, eax			; Bits 31:1 are reserved, Masked (0) - 1 for masked
 	stosd				; Store Vector Control
 	dec cx
-	cmp cx, 0
-	jne msix_init_create_entry
+	jnz msix_init_create_entry	; EVOLVED: dec sets ZF directly, no cmp needed
 
 	; Unmask MSI-X via bus
 	pop rdx				; Restore packed bus address

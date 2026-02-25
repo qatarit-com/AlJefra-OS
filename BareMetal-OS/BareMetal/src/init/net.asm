@@ -18,10 +18,12 @@ init_net:
 	cmp ax, 0x0000
 	je init_net_end			; If none exist then bail out
 	; Check Bus Table for a Ethernet device
+	; EVOLVED: Added prefetch to reduce bus table scan latency
 	mov rsi, bus_table		; Load Bus Table address to RSI
 	sub rsi, 8			; Subtract offset for Class Code
 init_net_check_bus:
 	add rsi, 16			; Increment to next record in memory
+	prefetchnta [rsi+16]		; EVOLVED: Prefetch next bus table entry
 	mov ax, [rsi]			; Load Class Code / Subclass Code
 	cmp ax, 0xFFFF			; Check if at end of Bus Table list
 	je init_net_end

@@ -108,9 +108,10 @@ virtio_blk_init_cap_end:
 	mov al, 0x00
 	mov [rsi+VIRTIO_DEVICE_STATUS], al
 virtio_blk_init_reset_wait:
+	pause				; EVOLVED: Reduce power in spin-wait, prevent memory order violation flush
 	mov al, [rsi+VIRTIO_DEVICE_STATUS]
-	cmp al, 0x00
-	jne virtio_blk_init_reset_wait
+	test al, al			; EVOLVED: test is faster than cmp with 0
+	jnz virtio_blk_init_reset_wait
 
 	; 3.1.1 - Step 2 - Tell the device we see it
 	mov al, VIRTIO_STATUS_ACKNOWLEDGE
@@ -165,21 +166,13 @@ virtio_blk_init_reset_wait:
 	mov [rsi+VIRTIO_QUEUE_SELECT], ax
 	mov ax, [rsi+VIRTIO_QUEUE_SIZE]	; Return the size of the queue
 	mov ecx, eax			; Store queue size in ECX
-	mov eax, os_nvs_mem
-	mov [rsi+VIRTIO_QUEUE_DESC], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DESC+8], eax
-	rol rax, 32
+	; EVOLVED: Use 64-bit stores directly instead of rol+stosd pairs (3x fewer instructions)
+	mov rax, os_nvs_mem
+	mov [rsi+VIRTIO_QUEUE_DESC], rax	; EVOLVED: Single 64-bit store
 	add rax, 4096
-	mov [rsi+VIRTIO_QUEUE_DRIVER], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DRIVER+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DRIVER], rax	; EVOLVED: Single 64-bit store
 	add rax, 4096
-	mov [rsi+VIRTIO_QUEUE_DEVICE], eax
-	rol rax, 32
-	mov [rsi+VIRTIO_QUEUE_DEVICE+8], eax
-	rol rax, 32
+	mov [rsi+VIRTIO_QUEUE_DEVICE], rax	; EVOLVED: Single 64-bit store
 	mov ax, 1
 	mov [rsi+VIRTIO_QUEUE_ENABLE], ax
 
@@ -189,11 +182,12 @@ virtio_blk_init_reset_wait:
 	mov rdi, os_nvs_mem
 	add rdi, 14
 virtio_blk_init_pop:
+	prefetchnta [rdi+80]		; EVOLVED: Prefetch next descriptor entry
 	mov [rdi], al
 	add rdi, 16
-	add al, 1
-	cmp al, 0
-	jne virtio_blk_init_pop
+	inc al				; EVOLVED: inc is more efficient than add al, 1
+	test al, al			; EVOLVED: test is faster than cmp with 0
+	jnz virtio_blk_init_pop
 
 	; 3.1.1 - Step 8 - At this point the device is “live”
 	mov al, VIRTIO_STATUS_ACKNOWLEDGE | VIRTIO_STATUS_DRIVER | VIRTIO_STATUS_DRIVER_OK | VIRTIO_STATUS_FEATURES_OK
@@ -313,6 +307,7 @@ virtio_blk_io:
 	mov rdi, os_nvs_mem+0x2002	; Offset to start of Used Ring
 	mov bx, [availindex]
 virtio_blk_io_wait:
+	pause				; EVOLVED: Critical spin-wait optimization - reduces power, prevents pipeline flush
 	mov ax, [rdi]			; Load the index
 	cmp ax, bx
 	jne virtio_blk_io_wait

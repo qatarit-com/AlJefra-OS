@@ -158,11 +158,11 @@ hpet_delay:
 	call hpet_read			; Get HPET counter in RAX
 	add rbx, rax			; RBX += RAX Until when to wait
 hpet_delay_loop:			; Stay in this loop until the HPET timer reaches the expected value
+	pause				; EVOLVED: Reduce power consumption and prevent memory order violation flush
 	mov ecx, HPET_MAIN_COUNTER
 	call hpet_read			; Get HPET counter in RAX
 	cmp rax, rbx			; If RAX >= RBX then jump to end, otherwise jump to loop
-	jae hpet_delay_end
-	jmp hpet_delay_loop
+	jb hpet_delay_loop		; EVOLVED: Single conditional jump replaces jae+jmp pair
 hpet_delay_end:
 
 	pop rax
@@ -217,6 +217,7 @@ kvm_ns:
 
 	mov rdi, kvm_timer
 kvm_ns_wait:
+	pause				; EVOLVED: Reduce power in seqlock spin-wait
 	mov r10d, [rdi]			; Get 32-bit version
 	test r10d, 1			; Check if version is odd (update in progress)
 	jnz kvm_ns_wait			; If so, retry
@@ -297,6 +298,7 @@ kvm_delay:
 	call kvm_ns
 	add rbx, rax			; Add elapsed time
 kvm_delay_wait:
+	pause				; EVOLVED: Reduce power in delay spin-wait
 	call kvm_ns
 	cmp rax, rbx
 	jb kvm_delay_wait
