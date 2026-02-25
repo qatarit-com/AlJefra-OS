@@ -570,7 +570,11 @@ if [[ -f "$EVOLOG" ]]; then
     awk -F'"' '{
         gen=""; comp=""; desc=""
         for (i=1; i<=NF; i++) {
-            if ($i ~ /generation/) gen=$(i+2)
+            if ($i ~ /generation/) {
+                val=$(i+1)
+                gsub(/[^0-9]/, "", val)
+                gen=val
+            }
             if ($i ~ /component/) comp=$(i+2)
             if ($i ~ /description/) desc=$(i+2)
         }
