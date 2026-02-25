@@ -96,8 +96,8 @@ hpet_ns:
 	mov ecx, [os_HPET_Frequency]
 	mul rcx				; RDX:RAX *= RCX
 
-	; Divide by # of femtoseconds in a nanoosecond
-	mov rcx, 1000000
+	; Divide by # of femtoseconds in a nanosecond
+	mov ecx, 1000000		; EVOLVED Gen-8: 32-bit mov (saves REX prefix, zero-extends)
 	div rcx				; RAX = RDX:RAX / RCX
 
 	pop rcx
@@ -242,8 +242,8 @@ kvm_ns_wait:
 	mov rax, r9
 
 	; Apply tsc_shift
-	cmp cl, 0
-	jl kvm_ns_shift_right	; Signed comparison
+	test cl, cl			; EVOLVED Gen-8: test replacing cmp-0
+	js kvm_ns_shift_right		; Signed comparison (SF set if negative)
 	shl rax, cl
 	jmp kvm_ns_shift_done
 kvm_ns_shift_right:

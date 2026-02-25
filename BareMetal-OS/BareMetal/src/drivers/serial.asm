@@ -15,9 +15,9 @@ serial_init:
 	je serial_init_skip_arch	; If so, skip the IAPC_BOOT_ARCH check
 
 	; Check if Serial is present via ACPI IAPC_BOOT_ARCH
-	mov ax, [os_boot_arch]
-	bt ax, 0			; LEGACY_DEVICES
-	jnc serial_init_error
+	movzx eax, word [os_boot_arch]	; EVOLVED Gen-8: movzx clean load
+	test al, 1			; EVOLVED Gen-8: test replacing bt (LEGACY_DEVICES)
+	jz serial_init_error
 
 serial_init_skip_arch:
 
@@ -84,9 +84,8 @@ serial_recv:
 	; Check if serial port has pending data
 	mov dx, COM_PORT_LINE_STATUS
 	in al, dx
-	and al, 0x01			; Bit 0
-	cmp al, 0
-	je serial_recv_nochar
+	test al, 1			; EVOLVED Gen-8: test replacing and+cmp (1 instruction)
+	jz serial_recv_nochar
 
 	; Read from the serial port
 	mov dx, COM_PORT_DATA

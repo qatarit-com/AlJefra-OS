@@ -38,7 +38,7 @@ init_bus:
 
 	; Check for PCIe first
 	mov cx, [os_pcie_count]		; Check for PCIe
-	cmp cx, 0
+	test cx, cx			; EVOLVED Gen-8: test replacing cmp-0
 	jz init_bus_pci			; Fall back to PCI if no PCIe was detected
 	mov byte [os_BusEnabled], 2	; Bit 1 set for PCIe
 
@@ -69,8 +69,8 @@ init_bus_pcie_probe_found:
 
 init_bus_pcie_probe_next:
 	add rdx, 0x00010000		; Skip to next PCIe device/function
-	cmp edx, 0			; Overflow EDX for a maximum of 65536 devices per segment
-	je init_bus_end
+	test edx, edx			; EVOLVED Gen-8: test replacing cmp-0 (overflow check)
+	jz init_bus_end
 	jmp init_bus_pcie_probe
 
 init_bus_pci:
@@ -89,8 +89,8 @@ init_bus_pci_probe:
 	jne init_bus_pci_probe_found	; Found a device
 init_bus_pci_probe_next:
 	add edx, 0x00010000		; Skip to next PCI device
-	cmp edx, 0			; Overflow EDX for a maximum of 65536 devices
-	je init_bus_end
+	test edx, edx			; EVOLVED Gen-8: test replacing cmp-0 (overflow check)
+	jz init_bus_end
 	jmp init_bus_pci_probe
 
 init_bus_pci_probe_found:

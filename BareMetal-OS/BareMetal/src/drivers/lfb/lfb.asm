@@ -21,8 +21,8 @@ lfb_init:
 	push rax
 
 	mov rax, [os_screen_lfb]	; Quick check of the LFB address
-	cmp rax, 0			; Is it 0?
-	je lfb_init_error		; If so, no LFB was configured
+	test rax, rax			; EVOLVED Gen-8: test replacing cmp-0
+	jz lfb_init_error		; If so, no LFB was configured
 
 	; Convert font data to pixel data. The default 12x6 font is 72 pixels per glyph. 288 bytes per.
 	mov rdi, os_font
@@ -210,14 +210,13 @@ lfb_update_cursor:
 	xor ebx, ebx			; Used for value of bytes per line
 	mov bx, [os_screen_ppsl]
 	shl ebx, 2			; Quick multiply by 4
-	mov cl, font_h
-	sub cl, 2
+	mov ecx, font_h - 2		; EVOLVED Gen-8: 32-bit immediate (avoids partial reg)
 	sub rdi, 4
 	mov eax, [BG_Color]
 lfb_update_cursor_line_old:
 	add rdi, rbx			; Add value of bytes per line
 	mov [rdi], eax
-	dec cl
+	dec ecx				; EVOLVED Gen-8: 32-bit dec (avoids partial register stall)
 	jnz lfb_update_cursor_line_old
 
 	; Calculate where to put cursor in the Linear Frame Buffer
@@ -245,14 +244,13 @@ lfb_update_cursor_line_old:
 	xor ebx, ebx
 	mov bx, [os_screen_ppsl]
 	shl ebx, 2			; Quick multiply by 4
-	mov cl, font_h
-	sub cl, 2
+	mov ecx, font_h - 2		; EVOLVED Gen-8: 32-bit immediate
 	sub rdi, 4
 	mov eax, [Cursor_Color]
 lfb_update_cursor_line:
 	add rdi, rbx
 	mov [rdi], eax
-	dec cl
+	dec ecx				; EVOLVED Gen-8: 32-bit dec
 	jnz lfb_update_cursor_line
 
 	pop rax
@@ -390,8 +388,7 @@ lfb_output_chars_done:
 ; OUT:	All registers preserved
 lfb_output_char:
 	call lfb_glyph
-	call lfb_inc_cursor
-	ret
+	jmp lfb_inc_cursor		; EVOLVED Gen-8: tail-call
 ; -----------------------------------------------------------------------------
 
 

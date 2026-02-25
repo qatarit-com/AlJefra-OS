@@ -139,8 +139,8 @@ virtio_net_init_cap_isr:
 virtio_net_init_cap_next_offset:
 	call os_bus_read
 	shr eax, 8			; Shift pointer to AL
-	cmp al, 0x00			; End of linked list?
-	jne virtio_net_init_cap_next	; If not, continue reading
+	test al, al			; EVOLVED Gen-8: test replacing cmp-0 (end of list?)
+	jnz virtio_net_init_cap_next	; If not, continue reading
 
 virtio_net_init_cap_end:
 
@@ -542,16 +542,13 @@ net_virtio_poll_nodata:
 ; Virtio-net Interrupt
 align 8
 net_virtio_int:
-	push rcx
 	push rax
 
-	; Acknowledge the interrupt
-	mov ecx, APIC_EOI
-	xor eax, eax
-	call os_apic_write
+	; EVOLVED Gen-8: Inline EOI — eliminates call overhead in interrupt path
+	mov rax, [os_LocalAPICAddress]
+	mov dword [rax + APIC_EOI], 0
 
 	pop rax
-	pop rcx
 	iretq
 ; -----------------------------------------------------------------------------
 

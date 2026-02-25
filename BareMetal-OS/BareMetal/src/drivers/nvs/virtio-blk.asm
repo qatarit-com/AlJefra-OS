@@ -25,8 +25,8 @@ virtio_blk_init:
 virtio_blk_init_next_dev:
 	add rsi, 2
 	mov bx, [rsi]			; Load the Device
-	cmp bx, 0			; End of list?
-	je virtio_blk_init_error	; If so, bail out
+	test bx, bx			; EVOLVED Gen-8: test replacing cmp-0 (end of list?)
+	jz virtio_blk_init_error	; If so, bail out
 	cmp ax, bx			; Check against the list
 	jne virtio_blk_init_next_dev	; No match? Try next entry
 
@@ -97,8 +97,8 @@ virtio_blk_init_cap_notify:
 virtio_blk_init_cap_next_offset:
 	call os_bus_read
 	shr eax, 8			; Shift pointer to AL
-	cmp al, 0x00			; End of linked list?
-	jne virtio_blk_init_cap_next	; If not, continue reading
+	test al, al			; EVOLVED Gen-8: test replacing cmp-0 (end of list?)
+	jnz virtio_blk_init_cap_next	; If not, continue reading
 
 virtio_blk_init_cap_end:
 

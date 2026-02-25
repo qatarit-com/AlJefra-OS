@@ -87,10 +87,10 @@ os_debug_dump_mem:
 	call os_debug_newline
 
 nextline:
-	mov dx, 0
+	xor edx, edx			; EVOLVED Gen-8: xor replacing mov-0
 nextchar:
-	cmp rcx, 0
-	je os_debug_dump_mem_done_newline
+	test rcx, rcx			; EVOLVED Gen-8: test replacing cmp-0
+	jz os_debug_dump_mem_done_newline
 	push rsi			; Output ' '
 	push rcx
 	mov esi, os_debug_dump_mem_chars+3
@@ -102,11 +102,11 @@ nextchar:
 	call os_debug_dump_al
 	dec rcx
 	inc rdx
-	cmp dx, 16			; End of line yet?
+	cmp edx, 16			; EVOLVED Gen-8: 32-bit cmp (end of line?)
 	jne nextchar
 	call os_debug_newline
-	cmp rcx, 0
-	je os_debug_dump_mem_done
+	test rcx, rcx			; EVOLVED Gen-8: test replacing cmp-0
+	jz os_debug_dump_mem_done
 	jmp nextline
 
 os_debug_dump_mem_done_newline:

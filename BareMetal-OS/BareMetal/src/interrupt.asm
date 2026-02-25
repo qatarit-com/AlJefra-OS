@@ -38,10 +38,9 @@ int_keyboard:
 
 	call ps2_keyboard_interrupt	; Call keyboard interrupt code in PS/2 driver
 
-	; Acknowledge the IRQ (do this FIRST to reduce latency)
-	mov ecx, APIC_EOI
-	xor eax, eax
-	call os_apic_write
+	; EVOLVED Gen-8: Inline EOI — eliminates call overhead in hot interrupt path
+	mov rax, [os_LocalAPICAddress]
+	mov dword [rax + APIC_EOI], 0
 
 	; EVOLVED: Only wake the BSP or a single core waiting for input
 	; instead of broadcasting to ALL cores (was causing N-way cache
@@ -75,10 +74,9 @@ int_serial:
 
 	call serial_interrupt		; Call interrupt code in serial driver
 
-	; Acknowledge the IRQ
-	mov ecx, APIC_EOI
-	xor eax, eax
-	call os_apic_write
+	; EVOLVED Gen-8: Inline EOI
+	mov rax, [os_LocalAPICAddress]
+	mov dword [rax + APIC_EOI], 0
 
 	; EVOLVED: Only wake the BSP instead of all cores
 	xor eax, eax
@@ -101,10 +99,9 @@ hpet:
 	push rax
 	push rbx
 
-	; Acknowledge the IRQ first (reduce interrupt latency)
-	mov ecx, APIC_EOI
-	xor eax, eax
-	call os_apic_write
+	; EVOLVED Gen-8: Inline EOI (reduce interrupt latency)
+	mov rax, [os_LocalAPICAddress]
+	mov dword [rax + APIC_EOI], 0
 
 	; EVOLVED: Increment system tick counter for scheduling
 	lock inc qword [os_hpet_ticks]
@@ -143,7 +140,7 @@ hpet_wake_idle_core:
 	cmp ecx, 256
 	jge .scan_done
 	mov rax, [rsi]
-	bt ax, 0			; Check present flag
+	test al, 1			; EVOLVED Gen-8: test replacing bt (shorter encoding)
 	jnc .next
 	and rax, 0xFFFFFFFFFFFFFFF0	; Clear flags
 	test rax, rax			; Is core idle (no code address)?
@@ -167,16 +164,11 @@ hpet_wake_idle_core:
 ; A simple interrupt that just acknowledges an IPI. Useful for getting an AP past a 'hlt' in the code.
 align 8
 ap_wakeup:
-	push rcx
 	push rax
-
-	; Acknowledge the IPI
-	mov ecx, APIC_EOI
-	xor eax, eax
-	call os_apic_write
-
+	; EVOLVED Gen-8: Inline EOI — eliminates call/ret + push/pop overhead
+	mov rax, [os_LocalAPICAddress]
+	mov dword [rax + APIC_EOI], 0
 	pop rax
-	pop rcx
 	iretq				; Return from the IPI
 ; -----------------------------------------------------------------------------
 
@@ -442,7 +434,7 @@ exception_gate_main_nextreg:
 	add esi, 4
 	pop rax
 	call os_debug_dump_rax
-	add ebx, 1
+	inc ebx				; EVOLVED Gen-8: inc replacing add-1
 	cmp ebx, 4			; Number of registers to output per line
 	jne exception_gate_main_nextreg_space
 	call os_debug_newline

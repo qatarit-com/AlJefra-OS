@@ -126,12 +126,10 @@ b_smp_set:
 	push rcx		; Save the APIC ID
 	push rax		; Save the code address
 
-	mov rdi, os_SMP
-	shl rcx, 3		; Quick multiply by 8
-	add rdi, rcx		; Add the offset
+	lea rdi, [os_SMP + rcx*8]	; EVOLVED Gen-8: LEA replacing shl+add
 	mov rcx, [rdi]		; Load current value for that core
 
-	bt cx, 0		; Check for "present" flag
+	test cl, 1		; EVOLVED Gen-8: test replacing bt (shorter)
 	jnc b_smp_set_error	; Bail out if 0
 
 	and cl, 0xF0		; Clear the flags from the value in table
@@ -176,9 +174,7 @@ b_smp_get:
 
 	call b_smp_get_id	; Return APIC ID in RAX
 
-	mov rsi, os_SMP
-	shl rax, 3		; Quick multiply by 8
-	add rsi, rax		; Add the offset
+	lea rsi, [os_SMP + rax*8]	; EVOLVED Gen-8: LEA replacing shl+add
 	mov rax, [rsi]		; Load code address and flags
 	pop rsi
 	ret
@@ -193,14 +189,12 @@ b_smp_setflag:
 	push rsi
 	push rax
 
-	cmp rcx, 4		; If a value higher than 3 was chosen then bail out
+	cmp ecx, 4		; EVOLVED Gen-8: 32-bit cmp (saves REX prefix)
 	jae b_smp_setflag_done
 
 	call b_smp_get_id	; Return APIC ID in RAX
 
-	mov rsi, os_SMP
-	shl rax, 3		; Quick multiply by 8
-	add rsi, rax		; Add the offset
+	lea rsi, [os_SMP + rax*8]	; EVOLVED Gen-8: LEA replacing shl+add
 	mov rax, [rsi]		; Load code address and flags
 	bts rax, rcx		; Set the flag
 	mov [rsi], rax		; Store the code address and new flags
@@ -280,8 +274,8 @@ b_smp_config:
 ;  This reduces cache coherency traffic by ~10x under contention
 b_smp_lock:
 b_smp_lock_spin:
-	bt word [rax], 0	; Test-and-test: read-only check first (no bus lock)
-	jnc b_smp_lock_try	; If free, try to acquire
+	test byte [rax], 1	; EVOLVED Gen-8: test replacing bt (shorter, no bus lock)
+	jz b_smp_lock_try	; If free, try to acquire
 	pause			; EVOLVED: Hint to CPU we're spin-waiting
 	jmp b_smp_lock_spin	; Keep spinning (cache line stays Shared)
 b_smp_lock_try:
@@ -296,7 +290,7 @@ b_smp_lock_try:
 ;  IN:	RAX = Address of lock variable
 ; OUT:	Nothing. All registers preserved.
 b_smp_unlock:
-	btr word [rax], 0	; Release the lock (Bit 0 cleared to 0)
+	mov byte [rax], 0	; EVOLVED Gen-8: store-release (x86 TSO guarantees visibility)
 	ret			; Lock released. Return to the caller
 ; -----------------------------------------------------------------------------
 
