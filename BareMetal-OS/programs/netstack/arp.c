@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — ARP (Address Resolution Protocol)
+// AlJefra OS — ARP (Address Resolution Protocol)
 // =============================================================================
 
 #include "netstack.h"

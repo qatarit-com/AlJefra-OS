@@ -1,6 +1,6 @@
 /*
  * Serial Output Parser
- * Parses BareMetal OS benchmark results from QEMU serial log
+ * Parses AlJefra OS benchmark results from QEMU serial log
  */
 #ifndef SERIAL_PARSER_H
 #define SERIAL_PARSER_H

@@ -1,6 +1,6 @@
 /*
  * Component Map
- * Maps BareMetal OS source files to the 15 evolution components
+ * Maps AlJefra OS source files to the 15 evolution components
  */
 #include "component_map.h"
 #include <string.h>

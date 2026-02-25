@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — TLS Integration (BearSSL)
+// AlJefra OS — TLS Integration (BearSSL)
 // =============================================================================
 
 #include "tls.h"
@@ -109,7 +109,7 @@ static tls_conn_t *tls_alloc(void) {
 }
 
 // Custom time function for X.509 validation
-// Returns a compile-time date since BareMetal has no RTC/NTP
+// Returns a compile-time date since AlJefra OS has no RTC/NTP
 // BearSSL expects days since January 1st, 0 AD (Gregorian calendar)
 // Unix epoch offset: 719528 days from year 0 to 1970-01-01
 static u32 tls_get_days(void) {

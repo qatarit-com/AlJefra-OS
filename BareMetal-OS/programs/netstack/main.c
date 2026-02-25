@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — Main Entry Point
+// AlJefra OS — Main Entry Point
 //
 // Boots the network stack, connects to LLM (Ollama on host or Claude API).
 // This is the "hello world" for the AI-native OS.
@@ -32,7 +32,7 @@ static void println(const char *s) {
 }
 
 int main(void) {
-	println("AlJefra OS AI — Self-Bootstrapping AI-Native OS");
+	println("AlJefra OS — Self-Bootstrapping AI-Native OS");
 	println("================================================");
 	println("");
 

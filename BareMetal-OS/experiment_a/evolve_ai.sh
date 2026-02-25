@@ -1,7 +1,7 @@
 #!/bin/bash
 #
-# AlJefra OS AI — AI-Directed Evolution Launcher (Experiment A)
-# Opens Claude Code in the BareMetal directory for source-level optimization.
+# AlJefra OS — AI-Directed Evolution Launcher (Experiment A)
+# Opens Claude Code in the AlJefra OS directory for source-level optimization.
 #
 # Usage: ./evolve_ai.sh [component]
 #
@@ -12,7 +12,7 @@ SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 BAREMETAL_DIR="$SCRIPT_DIR/.."
 
 echo "============================================"
-echo "  AlJefra OS AI — AI-Directed Evolution"
+echo "  AlJefra OS — AI-Directed Evolution"
 echo "  Experiment A: Source-Level Optimization"
 echo "============================================"
 echo ""

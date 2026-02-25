@@ -4,7 +4,7 @@
 
 ## What This Does
 
-Generates millions of binary mutations of the BareMetal OS kernel per second, scores them using an instruction latency model, validates the best candidates in QEMU, and records breakthroughs. Discovers instruction sequences no human would write.
+Generates millions of binary mutations of the AlJefra OS kernel per second, scores them using an instruction latency model, validates the best candidates in QEMU, and records breakthroughs. Discovers instruction sequences no human would write.
 
 ## Prerequisites
 

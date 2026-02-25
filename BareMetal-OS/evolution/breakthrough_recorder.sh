@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# AlJefra OS AI -- Breakthrough Recorder
+# AlJefra OS -- Breakthrough Recorder
 # Copyright (C) 2026
 #
 # This script is called by the evolution engine when a breakthrough is detected.
@@ -69,7 +69,7 @@ cat > "$BENCHMARK_FILE" << BENCHEOF
   "system_info": {
     "gpu": "NVIDIA RTX 5090 (GB202)",
     "gpu_vram": "32GB GDDR7",
-    "architecture": "x86-64 BareMetal Exokernel"
+    "architecture": "x86-64 AlJefra OS Exokernel"
   }
 }
 BENCHEOF
@@ -123,9 +123,9 @@ SUMMARY_FILE="$LOG_DIR/EVOLUTION_SUMMARY.md"
 # Create or append to summary
 if [ ! -f "$SUMMARY_FILE" ]; then
     cat > "$SUMMARY_FILE" << HEADEREOF
-# AlJefra OS AI - Evolution Summary
+# AlJefra OS - Evolution Summary
 
-## System: BareMetal Exokernel + NVIDIA RTX 5090 GPU Engine
+## System: AlJefra OS Exokernel + NVIDIA RTX 5090 GPU Engine
 
 This document tracks all breakthroughs achieved through GPU-accelerated self-evolution.
 

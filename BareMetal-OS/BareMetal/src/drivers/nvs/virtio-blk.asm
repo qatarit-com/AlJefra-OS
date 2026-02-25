@@ -1,5 +1,5 @@
 ; =============================================================================
-; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
+; AlJefra OS -- a 64-bit OS written in Assembly for x86-64 systems
 ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
 ;
 ; Virtio Block Driver
@@ -271,7 +271,7 @@ virtio_blk_io:
 
 	; Build the header
 	mov edi, header
-	; BareMetal I/O opcode for Read is 2, Write is 1
+	; AlJefra OS I/O opcode for Read is 2, Write is 1
 	; Virtio-blk I/O opcode for Read is 0, Write is 1
 	; FIXME: Currently we just clear bit 1.
 	btc bx, 1

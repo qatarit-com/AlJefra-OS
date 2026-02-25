@@ -1,6 +1,6 @@
 # AlJefra OS AI - Evolution Summary
 
-## System: BareMetal Exokernel + NVIDIA RTX 5090 GPU Engine
+## System: AlJefra OS Exokernel + NVIDIA RTX 5090 GPU Engine
 
 This document tracks all breakthroughs achieved through GPU-accelerated self-evolution.
 

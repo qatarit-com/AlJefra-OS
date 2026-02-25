@@ -1,5 +1,5 @@
 ; =============================================================================
-; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
+; AlJefra OS -- a 64-bit OS written in Assembly for x86-64 systems
 ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
 ;
 ; Initialize network

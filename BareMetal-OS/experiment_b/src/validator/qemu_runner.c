@@ -4,7 +4,7 @@
  *
  * Process:
  * 1. Write mutated kernel.bin to temp directory
- * 2. Build disk image using BareMetal build tools
+ * 2. Build disk image using AlJefra OS build tools
  * 3. Launch QEMU with serial output capture
  * 4. Wait for benchmark completion or timeout
  * 5. Parse serial log for benchmark results
@@ -70,7 +70,7 @@ int qemu_build_image(const uint8_t *kernel_bin, uint32_t kernel_size,
     fclose(f);
 
     /* Build the disk image using baremetal.sh or direct dd.
-     * The BareMetal disk image layout:
+     * The AlJefra OS disk image layout:
      *   Sector 0-2: Pure64 boot loader
      *   Sector 3+:  Kernel binary
      *

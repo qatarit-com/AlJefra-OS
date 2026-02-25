@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — DNS Resolver (UDP, A records only)
+// AlJefra OS — DNS Resolver (UDP, A records only)
 // =============================================================================
 
 #include "netstack.h"

@@ -11,7 +11,7 @@
 int qemu_init(const char *work_dir);
 
 /* Build a bootable disk image with a mutated kernel binary.
- * Uses the BareMetal build system with the modified kernel injected. */
+ * Uses the AlJefra OS build system with the modified kernel injected. */
 int qemu_build_image(const uint8_t *kernel_bin, uint32_t kernel_size,
                      const char *work_dir);
 

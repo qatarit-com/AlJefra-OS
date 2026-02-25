@@ -4,7 +4,7 @@
 
 ## What This Does
 
-Claude Code reads the BareMetal OS assembly source, identifies optimization patterns, applies them, and benchmarks the results. This is "human-like" optimization — understanding what code does and making it faster.
+Claude Code reads the AlJefra OS assembly source, identifies optimization patterns, applies them, and benchmarks the results. This is "human-like" optimization — understanding what code does and making it faster.
 
 ## Prerequisites
 

@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — Embedded Root CA Certificates
+// AlJefra OS — Embedded Root CA Certificates
 //
 // Trust anchors for TLS certificate validation:
 // 1. ISRG Root X1 (Let's Encrypt) — RSA 4096

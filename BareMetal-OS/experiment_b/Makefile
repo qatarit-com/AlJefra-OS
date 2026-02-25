@@ -1,4 +1,4 @@
-# AlJefra OS AI — Binary Evolution Engine
+# AlJefra OS — Binary Evolution Engine
 # Auto-detects CUDA availability
 
 CC       := gcc

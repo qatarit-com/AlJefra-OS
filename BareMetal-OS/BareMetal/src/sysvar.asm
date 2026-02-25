@@ -1,5 +1,5 @@
 ; =============================================================================
-; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
+; AlJefra OS -- a 64-bit OS written in Assembly for x86-64 systems
 ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
 ;
 ; System Variables
@@ -9,8 +9,8 @@
 ; Strings
 newline:		db 13, 10, 0
 space:			db ' ', 0
-system_status_header:	db 'AlJefra OS AI v1.0.0 [GPU:RTX5090]', 0
-msg_baremetal:		db 13, 10, '[ BareMetal ]', 0
+system_status_header:	db 'AlJefra OS v1.0.0 [GPU:RTX5090]', 0
+msg_baremetal:		db 13, 10, '[ AlJefra OS ]', 0
 msg_64:			db 13, 10, '64', 0
 msg_bus:		db 13, 10, 'bus', 0
 msg_nvs:		db 13, 10, 'nvs', 0

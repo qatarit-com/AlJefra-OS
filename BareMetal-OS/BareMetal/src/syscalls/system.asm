@@ -1,5 +1,5 @@
 ; =============================================================================
-; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
+; AlJefra OS -- a 64-bit OS written in Assembly for x86-64 systems
 ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
 ;
 ; System Functions
@@ -244,7 +244,7 @@ reboot:
 ; IN:	RAX = Virtual Memory Address
 ; OUT:	RAX = Physical Memory Address
 ;	All other registers preserved
-; NOTE: BareMetal uses two ranges of memory. One physical 1-to-1 map and one virtual
+; NOTE: AlJefra OS uses two ranges of memory. One physical 1-to-1 map and one virtual
 ;	range for free memory
 os_virt_to_phys:
 	push r15

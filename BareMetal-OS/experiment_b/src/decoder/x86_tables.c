@@ -1,7 +1,7 @@
 /*
  * x86-64 Opcode Tables
  * Based on Intel SDM Vol. 2 opcode maps
- * Covers the instruction set used by BareMetal OS (64-bit mode)
+ * Covers the instruction set used by AlJefra OS (64-bit mode)
  */
 #include "x86_tables.h"
 

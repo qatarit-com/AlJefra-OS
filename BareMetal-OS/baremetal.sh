@@ -107,7 +107,7 @@ function baremetal_clean {
 }
 
 function baremetal_setup {
-	echo -e "BareMetal OS Setup\n==================="
+	echo -e "AlJefra OS Setup\n================"
 	baremetal_clean
 
 	mkdir src
@@ -359,7 +359,7 @@ function baremetal_run {
 	baremetal_sys_check
 	echo "Starting QEMU..."
 
-	cmd+=( -name "BareMetal OS" )
+	cmd+=( -name "AlJefra OS" )
 
 	"${cmd[@]}" #execute the cmd string
 }
@@ -369,7 +369,7 @@ function baremetal_run-uefi {
 	echo "Starting QEMU (UEFI)..."
 
 	cmd+=( -bios sys/OVMF.fd )
-	cmd+=( -name "BareMetal OS UEFI" )
+	cmd+=( -name "AlJefra OS UEFI" )
 
 	#execute the cmd string
 	if [ -x "$(command -v mformat)" ]; then
@@ -387,7 +387,7 @@ function baremetal_run_netclient {
 	echo "Starting QEMU..."
 	cmd=( qemu-system-x86_64
 		-machine q35
-		-name "BareMetal OS (Second Instance)"
+		-name "AlJefra OS (Second Instance)"
 		-m 256
 		-smp sockets=1,cpus=4
 		-netdev socket,id=testnet1,connect=127.0.0.1:1234
@@ -458,7 +458,7 @@ function baremetal_app {
 }
 
 function baremetal_help {
-	echo "BareMetal-OS Script"
+	echo "AlJefra OS Script"
 	echo "Available commands:"
 	echo "clean    - Clean the src and bin folders"
 	echo "setup    - Clean and setup"
@@ -468,7 +468,7 @@ function baremetal_help {
 	echo "demos    - Install demos to disk image"
 	echo "run      - Run the OS via QEMU"
 	echo "run-uefi - Run the OS via QEMU in UEFI mode"
-	echo "run-2    - Run a second instance of BareMetal for network testing"
+	echo "run-2    - Run a second instance of AlJefra OS for network testing"
 	echo "vdi      - Generate VDI disk image for VirtualBox"
 	echo "vmdk     - Generate VMDK disk image for VMware"
 	echo "vpc      - Generate VPC disk image for HyperV"

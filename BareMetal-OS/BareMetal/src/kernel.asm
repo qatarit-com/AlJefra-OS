@@ -1,8 +1,8 @@
 ; =============================================================================
-; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
+; AlJefra OS -- a 64-bit OS written in Assembly for x86-64 systems
 ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
 ;
-; The BareMetal exokernel
+; The AlJefra OS exokernel
 ; =============================================================================
 
 
@@ -10,7 +10,7 @@ BITS 64					; Specify 64-bit
 ORG 0x0000000000100000			; The kernel needs to be loaded at this address
 DEFAULT ABS
 
-%DEFINE BAREMETAL_VER 'AlJefra OS AI v1.0.0 (GPU-Evolved)', 13, 'Built on BareMetal | GPU Engine: RTX 5090', 13, 0
+%DEFINE BAREMETAL_VER 'AlJefra OS v1.0.0 (GPU-Evolved)', 13, 'x86-64 Exokernel | GPU Engine: RTX 5090', 13, 0
 %DEFINE BAREMETAL_API_VER 1
 KERNELSIZE equ 64 * 1024		; Pad the kernel to this length (expanded for GPU engine)
 

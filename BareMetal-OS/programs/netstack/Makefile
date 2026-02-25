@@ -1,5 +1,5 @@
 # =============================================================================
-# AlJefra OS AI — Network Stack + TLS + HTTP + AI Agent Build
+# AlJefra OS — Network Stack + TLS + HTTP + AI Agent Build
 # =============================================================================
 
 # Toolchain

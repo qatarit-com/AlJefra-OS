@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — Network Stack Init + Poll Loop
+// AlJefra OS — Network Stack Init + Poll Loop
 // =============================================================================
 
 #include "netstack.h"
@@ -12,7 +12,7 @@ net_state_t *net_get_state(void) {
 }
 
 // Get millisecond time from TIMECOUNTER
-// BareMetal TIMECOUNTER returns nanoseconds; divide by 1,000,000 to get ms
+// AlJefra OS TIMECOUNTER returns nanoseconds; divide by 1,000,000 to get ms
 u64 net_get_time_ms(void) {
 	return b_system(TIMECOUNTER, 0, 0) / 1000000;
 }

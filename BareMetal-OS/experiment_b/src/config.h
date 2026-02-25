@@ -1,5 +1,5 @@
 /*
- * AlJefra OS AI — Binary Evolution Engine Configuration
+ * AlJefra OS — Binary Evolution Engine Configuration
  * All constants, component IDs, and GA parameters
  */
 #ifndef CONFIG_H

@@ -1,8 +1,8 @@
 // =============================================================================
-// AlJefra OS AI — Network Stack Test
+// AlJefra OS — Network Stack Test
 //
 // Tests ARP, ICMP ping, and TCP connect via TAP networking.
-// Designed to run on BareMetal OS with QEMU TAP.
+// Designed to run on AlJefra OS with QEMU TAP.
 //
 // Network config:
 //   Guest: 10.0.0.2/24     (this OS)
@@ -46,7 +46,7 @@ int main(void) {
 
 	println("");
 	println("==============================================");
-	println("  AlJefra OS AI - Network Stack Test Suite");
+	println("  AlJefra OS - Network Stack Test Suite");
 	println("==============================================");
 	println("");
 

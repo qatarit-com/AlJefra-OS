@@ -181,3 +181,28 @@ QEMU 9.2.1 monitor - type 'help' for more information
   [18/64] serial_send_wait               6 instrs [0x124a-0x1257] → 50K iters
     [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x124a-0x1257]
     [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.86
+    Security: fragility=2.8% worst=66.83 avg_muts=7573
+    no improvement (66.86)
+  [19/64] msi_init_error                 6 instrs [0x1012-0x1018] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1012-0x1018]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.86
+    Security: fragility=2.8% worst=66.86 avg_muts=0 [DEAD CODE?]
+    no improvement (66.86)
+  [20/64] os_ioapic_write                6 instrs [0x0eab-0x0ebb] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xeab-0xebb]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.86
+    Security: fragility=2.8% worst=66.86 avg_muts=781
+    no improvement (66.86)
+  [21/64] os_ioapic_init                 6 instrs [0x0e7f-0x0e9b] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xe7f-0xe9b]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 6802 fitness=66.98
+    Security: fragility=4.0% worst=65.99 avg_muts=1173
+    Optimize: 66.86 → 66.98 (+0.12, +0.18%)
+    ACCEPTED ✓ (cumulative fitness: 66.98)
+  [22/64] os_ioapic_read                 6 instrs [0x0e9b-0x0eab] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xe9b-0xeab]
+    [GPU] Launching 256 blocks x 256 threads...

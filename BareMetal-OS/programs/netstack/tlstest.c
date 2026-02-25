@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — TLS Handshake Test
+// AlJefra OS — TLS Handshake Test
 // Tests: DNS resolve → TCP connect → TLS handshake → HTTPS GET → response
 // Target: example.com:443 (uses ISRG Root X1 / DigiCert chain)
 // =============================================================================

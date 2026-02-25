@@ -1,11 +1,11 @@
 ; =============================================================================
-; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
+; AlJefra OS -- a 64-bit OS written in Assembly for x86-64 systems
 ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
 ;
 ; AI-Powered SMP Scheduler
 ; Uses GPU to optimize core workload distribution in real-time
 ;
-; Enhancements over base BareMetal SMP:
+; Enhancements over base AlJefra OS SMP:
 ; 1. GPU-computed optimal core assignment
 ; 2. Predictive workload balancing
 ; 3. NUMA-aware scheduling (if applicable)

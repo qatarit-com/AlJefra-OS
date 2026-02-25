@@ -1,5 +1,5 @@
 // =============================================================================
-// AlJefra OS AI — Minimal SAX-style JSON Parser
+// AlJefra OS — Minimal SAX-style JSON Parser
 // =============================================================================
 
 #include "json.h"

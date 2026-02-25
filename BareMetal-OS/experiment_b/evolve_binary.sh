@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# AlJefra OS AI — Binary Evolution Launcher
+# AlJefra OS — Binary Evolution Launcher
 # One-command launch: installs deps, builds, runs.
 #
 # Usage: ./evolve_binary.sh [component] [generations]
@@ -16,7 +16,7 @@ GENERATIONS="${2:-50}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 
 echo "============================================"
-echo "  AlJefra OS AI — Binary Evolution Engine"
+echo "  AlJefra OS — Binary Evolution Engine"
 echo "============================================"
 echo ""
 echo "  Component:   $COMPONENT"
@@ -76,7 +76,7 @@ BAREMETAL_DIR="$SCRIPT_DIR/.."
 KERNEL_BIN="$BAREMETAL_DIR/sys/kernel.bin"
 
 if [ ! -f "$KERNEL_BIN" ]; then
-    echo "Building BareMetal OS kernel..."
+    echo "Building AlJefra OS kernel..."
     cd "$BAREMETAL_DIR"
     if [ -f baremetal.sh ]; then
         ./baremetal.sh setup 2>&1 | tail -5

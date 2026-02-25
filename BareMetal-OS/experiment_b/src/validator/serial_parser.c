@@ -1,6 +1,6 @@
 /*
  * Serial Output Parser
- * BareMetal OS outputs benchmark data over serial port.
+ * AlJefra OS outputs benchmark data over serial port.
  * QEMU captures this to sys/serial.log.
  *
  * Expected format from b_evolve_benchmark syscall:

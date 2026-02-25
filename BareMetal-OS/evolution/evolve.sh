@@ -1,6 +1,6 @@
 #!/bin/bash
 # =============================================================================
-# AlJefra OS AI -- Evolution Orchestrator
+# AlJefra OS -- Evolution Orchestrator
 # Copyright (C) 2026
 #
 # Master script that orchestrates the self-evolution process.
@@ -21,7 +21,7 @@ COMPONENT="${1:-all}"
 GENERATIONS="${2:-100}"
 
 echo "============================================"
-echo "  AlJefra OS AI - Self-Evolution Engine"
+echo "  AlJefra OS - Self-Evolution Engine"
 echo "  GPU: NVIDIA RTX 5090 (GB202)"
 echo "  Target: ${COMPONENT}"
 echo "  Generations: ${GENERATIONS}"
