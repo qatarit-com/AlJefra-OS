@@ -1,0 +1,10 @@
+.DS_Store
+*.a
+*.o
+*.elf
+*.sys
+*.bin
+*.asm~
+*.md~
+bin/*
+.nova/*
