@@ -14,7 +14,7 @@
 ; OUT:	RAX = Result
 ;	All other registers preserved
 b_system:
-	cmp rcx, 0x80
+	cmp rcx, 0x90			; Extended range for GPU functions
 	jae b_system_end
 
 ; Use CX register as an index to the function table
@@ -414,6 +414,24 @@ b_system_table:
 	dw b_system_reset		; 0x7D
 	dw b_system_reboot		; 0x7E
 	dw b_system_shutdown		; 0x7F
+
+; GPU Functions (0x80-0x8F)
+	dw b_gpu_status			; 0x80
+	dw b_gpu_compute		; 0x81
+	dw b_gpu_mem_alloc		; 0x82
+	dw b_gpu_mem_free		; 0x83
+	dw b_gpu_mem_copy_to		; 0x84
+	dw b_gpu_mem_copy_from		; 0x85
+	dw b_gpu_fence_wait		; 0x86
+	dw b_gpu_mmio_read		; 0x87
+	dw b_gpu_mmio_write		; 0x88
+	dw b_gpu_vram_info		; 0x89
+	dw b_gpu_benchmark		; 0x8A
+	dw none				; 0x8B
+	dw none				; 0x8C
+	dw none				; 0x8D
+	dw none				; 0x8E
+	dw none				; 0x8F
 ; -----------------------------------------------------------------------------
 
 

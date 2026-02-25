@@ -25,6 +25,11 @@
 ; Network
 %include "drivers/net/virtio-net.asm"
 
+; GPU (NVIDIA RTX 5090 / Blackwell)
+%ifndef NO_GPU
+%include "drivers/gpu/nvidia.asm"
+%endif
+
 ; Video
 %ifndef NO_LFB
 %include "drivers/lfb/lfb.asm"

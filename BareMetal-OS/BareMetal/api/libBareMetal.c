@@ -59,5 +59,62 @@ u64 b_system(u64 function, u64 var1, u64 var2) {
 }
 
 
+// GPU Functions
+
+u64 b_gpu_status(void) {
+	u64 result;
+	asm volatile ("call *0x00100050" : "=a" (result));
+	return result;
+}
+
+u64 b_gpu_compute(void *params) {
+	u64 result;
+	asm volatile ("call *0x00100058" : "=a" (result) : "a"(params));
+	return result;
+}
+
+u64 b_gpu_mem_alloc(u64 size) {
+	u64 result;
+	asm volatile ("call *0x00100060" : "=a" (result) : "c"(size));
+	return result;
+}
+
+void b_gpu_mem_free(u64 offset, u64 size) {
+	asm volatile ("call *0x00100068" : : "a"(offset), "c"(size));
+}
+
+u64 b_gpu_mem_copy_to(void *src, u64 dst, u64 size) {
+	u64 result;
+	asm volatile ("call *0x00100070" : "=a" (result) : "S"(src), "D"(dst), "c"(size));
+	return result;
+}
+
+u64 b_gpu_mem_copy_from(u64 src, void *dst, u64 size) {
+	u64 result;
+	asm volatile ("call *0x00100078" : "=a" (result) : "S"(src), "D"(dst), "c"(size));
+	return result;
+}
+
+void b_gpu_fence_wait(u64 fence) {
+	asm volatile ("call *0x00100080" : : "a"(fence));
+}
+
+u32 b_gpu_mmio_read(u32 reg) {
+	u32 result;
+	asm volatile ("call *0x00100088" : "=a" (result) : "c"((u64)reg));
+	return result;
+}
+
+void b_gpu_mmio_write(u32 reg, u32 val) {
+	asm volatile ("call *0x00100090" : : "c"((u64)reg), "a"((u64)val));
+}
+
+u64 b_gpu_benchmark(void) {
+	u64 result;
+	asm volatile ("call *0x001000A0" : "=a" (result));
+	return result;
+}
+
+
 // =============================================================================
 // EOF

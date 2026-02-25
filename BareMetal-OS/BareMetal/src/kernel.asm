@@ -10,9 +10,9 @@ BITS 64					; Specify 64-bit
 ORG 0x0000000000100000			; The kernel needs to be loaded at this address
 DEFAULT ABS
 
-%DEFINE BAREMETAL_VER 'v1.0.0 (January 21, 2020)', 13, 'Copyright (C) 2008-2026 Return Infinity', 13, 0
+%DEFINE BAREMETAL_VER 'AlJefra OS AI v1.0.0 (GPU-Evolved)', 13, 'Built on BareMetal | GPU Engine: RTX 5090', 13, 0
 %DEFINE BAREMETAL_API_VER 1
-KERNELSIZE equ 20 * 1024		; Pad the kernel to this length
+KERNELSIZE equ 64 * 1024		; Pad the kernel to this length (expanded for GPU engine)
 
 
 kernel_start:
@@ -29,6 +29,17 @@ align 16
 	dq b_nvs_write			; 0x0038
 	dq b_system			; 0x0040
 	dq b_user			; 0x0048
+	dq b_gpu_status			; 0x0050 - GPU status
+	dq b_gpu_compute		; 0x0058 - GPU compute dispatch
+	dq b_gpu_mem_alloc		; 0x0060 - GPU VRAM allocate
+	dq b_gpu_mem_free		; 0x0068 - GPU VRAM free
+	dq b_gpu_mem_copy_to		; 0x0070 - DMA to VRAM
+	dq b_gpu_mem_copy_from		; 0x0078 - DMA from VRAM
+	dq b_gpu_fence_wait		; 0x0080 - GPU fence wait
+	dq b_gpu_mmio_read		; 0x0088 - GPU MMIO read
+	dq b_gpu_mmio_write		; 0x0090 - GPU MMIO write
+	dq b_gpu_vram_info		; 0x0098 - GPU VRAM info
+	dq b_gpu_benchmark		; 0x00A0 - GPU benchmark
 
 align 16
 start:
@@ -37,6 +48,9 @@ start:
 	; System and driver initialization
 	call init_64			; After this point we are in a working 64-bit environment
 	call init_bus			; Initialize system busses
+%ifndef NO_GPU
+	call init_gpu			; Initialize GPU (NVIDIA RTX 5090)
+%endif
 	call init_nvs			; Initialize non-volatile storage
 	call init_net			; Initialize network
 	call init_hid			; Initialize human interface devices
@@ -133,6 +147,7 @@ ap_process:
 %include "drivers.asm"
 %include "interrupt.asm"
 %include "sysvar.asm"			; Include this last to keep the read/write variables away from the code
+%include "sysvar_gpu.asm"		; GPU and Evolution engine system variables
 
 EOF:
 	db 0xDE, 0xAD, 0xC0, 0xDE

@@ -63,6 +63,31 @@ u64 b_system(u64 function, u64 var1, u64 var2);
 #define REBOOT			0x7E
 #define SHUTDOWN		0x7F
 
+// GPU Functions (via b_system or direct call)
+#define GPU_STATUS		0x80
+#define GPU_COMPUTE		0x81
+#define GPU_MEM_ALLOC		0x82
+#define GPU_MEM_FREE		0x83
+#define GPU_MEM_COPY_TO		0x84
+#define GPU_MEM_COPY_FROM	0x85
+#define GPU_FENCE_WAIT		0x86
+#define GPU_MMIO_READ		0x87
+#define GPU_MMIO_WRITE		0x88
+#define GPU_VRAM_INFO		0x89
+#define GPU_BENCHMARK		0x8A
+
+// GPU direct call functions
+u64 b_gpu_status(void);
+u64 b_gpu_compute(void *params);
+u64 b_gpu_mem_alloc(u64 size);
+void b_gpu_mem_free(u64 offset, u64 size);
+u64 b_gpu_mem_copy_to(void *src, u64 dst, u64 size);
+u64 b_gpu_mem_copy_from(u64 src, void *dst, u64 size);
+void b_gpu_fence_wait(u64 fence);
+u32 b_gpu_mmio_read(u32 reg);
+void b_gpu_mmio_write(u32 reg, u32 val);
+u64 b_gpu_benchmark(void);
+
 #endif
 
 

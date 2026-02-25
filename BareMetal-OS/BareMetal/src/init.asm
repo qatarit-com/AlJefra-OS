@@ -8,6 +8,7 @@
 
 %include "init/64.asm"
 %include "init/bus.asm"
+%include "init/gpu.asm"
 %include "init/nvs.asm"
 %include "init/net.asm"
 %include "init/hid.asm"
