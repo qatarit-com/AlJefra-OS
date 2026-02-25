@@ -65,10 +65,9 @@ render_done:
 	xor ecx, ecx
 	mov ax, [os_screen_x]
 	mov cx, [os_screen_y]
-	mul ecx
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	mov [Screen_Pixels], eax
-	mov ecx, 4
-	mul ecx
+	shl eax, 2			; EVOLVED Gen-10: shift replacing mul-by-4
 	mov [Screen_Bytes], eax
 
 	; Calculate display parameters based on font dimensions
@@ -92,7 +91,7 @@ render_done:
 	xor ecx, ecx
 	mov al, [font_height]
 	mov cl, [font_width]
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	shl eax, 2			; Quick multiply by 4
 	mov [lfb_glyph_bytes], eax
 
@@ -103,7 +102,7 @@ render_done:
 	xor ecx, ecx
 	mov ax, [os_screen_x]
 	mov cx, font_h			; Font height
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	shl eax, 2			; Quick multiply by 4
 	mov [lfb_glyph_bytes_per_row], eax
 
@@ -199,8 +198,7 @@ lfb_update_cursor:
 	jne lfb_update_cursor_skip	; If not, skip entire function
 
 	push rdi
-	push rdx
-	push rcx
+	push rcx			; EVOLVED Gen-10: removed push/pop rdx (imul doesn't clobber)
 	push rbx
 	push rax
 
@@ -226,14 +224,14 @@ lfb_update_cursor_line_old:
 	xor ecx, ecx
 	mov eax, [lfb_glyph_bytes_per_row]
 	mov cx, [Screen_Cursor_Row]
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	add rdi, rax
 
 	; Calculate offset for column into Linear Frame Buffer
 	xor ecx, ecx
 	mov eax, [lfb_glyph_bytes_per_col]
 	mov cx, [Screen_Cursor_Col]
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	add rdi, rax
 
 	; Store cursor location
@@ -256,7 +254,6 @@ lfb_update_cursor_line:
 	pop rax
 	pop rbx
 	pop rcx
-	pop rdx
 	pop rdi
 lfb_update_cursor_skip:
 	ret
@@ -448,14 +445,14 @@ load_char:
 	xor ecx, ecx
 	mov eax, [lfb_glyph_bytes_per_row]
 	mov cx, [Screen_Cursor_Row]
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	add rdi, rax
 
 	; Calculate offset for column into Linear Frame Buffer
 	xor ecx, ecx
 	mov eax, [lfb_glyph_bytes_per_col]
 	mov cx, [Screen_Cursor_Col]
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	add rdi, rax
 
 	pop rax				; Restore the character to display
@@ -464,7 +461,7 @@ load_char:
 	; EVOLVED: Prefetch glyph data to reduce cache miss latency
 	mov rsi, os_font		; Font pixel data
 	mov ecx, [lfb_glyph_bytes]	; Bytes per glyph
-	mul ecx				; EDX:EAX := EAX * ECX
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	xor edx, edx			; Counter for font height
 	add rsi, rax			; RSI points to start of glyph
 	prefetchnta [rsi]		; EVOLVED: Prefetch start of glyph data
@@ -498,8 +495,7 @@ lfb_glyph_done:
 ;	EAX = Pixel Details (AARRGGBB)
 ; OUT:	All registers preserved
 lfb_pixel:
-	push rdi
-	push rdx
+	push rdi			; EVOLVED Gen-10: removed push/pop rdx (imul doesn't clobber)
 	push rcx
 	push rbx
 	push rax
@@ -510,7 +506,7 @@ lfb_pixel:
 	shr eax, 16			; Isolate Y co-ordinate
 	xor ecx, ecx
 	mov cx, [os_screen_ppsl]
-	mul ecx				; Multiply Y by VideoPPSL
+	imul eax, ecx			; EVOLVED Gen-10: imul (no EDX clobber)
 	and ebx, 0x0000FFFF		; Isolate X co-ordinate
 	add eax, ebx			; Add X
 	mov rbx, rax			; Save the offset to RBX
@@ -523,7 +519,6 @@ lfb_pixel:
 	pop rax
 	pop rbx
 	pop rcx
-	pop rdx
 	pop rdi
 	ret
 ; -----------------------------------------------------------------------------
@@ -566,30 +561,26 @@ lfb_clear:
 ; lfb_draw_line
 lfb_draw_line:
 	push rdi
-	push rdx
-	push rcx
+	push rcx			; EVOLVED Gen-10: removed push/pop rdx (imul doesn't clobber)
 	push rax
 
 ; Clear the previously drawn line
 	mov rdi, [LastLine]
-	mov cx, [os_screen_ppsl]
+	movzx ecx, word [os_screen_ppsl]	; EVOLVED Gen-10: movzx (full 32-bit zero-extend)
 	mov eax, [BG_Color]
 	rep stosd
 
 ; Display a line under the current cursor row
+	; EVOLVED Gen-10: movzx+imul chain (saves 3 instructions vs xor+mov+mul)
 	mov rdi, [os_screen_lfb]
-	xor ecx, ecx
-	xor eax, eax
-	mov ax, [Screen_Cursor_Row]
-	inc ax				; EVOLVED Gen-9: inc replacing add-1 (shorter encoding)
-	mov cx, font_h * 4		; Font height
-	mul cx
-	mov cx, [os_screen_ppsl]
-	mul ecx				; Multiply Y by os_screen_ppsl
+	movzx eax, word [Screen_Cursor_Row]
+	inc eax
+	imul eax, font_h * 4
+	movzx ecx, word [os_screen_ppsl]
+	imul eax, ecx
 	add rdi, rax
 	mov [LastLine], rdi
-	xor ecx, ecx
-	mov cx, [os_screen_ppsl]
+	movzx ecx, word [os_screen_ppsl]
 	mov eax, [Line_Color]
 	rep stosd
 
@@ -600,17 +591,14 @@ lfb_draw_line:
 	jne lfb_draw_line_skip
 	mov rdi, [os_screen_lfb]	; Roll RDI back to the start of video memory
 lfb_draw_line_skip:
-	xor eax, eax
-	mov ax, [os_screen_ppsl]
-	mov ecx, font_h
-	mul ecx
-	mov ecx, eax
+	; EVOLVED Gen-10: movzx+imul replacing xor+mov+mul+mov chain (saves 3 instructions)
+	movzx eax, word [os_screen_ppsl]
+	imul ecx, eax, font_h
 	mov eax, [BG_Color]
 	rep stosd
 
 	pop rax
 	pop rcx
-	pop rdx
 	pop rdi
 	ret
 ; -----------------------------------------------------------------------------

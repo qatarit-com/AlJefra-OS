@@ -85,9 +85,7 @@ os_hpet_init_error:
 hpet_ns:
 	push rdx
 	push rcx
-
-	xor edx, edx
-
+	; EVOLVED Gen-10: removed dead xor edx (overwritten by mul rcx)
 	; Read Main Counter
 	mov ecx, HPET_MAIN_COUNTER
 	call hpet_read			; Read HPET Main Counter to RAX
@@ -123,11 +121,12 @@ hpet_read:
 ;  IN:	ECX = Register to write
 ;	RAX = Value to write
 ; OUT:	All registers preserved
+; EVOLVED Gen-10: indexed addressing (matches hpet_read pattern)
 hpet_write:
-	push rcx
-	add rcx, [os_HPET_Address]
-	mov [rcx], rax
-	pop rcx
+	push rsi
+	mov rsi, [os_HPET_Address]
+	mov [rsi + rcx], rax
+	pop rsi
 	ret
 ; -----------------------------------------------------------------------------
 

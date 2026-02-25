@@ -11,29 +11,24 @@
 ;  IN:	AL = CPU #
 ; OUT:	Nothing. All registers preserved.
 ; Note:	This code resets an AP for set-up use only.
+; EVOLVED Gen-10: Inline APIC read/write (eliminates 3 call/ret pairs)
 b_smp_reset:
-	push rcx
+	push rsi
 	push rax
-
+	mov rsi, [os_LocalAPICAddress]
 	cli
-b_smp_reset_wait:
-	pause				; EVOLVED: Reduce power and cache thrashing in spin-wait
-	mov ecx, APIC_ICRL
-	call os_apic_read
+.wait:
+	pause
+	mov eax, [rsi + APIC_ICRL]
 	bt eax, 12		; Check if Delivery Status is 0 (Idle)
-	jc b_smp_reset_wait	; If not, wait - a send is already pending
+	jc .wait		; If not, wait - a send is already pending
 	mov rax, [rsp]		; Retrieve CPU APIC # from the stack
-	mov ecx, APIC_ICRH
-	shl eax, 24		; AL holds the CPU APIC #, shift left 24 bits to get it into 31:24, 23:0 are reserved
-	call os_apic_write	; Write to the high bits first
-	mov ecx, APIC_ICRL
-	xor eax, eax		; Clear EAX, namely bits 31:24
-	mov al, 0x81		; Execute interrupt 0x81
-	call os_apic_write	; Then write to the low bits
+	shl eax, 24		; Shift APIC ID into bits 31:24
+	mov [rsi + APIC_ICRH], eax	; Write to the high bits first
+	mov dword [rsi + APIC_ICRL], 0x81	; Execute interrupt 0x81
 	sti
-
 	pop rax
-	pop rcx
+	pop rsi
 	ret
 ; -----------------------------------------------------------------------------
 
@@ -42,29 +37,24 @@ b_smp_reset_wait:
 ; b_smp_wakeup -- Wake up a CPU Core
 ;  IN:	AL = CPU #
 ; OUT:	Nothing. All registers preserved.
+; EVOLVED Gen-10: Inline APIC read/write (eliminates 3 call/ret pairs)
 b_smp_wakeup:
-	push rcx
+	push rsi
 	push rax
-
+	mov rsi, [os_LocalAPICAddress]
 	cli
-b_smp_wakeup_wait:
-	pause				; EVOLVED: Reduce power in spin-wait
-	mov ecx, APIC_ICRL
-	call os_apic_read
+.wait:
+	pause
+	mov eax, [rsi + APIC_ICRL]
 	bt eax, 12		; Check if Delivery Status is 0 (Idle)
-	jc b_smp_wakeup_wait	; If not, wait - a send is already pending
+	jc .wait		; If not, wait - a send is already pending
 	mov rax, [rsp]		; Retrieve CPU APIC # from the stack
-	mov ecx, APIC_ICRH
-	shl eax, 24		; AL holds the CPU APIC #, shift left 24 bits to get it into 31:24, 23:0 are reserved
-	call os_apic_write	; Write to the high bits first
-	mov ecx, APIC_ICRL
-	xor eax, eax		; Clear EAX, namely bits 31:24
-	mov al, 0x80		; Execute interrupt 0x81
-	call os_apic_write	; Then write to the low bits
+	shl eax, 24		; Shift APIC ID into bits 31:24
+	mov [rsi + APIC_ICRH], eax	; Write to the high bits first
+	mov dword [rsi + APIC_ICRL], 0x80	; Execute interrupt 0x80
 	sti
-
 	pop rax
-	pop rcx
+	pop rsi
 	ret
 ; -----------------------------------------------------------------------------
 
@@ -73,27 +63,22 @@ b_smp_wakeup_wait:
 ; b_smp_wakeup_all -- Wake up all CPU Cores
 ;  IN:	Nothing.
 ; OUT:	Nothing. All registers preserved.
+; EVOLVED Gen-10: Inline APIC read/write (eliminates 3 call/ret pairs)
 b_smp_wakeup_all:
-	push rcx
+	push rsi
 	push rax
-
+	mov rsi, [os_LocalAPICAddress]
 	cli
-b_smp_wakeup_all_wait:
-	pause				; EVOLVED: Reduce power in spin-wait
-	mov ecx, APIC_ICRL
-	call os_apic_read
+.wait:
+	pause
+	mov eax, [rsi + APIC_ICRL]
 	bt eax, 12		; Check if Delivery Status is 0 (Idle)
-	jc b_smp_wakeup_all_wait	; If not, wait - a send is already pending
-	mov ecx, APIC_ICRH
-	xor eax, eax
-	call os_apic_write	; Write to the high bits first
-	mov ecx, APIC_ICRL
-	mov eax, 0x000C0080	; Execute interrupt 0x80 on All Excluding Self (0xC)
-	call os_apic_write	; Then write to the low bits
+	jc .wait		; If not, wait - a send is already pending
+	mov dword [rsi + APIC_ICRH], 0		; Clear destination (broadcast)
+	mov dword [rsi + APIC_ICRL], 0x000C0080	; All Excluding Self, INT 0x80
 	sti
-
 	pop rax
-	pop rcx
+	pop rsi
 	ret
 ; -----------------------------------------------------------------------------
 
@@ -102,14 +87,11 @@ b_smp_wakeup_all_wait:
 ; b_smp_get_id -- Returns the APIC ID of the CPU that ran this function
 ;  IN:	Nothing
 ; OUT:	RAX = CPU's APIC ID number, All other registers preserved.
+; EVOLVED Gen-10: Inline APIC read (eliminates call + push/pop overhead)
 b_smp_get_id:
-	push rcx
-
-	mov ecx, APIC_ID
-	call os_apic_read	; Write to the high bits first
-	shr rax, 24		; AL now holds the CPU's APIC ID (0 - 255)
-
-	pop rcx
+	mov rax, [os_LocalAPICAddress]
+	mov eax, [rax + APIC_ID]
+	shr eax, 24		; AL now holds the CPU's APIC ID (0 - 255)
 	ret
 ; -----------------------------------------------------------------------------
 

@@ -69,8 +69,7 @@ int_keyboard:
 ; EVOLVED: Targeted wakeup instead of broadcast storm
 align 8
 int_serial:
-	push rcx
-	push rax
+	push rax			; EVOLVED Gen-10: removed dead push/pop rcx (callee-save convention)
 
 	call serial_interrupt		; Call interrupt code in serial driver
 
@@ -84,7 +83,6 @@ int_serial:
 	call b_smp_wakeup
 
 	pop rax
-	pop rcx
 	iretq
 ; -----------------------------------------------------------------------------
 
@@ -130,15 +128,12 @@ hpet:
 
 ; EVOLVED: Wake a single idle core for pending work
 hpet_wake_idle_core:
-	push rsi
-	push rcx			; EVOLVED Gen-6: removed unused push rdi
+	push rsi			; EVOLVED Gen-10: removed push/pop rcx (caller saves it)
 
 	mov rsi, os_SMP
 	xor ecx, ecx			; Core counter
 	align 16			; EVOLVED Gen-6: align hot scan loop
-.scan:
-	cmp ecx, 256
-	jge .scan_done
+.scan:					; EVOLVED Gen-10: bottom-test loop (saves 1 jmp)
 	mov rax, [rsi]
 	test al, 1			; EVOLVED Gen-8: test replacing bt (shorter encoding)
 	jnc .next
@@ -152,9 +147,9 @@ hpet_wake_idle_core:
 .next:
 	add rsi, 8
 	inc ecx
-	jmp .scan
+	cmp ecx, 256
+	jl .scan
 .scan_done:
-	pop rcx				; EVOLVED Gen-6: removed unused pop rdi
 	pop rsi
 	ret
 ; -----------------------------------------------------------------------------
