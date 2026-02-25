@@ -90,8 +90,8 @@ msix_init_create_entry:
 	stosd				; Store Message Data
 	xor eax, eax			; Bits 31:1 are reserved, Masked (0) - 1 for masked
 	stosd				; Store Vector Control
-	dec cx
-	jnz msix_init_create_entry	; EVOLVED: dec sets ZF directly, no cmp needed
+	dec ecx				; EVOLVED Gen-7: 32-bit dec (avoids partial register stall, Exp-B)
+	jnz msix_init_create_entry
 
 	; Unmask MSI-X via bus
 	pop rdx				; Restore packed bus address

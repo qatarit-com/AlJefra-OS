@@ -206,3 +206,189 @@ QEMU 9.2.1 monitor - type 'help' for more information
   [22/64] os_ioapic_read                 6 instrs [0x0e9b-0x0eab] → 50K iters
     [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xe9b-0xeab]
     [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.98
+    Security: fragility=2.6% worst=66.98 avg_muts=781
+    no improvement (66.98)
+  [23/64] serial_init                    5 instrs [0x1218-0x1231] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1218-0x1231]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.98
+    Security: fragility=2.6% worst=66.98 avg_muts=0 [DEAD CODE?]
+    no improvement (66.98)
+  [24/64] ps2_wait_read                  5 instrs [0x117b-0x1186] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x117b-0x1186]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.98
+    Security: fragility=2.6% worst=66.98 avg_muts=0 [DEAD CODE?]
+    no improvement (66.98)
+  [25/64] serial_send_ready              5 instrs [0x1257-0x125f] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1257-0x125f]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.98
+    Security: fragility=2.6% worst=66.98 avg_muts=1367
+    no improvement (66.98)
+  [26/64] ps2_flush                      5 instrs [0x1186-0x1192] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1186-0x1192]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.98
+    Security: fragility=2.6% worst=66.98 avg_muts=0 [DEAD CODE?]
+    no improvement (66.98)
+  [27/64] serial_interrupt               5 instrs [0x1284-0x1293] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1284-0x1293]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=66.98
+    Security: fragility=2.6% worst=66.98 avg_muts=1459
+    no improvement (66.98)
+  [28/64] ps2wait_loop                   5 instrs [0x1197-0x11a1] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1197-0x11a1]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.05
+    Security: fragility=3.8% worst=66.13 avg_muts=2187
+    Optimize: 66.98 → 67.05 (+0.07, +0.11%)
+    ACCEPTED ✓ (cumulative fitness: 67.05)
+  [29/64] os_apic_write                  5 instrs [0x0e72-0x0e7f] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xe72-0xe7f]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.05
+    Security: fragility=2.5% worst=67.05 avg_muts=962
+    no improvement (67.05)
+  [30/64] ps2_read_data                  5 instrs [0x1165-0x1171] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1165-0x1171]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.05
+    Security: fragility=3.8% worst=66.18 avg_muts=911
+    no improvement (67.05)
+  [31/64] os_timer_init_kvm              4 instrs [0x12db-0x12fa] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x12db-0x12fa]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.07
+    Security: fragility=2.9% worst=66.80 avg_muts=706
+    Optimize: 67.05 → 67.07 (+0.02, +0.03%)
+    ACCEPTED ✓ (cumulative fitness: 67.07)
+  [32/64] keyboard_processkey            4 instrs [0x10fd-0x110b] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x10fd-0x110b]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.07
+    Security: fragility=2.6% worst=67.01 avg_muts=2455
+    no improvement (67.07)
+  [33/64] serial_recv_nochar             3 instrs [0x1278-0x127c] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1278-0x127c]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.07
+    Security: fragility=2.5% worst=67.07 avg_muts=2734
+    no improvement (67.07)
+  [34/64] keyboard_done                  3 instrs [0x1162-0x1165] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1162-0x1165]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.07
+    Security: fragility=2.5% worst=67.07 avg_muts=0 [DEAD CODE?]
+    no improvement (67.07)
+  [35/64] serial_init_skip_arch          3 instrs [0x1231-0x1247] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1231-0x1247]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.10
+    Security: fragility=2.5% worst=67.06 avg_muts=3971
+    Optimize: 67.07 → 67.10 (+0.04, +0.05%)
+    ACCEPTED ✓ (cumulative fitness: 67.10)
+  [36/64] os_ioapic_redirection_error    3 instrs [0x0f0a-0x0f0d] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xf0a-0xf0d]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.07
+    Security: fragility=2.4% worst=67.07 avg_muts=0 [DEAD CODE?]
+    no improvement (67.07)
+  [37/64] ps2_send_cmd                   3 instrs [0x1171-0x117a] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0x1171-0x117a]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.09
+    Security: fragility=2.4% worst=67.03 avg_muts=1215
+    no improvement (67.09)
+  [38/64] os_apic_read                   3 instrs [0x0e66-0x0e72] → 50K iters
+    [GPU] 65536 threads x 50000 iters = 3276.8M evals | range [0xe66-0xe72]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=67.20
+    Security: fragility=3.6% worst=66.24 avg_muts=1953
+    Optimize: 67.10 → 67.20 (+0.10, +0.15%)
+    ACCEPTED ✓ (cumulative fitness: 67.20)
+  [39/64] keyboard_noshift               SKIP (too small)
+  [40/64] serial_send                    SKIP (too small)
+  [41/64] keyboard_uppercase             SKIP (too small)
+  [42/64] keydown                        SKIP (too small)
+  [43/64] keyboard_left                  SKIP (too small)
+  [44/64] serial_recv_done               SKIP (too small)
+  [45/64] keyboard_right                 SKIP (too small)
+  [46/64] serial_recv_enter              SKIP (too small)
+  [47/64] serial_recv_backspace          SKIP (too small)
+  [48/64] keyboard_up                    SKIP (too small)
+  [49/64] keyboard_down                  SKIP (too small)
+  [50/64] keyboard_control               SKIP (too small)
+  [51/64] keyboard_nocontrol             SKIP (too small)
+  [52/64] keyboard_shift                 SKIP (too small)
+  [53/64] keyup                          SKIP (too small)
+  [54/64] init_64_no_ps2keyboard         SKIP (too small)
+  [55/64] ps2_wait                       SKIP (too small)
+  [56/64] keyboard_lowercase             SKIP (too small)
+  [57/64] serial_init_error              SKIP (too small)
+  [58/64] ps2_init_error                 SKIP (too small)
+  [59/64] ps2wait                        SKIP (too small)
+  [60/64] keyboard_escape                SKIP (too small)
+  [61/64] os_timer_init_error            SKIP (too small)
+  [62/64] os_timer_init_done             SKIP (too small)
+  [63/64] ps2wait_done                   SKIP (too small)
+  [64/64] os_hpet_init_error             SKIP (too small)
+
+  ╔══════════════════════════════════════════════════════════════╗
+  ║              SECURITY & VULNERABILITY REPORT                ║
+  ╚══════════════════════════════════════════════════════════════╝
+
+  Summary: 38 analyzed | 0 critical | 5 fragile | 0 robust | 10 dead code
+
+  🟡 FRAGILE (5-15% fitness drop):
+     ps2_init                       fragility=  6.3% (36 instrs, 150 bytes)
+     ps2_keyboard_interrupt         fragility=  5.8% (29 instrs, 56 bytes)
+     msix_init_enable               fragility=  5.8% (23 instrs, 72 bytes)
+     msix_init_create_entry         fragility=  5.5% (23 instrs, 51 bytes)
+     msi_init_enable                fragility=  5.1% (21 instrs, 84 bytes)
+
+  ⚪ DEAD CODE (no mutations applied — possibly data or unreachable):
+     keylayoutlower                 (23 instrs, 59 bytes)
+     keylayoutupper                 (23 instrs, 59 bytes)
+     msix_init_error                (8 instrs, 9 bytes)
+     msi_init_done                  (6 instrs, 6 bytes)
+     msi_init_error                 (6 instrs, 6 bytes)
+     ps2_flush                      (5 instrs, 12 bytes)
+     serial_init                    (5 instrs, 25 bytes)
+     ps2_wait_read                  (5 instrs, 11 bytes)
+     keyboard_done                  (3 instrs, 3 bytes)
+     os_ioapic_redirection_error    (3 instrs, 3 bytes)
+
+  🟢 MOST ROBUST (< 1% fitness drop):
+
+  ── Optimization Results ──
+    ✓ ps2_init                       +0.35%
+    ✓ msix_init_enable               +0.27%
+    ✓ msix_init_create_entry         +0.39%
+    ✓ msi_init_enable                +0.40%
+    ✓ os_ioapic_redirection          +0.50%
+    ✓ init_timer_hpet                +0.12%
+    ✓ os_ioapic_init                 +0.18%
+    ✓ ps2wait_loop                   +0.11%
+    ✓ os_apic_read                   +0.15%
+    ✓ os_timer_init_phys             +0.04%
+    ✓ os_ioapic_mask_clear           +0.04%
+    ✓ os_timer_init_kvm              +0.03%
+    ✓ serial_init_skip_arch          +0.05%
+
+  ── Final QEMU Validation ──
+  13 functions improved, testing evolved kernel...
+QEMU 9.2.1 monitor - type 'help' for more information
+(qemu)   QEMU score: 0.0000
+
+=== GPU Evolution Complete: interrupts ===
+  Functions analyzed: 64
+  Functions improved: 13
+  Final GPU fitness: 67.20
+  Breakthroughs: 0
+
+========================================
+Total breakthroughs: 0
+Results saved to: experiment_b/results/

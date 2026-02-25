@@ -27,8 +27,7 @@ b_input_no_key:
 ;	RCX = number of chars to output
 ; OUT:	All registers preserved
 b_output:
-	call [0x00100018]		; Call kernel function in table
-	ret
+	jmp [0x00100018]		; EVOLVED Gen-7: tail-call
 ; -----------------------------------------------------------------------------
 
 
@@ -53,7 +52,7 @@ b_output_serial_next:
 	mov al, 10
 b_output_serial_send:
 	call serial_send		; Output it via serial
-	dec cx				; Decrement the counter
+	dec ecx				; EVOLVED Gen-7: 32-bit dec (avoids partial register stall)
 	jnz b_output_serial_next	; Loop if counter isn't zero
 
 	pop rax

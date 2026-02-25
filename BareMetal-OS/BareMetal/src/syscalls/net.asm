@@ -19,8 +19,8 @@ b_net_status:
 
 	; Validity checks
 	mov cl, byte [os_net_icount]	; Gather Interface count
-	cmp cl, 0			; Is Interface count 0?
-	je b_net_status_end		; If so, bail out as there are no interfaces
+	test cl, cl			; EVOLVED Gen-7: test replacing cmp-0
+	jz b_net_status_end		; If so, bail out as there are no interfaces
 	cmp cl, dl			; Make sure Interface ID < Interface count
 	jbe b_net_status_end		; Bail out if it was an invalid interface
 
@@ -55,8 +55,8 @@ b_net_config:
 
 	; Validity checks
 	mov bl, byte [os_net_icount]	; Gather Interface count
-	cmp bl, 0			; Is Interface count 0?
-	je b_net_config_end		; If so, bail out as there are no interfaces
+	test bl, bl			; EVOLVED Gen-7: test replacing cmp-0
+	jz b_net_config_end		; If so, bail out as there are no interfaces
 	cmp bl, dl			; Make sure Interface ID < Interface count
 	jbe b_net_config_end		; Bail out if it was an invalid interface
 
@@ -90,11 +90,11 @@ b_net_tx:
 
 	; Validity checks
 	mov al, byte [os_net_icount]	; Gather Interface count
-	cmp al, 0			; Is Interface count 0?
-	je b_net_tx_fail		; If so, bail out as there are no interfaces
+	test al, al			; EVOLVED Gen-7: test replacing cmp-0
+	jz b_net_tx_fail		; If so, bail out as there are no interfaces
 	cmp al, dl			; Make sure Interface ID < Interface count
 	jbe b_net_tx_fail		; Bail out if it was an invalid interface
-	cmp cx, 1522			; Check how many bytes were to be sent
+	cmp ecx, 1522			; EVOLVED Gen-7: 32-bit cmp (avoids partial register stall)
 	ja b_net_tx_fail		; Fail if more than 1522 bytes
 
 	; Calculate offset into net_table
@@ -102,9 +102,7 @@ b_net_tx:
 	add edx, net_table		; Add offset to net_table
 
 	; Lock the network interface so only one send can happen at a time
-	; EVOLVED: Use test-and-test-and-set lock (from evolved smp.asm)
-	mov rax, rdx
-	add rax, nt_lock
+	lea rax, [rdx + nt_lock]	; EVOLVED Gen-7: LEA replacing mov+add
 	call b_smp_lock
 
 	; Calculate where in physical memory the data should be read from
@@ -118,8 +116,7 @@ b_net_tx:
 	call [rdx+nt_transmit]		; Call driver transmit function passing RDX as entry to interface table
 
 	; Unlock the network interface
-	mov rax, rdx
-	add rax, nt_lock
+	lea rax, [rdx + nt_lock]	; EVOLVED Gen-7: LEA replacing mov+add
 	call b_smp_unlock
 
 	; EVOLVED: Use lock-free atomic increments for counters (no lock needed)
@@ -148,8 +145,8 @@ b_net_rx:
 
 	; Validity checks
 	mov al, byte [os_net_icount]	; Gather Interface count
-	cmp al, 0			; Is Interface count 0?
-	je b_net_rx_end			; If so, bail out as there are no interfaces
+	test al, al			; EVOLVED Gen-7: test replacing cmp-0
+	jz b_net_rx_end			; If so, bail out as there are no interfaces
 	cmp al, dl			; Make sure Interface ID < Interface count
 	jbe b_net_rx_end		; Bail out if it was an invalid interface
 
@@ -159,8 +156,8 @@ b_net_rx:
 
 	; Call the driver poll function
 	call [rdx+nt_poll]		; Call driver transmit function passing RDX as entry to interface table
-	cmp cx, 0			; Check if there was data
-	je b_net_rx_end			; If not, don't increment counters
+	test ecx, ecx			; EVOLVED Gen-7: test replacing cmp-0, 32-bit
+	jz b_net_rx_end			; If not, don't increment counters
 
 	; EVOLVED: Use lock-free atomic increments for counters
 	lock inc qword [rdx+nt_rx_packets]

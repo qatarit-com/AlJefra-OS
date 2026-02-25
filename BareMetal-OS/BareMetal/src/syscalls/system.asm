@@ -15,7 +15,7 @@
 ;	All other registers preserved
 ; EVOLVED: Bounds check extended, fast-path for common syscalls
 b_system:
-	cmp rcx, 0x90			; Extended range for GPU functions
+	cmp ecx, 0x90			; EVOLVED Gen-7: 32-bit cmp (saves REX prefix)
 	jae b_system_end
 
 	; EVOLVED: Fast-path for the most common syscalls (avoid table lookup)
@@ -37,8 +37,7 @@ b_system_end:
 ; Basic
 
 b_system_timecounter:
-	call [sys_timer]
-	ret
+	jmp [sys_timer]			; EVOLVED Gen-7: tail-call
 
 b_system_free_memory:
 	mov eax, [os_MemAmount]
@@ -47,38 +46,30 @@ b_system_free_memory:
 ; CPU
 
 b_system_smp_get_id:
-	call b_smp_get_id
-	ret
+	jmp b_smp_get_id		; EVOLVED Gen-7: tail-call
 
 b_system_smp_numcores:
-	xor eax, eax
-	mov ax, [os_NumCores]
+	movzx eax, word [os_NumCores]	; EVOLVED Gen-7: movzx replacing xor+mov
 	ret
 
 b_system_smp_set:
 	mov rcx, rdx
-	call b_smp_set
-	ret
+	jmp b_smp_set			; EVOLVED Gen-7: tail-call
 
 b_system_smp_get:
-	call b_smp_get
-	ret
+	jmp b_smp_get			; EVOLVED Gen-7: tail-call
 
 b_system_smp_lock:
-	call b_smp_lock
-	ret
+	jmp b_smp_lock			; EVOLVED Gen-7: tail-call
 
 b_system_smp_unlock:
-	call b_smp_unlock
-	ret
+	jmp b_smp_unlock		; EVOLVED Gen-7: tail-call
 
 b_system_smp_busy:
-	call b_smp_busy
-	ret
+	jmp b_smp_busy			; EVOLVED Gen-7: tail-call
 
 b_system_tsc:
-	call b_tsc
-	ret
+	jmp b_tsc			; EVOLVED Gen-7: tail-call
 
 ; Video
 
@@ -87,44 +78,36 @@ b_system_screen_lfb_get:
 	ret
 
 b_system_screen_x_get:
-	xor eax, eax
-	mov ax, [os_screen_x]
+	movzx eax, word [os_screen_x]	; EVOLVED Gen-7: movzx replacing xor+mov
 	ret
 
 b_system_screen_y_get:
-	xor eax, eax
-	mov ax, [os_screen_y]
+	movzx eax, word [os_screen_y]	; EVOLVED Gen-7: movzx replacing xor+mov
 	ret
 
 b_system_screen_ppsl_get:
-	xor eax, eax
-	mov ax, [os_screen_ppsl]
+	movzx eax, word [os_screen_ppsl] ; EVOLVED Gen-7: movzx replacing xor+mov
 	ret
 
 b_system_screen_bpp_get:
-	xor eax, eax
-	mov ax, [os_screen_bpp]
+	movzx eax, word [os_screen_bpp]	; EVOLVED Gen-7: movzx replacing xor+mov
 	ret
 
 ; Network
 
 b_system_net_status:
-	call b_net_status
-	ret
+	jmp b_net_status		; EVOLVED Gen-7: tail-call
 
 b_system_net_config:
-	call b_net_config
-	ret
+	jmp b_net_config		; EVOLVED Gen-7: tail-call
 
 ; Bus
 
 b_system_pci_read:
-	call os_bus_read
-	ret
+	jmp os_bus_read			; EVOLVED Gen-7: tail-call
 
 b_system_pci_write:
-	call os_bus_write
-	ret
+	jmp os_bus_write		; EVOLVED Gen-7: tail-call
 
 ; Standard Output
 
@@ -156,12 +139,10 @@ b_system_debug_dump_mem:
 	ret
 
 b_system_debug_dump_rax:
-	call os_debug_dump_rax
-	ret
+	jmp os_debug_dump_rax		; EVOLVED Gen-7: tail-call
 
 b_system_delay:
-	call [sys_delay]
-	ret
+	jmp [sys_delay]			; EVOLVED Gen-7: tail-call
 
 b_system_reset:
 	xor eax, eax
@@ -169,14 +150,14 @@ b_system_reset:
 	mov rbx, rax
 	mov esi, 0x00005100		; Location in memory of the Pure64 CPU data
 b_system_reset_next_ap:
-	test cx, cx
+	test ecx, ecx			; EVOLVED Gen-7: 32-bit test (avoids partial register stall)
 	jz b_system_reset_no_more_aps
 	lodsb				; Load the CPU APIC ID
 	cmp al, bl
 	je b_system_reset_skip_ap
 	call b_smp_reset		; Reset the CPU
 b_system_reset_skip_ap:
-	dec cx
+	dec ecx				; EVOLVED Gen-7: 32-bit dec (avoids partial register stall)
 	jmp b_system_reset_next_ap
 b_system_reset_no_more_aps:
 	int 0x81			; Reset this core
@@ -204,8 +185,7 @@ b_system_shutdown:
 ; Note:	There are 1,000,000 microseconds in a second
 ;	There are 1,000 milliseconds in a second
 b_delay:
-	call timer_delay
-	ret
+	jmp timer_delay			; EVOLVED Gen-7: tail-call
 ; -----------------------------------------------------------------------------
 
 
@@ -257,10 +237,8 @@ os_virt_to_phys:
 	and rbx, 0x1FFFFF		; Save the low 20 bits
 	mov r15, 0x7FFFFFFFFFFF
 	and rax, r15
-	mov r15, sys_pdh		; Location of virtual memory PDs
 	shr rax, 21			; Convert 2MB page to entry
-	shl rax, 3
-	add r15, rax
+	lea r15, [sys_pdh + rax*8]	; EVOLVED Gen-7: LEA replaces shl+add (1 uop vs 2)
 	mov rax, [r15]			; Load the entry into RAX
 	shr rax, 8			; Clear the low 8 bits
 	shl rax, 8

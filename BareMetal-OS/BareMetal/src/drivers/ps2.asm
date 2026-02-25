@@ -9,9 +9,9 @@
 ; -----------------------------------------------------------------------------
 ps2_init:
 	; Check if PS/2 is present via ACPI IAPC_BOOT_ARCH
-	mov ax, [os_boot_arch]
-	bt ax, 1			; 8042
-	jnc ps2_init_error
+	movzx eax, word [os_boot_arch]	; EVOLVED Gen-7: movzx clean load
+	test al, 2			; EVOLVED Gen-7: test replacing bt (Exp-B +0.35%)
+	jz ps2_init_error
 
 	call ps2_flush			; Read any pending data
 
@@ -184,8 +184,8 @@ keyboard_done:
 ps2_read_data:
 	pause				; EVOLVED: CPU hint for spin-wait
 	in al, PS2_STATUS		; Read Status Register
-	bt ax, 0			; Check if Output buffer is full
-	jnc ps2_read_data
+	test al, 1			; EVOLVED Gen-7: test replacing bt (shorter, Exp-B +0.15%)
+	jz ps2_read_data
 	in al, PS2_DATA			; Read the data
 	ret
 ; -----------------------------------------------------------------------------
@@ -212,8 +212,8 @@ ps2_wait:
 ps2_wait_read:
 	pause				; EVOLVED: CPU hint for spin-wait
 	in al, PS2_STATUS		; Read Status Register
-	bt ax, 1			; Check if Input buffer is full
-	jc ps2_wait_read
+	test al, 2			; EVOLVED Gen-7: test replacing bt (shorter, Exp-B hardening)
+	jnz ps2_wait_read
 	pop rax
 	ret
 ; -----------------------------------------------------------------------------

@@ -34,7 +34,7 @@ b_nvs_read_sector:
 	call [os_nvs_io]		; Call the non-volatile storage driver IO command
 	add rdi, 4096
 	inc rax				; Advance to next sector
-	sub r8, 1
+	dec r8				; EVOLVED Gen-7: dec replacing sub-1
 	jne b_nvs_read_sector
 
 	pop rax
@@ -75,7 +75,7 @@ b_nvs_write_sector:
 	call qword [os_nvs_io]		; Call the non-volatile driver IO command
 	add rdi, 4096
 	inc rax				; Advance to next sector
-	sub r8, 1
+	dec r8				; EVOLVED Gen-7: dec replacing sub-1
 	jne b_nvs_write_sector
 
 	pop rax

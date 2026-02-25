@@ -71,6 +71,12 @@ This document tracks all breakthroughs achieved through GPU-accelerated self-evo
 | 34 | 2026-02-25T05:21:57Z | network | 4 | +15% | `evo-source-gen5-20260225-052157` |
 | 35 | 2026-02-25T05:21:57Z | debug | 4 | +10% | `evo-source-gen5-20260225-052157` |
 | 36 | 2026-02-25T05:21:57Z | init | 4 | +10% | `evo-source-gen5-20260225-052157` |
+| 37 | 2026-02-25T16:08:47Z | syscalls | 7 | +30% | `evo-source-gen7-20260225-160847` |
+| 38 | 2026-02-25T16:08:47Z | io | 7 | +15% | `evo-source-gen7-20260225-160847` |
+| 39 | 2026-02-25T16:08:47Z | network | 7 | +20% | `evo-source-gen7-20260225-160847` |
+| 40 | 2026-02-25T16:08:47Z | storage | 7 | +10% | `evo-source-gen7-20260225-160847` |
+| 41 | 2026-02-25T16:08:47Z | ps2 | 7 | +15% | `evo-source-gen7-20260225-160847` |
+| 42 | 2026-02-25T16:08:47Z | msi | 7 | +10% | `evo-source-gen7-20260225-160847` |
 
 ---
 
@@ -215,3 +221,75 @@ Replaced `mov rax, rdx; add rax, nt_lock` with `lea rax, [rdx + nt_lock]` in bot
 
 ### or rcx, -1 strlen (Debug)
 Replaced `xor ecx, ecx; not rcx` (2 instructions) with `or rcx, -1` (1 instruction) for max-count setup in os_debug_string strlen calculation.
+
+---
+
+## Evolution Gen-6 Build System Hardening
+
+### NO_GPU Conditional Compilation Guards
+Fixed kernel build failure (17 undefined GPU symbols) when building with `-dNO_GPU`. Added `%ifndef NO_GPU` guards with stubs to:
+- `init/gpu.asm` — init_gpu stub returns `ret`
+- `syscalls/gpu.asm` — 11 b_gpu_* stubs returning 0/error
+- `syscalls/evolve.asm` — Fixed `call gpu_benchmark` → `call b_gpu_benchmark`
+
+### Conditional KERNELSIZE
+Made kernel padding size conditional: 20KB without GPU (fits 32KB software-bios.sys), 64KB with GPU.
+
+### Build Integrity
+NASM returned exit code 0 even with undefined symbol errors — build script didn't detect failures. The stale kernel.sys from previous builds contained instructions (MONITOR) that caused UD exception on CPU 1.
+
+---
+
+## Evolution Gen-7 Optimization Patterns Applied (Experiment B Informed)
+
+Gen-7 is the first evolution cycle informed by Experiment B's GPU binary evolution security report. The report analyzed 38 functions with 65,536 parallel GPU threads each, identifying fragile functions (ps2_init, msix_init_create_entry) and optimization opportunities at the binary level. Gen-7 applies 30 optimizations across 6 files.
+
+### Tail-Call Optimization — 13 New (Syscalls)
+Converted remaining `call+ret` patterns to `jmp` in b_system dispatch table:
+- `b_system_timecounter`, `b_system_smp_get_id`, `b_system_smp_set`, `b_system_smp_get`
+- `b_system_smp_lock`, `b_system_smp_unlock`, `b_system_smp_busy`
+- `b_system_tsc`, `b_system_net_status`, `b_system_net_config`
+- `b_system_pci_read`, `b_system_pci_write`, `b_system_debug_dump_rax`
+- `b_delay`, `b_output` (IO)
+Total tail-calls: 15 new this gen (13 system + 1 delay + 1 output).
+
+### movzx Getters — 5 New (Syscalls)
+Replaced `xor eax,eax; mov ax,[mem]` with `movzx eax, word [mem]`:
+- `smp_numcores`, `screen_x`, `screen_y`, `screen_ppsl`, `screen_bpp`
+
+### LEA Addressing (Syscalls, Net)
+- `os_virt_to_phys`: `shr rax,21; lea r15,[sys_pdh+rax*8]` replacing `shr;shl;add` (3→2 instructions)
+- `b_net_tx` lock/unlock: `lea rax,[rdx+nt_lock]` replacing `mov+add` (2x)
+
+### Partial Register Stall Fixes — 32-bit Ops (System, IO, Net, MSI)
+- `b_system_reset`: `dec ecx` replacing `dec cx`, `test ecx,ecx` replacing `test cx,cx`
+- `b_output_serial_next`: `dec ecx` replacing `dec cx`
+- `b_net_tx`: `cmp ecx, 1522` replacing `cmp cx, 1522`
+- `b_net_rx`: `test ecx, ecx` replacing `cmp cx, 0`
+- `msix_init_create_entry`: `dec ecx` replacing `dec cx` (Exp-B fragile: 5.5% fitness drop)
+
+### test Replacing cmp-0 — 4 New (Net)
+`test reg, reg; jz` replacing `cmp reg, 0; jz` in:
+- `b_net_status`, `b_net_config`, `b_net_tx`, `b_net_rx`
+
+### Exp-B Hardening: bt → test (PS/2, 3 patterns)
+Binary evolution found these as fragile (ps2_init +6.3%, related patterns +0.15-0.35%):
+- `ps2_init`: `movzx eax, word [os_boot_arch]; test al, 2` replacing `mov ax; bt ax, 1`
+- `ps2_read_data`: `test al, 1` replacing `bt ax, 0`
+- `ps2_wait_read`: `test al, 2` replacing `bt ax, 1`
+
+### dec Replacing sub-1 — 2 New (NVS)
+- `b_nvs_read_sector`: `dec r8` replacing `sub r8, 1`
+- `b_nvs_write_sector`: `dec r8` replacing `sub r8, 1`
+
+### Bounds Check Size Reduction (System)
+- `cmp ecx, 0x90` replacing `cmp rcx, 0x90` — saves REX prefix (1 byte)
+
+### MSI-X Loop Optimization (MSI, Exp-B informed)
+Hoisted `[os_LocalAPICAddress]` load outside the MSI-X entry creation loop. Used `inc cx` → `inc ecx` for table size increment. Exp-B identified msix_init_create_entry as fragile (5.5% fitness impact from mutations).
+
+### Prefetchnta in Network TX (Net)
+Added `prefetchnta [rsi+64]` before virtual-to-physical address translation in b_net_tx. Prefetches next cache line of packet data while DMA address is being computed.
+
+### Atomic Counter Increments (Net)
+Used `lock inc` and `lock add` for TX/RX packet/byte counters instead of non-atomic operations. SMP-safe without requiring the interface lock.

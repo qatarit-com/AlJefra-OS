@@ -1,0 +1,82 @@
+AlJefra OS AI — Binary Evolution Engine
+========================================
+
+Checking prerequisites...
+  OK
+
+Initializing GPU...
+CUDA: Using NVIDIA GeForce RTX 5090 (170 SMs, 32109 MB VRAM)
+  GPU acceleration: ENABLED (NVIDIA GeForce RTX 5090)
+
+Loading kernel binary...
+  Loaded 20480 bytes
+
+Parsing listing file...
+  Parsed 9201 listing lines
+Decoding kernel instructions...
+  Decoded 8192 instructions
+
+Building component map...
+  Found 512 labels in listing
+  Component kernel      : 0x100000 - 0x10430f (3562 instructions, 64 functions)
+  Component memory      : 0x1001bc - 0x1003dc (138 instructions, 10 functions)
+  Component smp         : 0x100120 - 0x100d16 (220 instructions, 32 functions)
+  Component network     : 0x10058c - 0x102578 (809 instructions, 64 functions)
+  Component storage     : 0x10053a - 0x101d40 (341 instructions, 26 functions)
+  Component gpu_driver  : 0x1004be - 0x100d45 (45 instructions, 14 functions)
+  Component bus         : 0x1003dc - 0x101a66 (207 instructions, 33 functions)
+  Component interrupts  : 0x101339 - 0x1035a8 (875 instructions, 51 functions)
+  Component timer       : 0x1017d9 - 0x1019c1 (193 instructions, 24 functions)
+  Component io          : 0x100666 - 0x103028 (1177 instructions, 64 functions)
+  Component syscalls    : 0x1007af - 0x101339 (480 instructions, 64 functions)
+  Component scheduler   : 0x100ec7 - 0x101088 (145 instructions, 12 functions)
+  Found 12 active components
+
+
+=== Evolving: kernel ===
+  Region: 0x100000 - 0x10430f (3562 instructions)
+  Running baseline QEMU benchmark...
+QEMU 9.2.1 monitor - type 'help' for more information
+(qemu)   Baseline QEMU score: 0.0000
+
+  Functions sorted by cost (top 20):
+     1. kernel_start                     60 instrs  [0x0000-0x00b0] (176 bytes)
+     2. init_64                          58 instrs  [0x01bc-0x02b5] (249 bytes)
+     3. os_bus_read_bar                  54 instrs  [0x06d6-0x0764] (142 bytes)
+     4. init_gpu                         25 instrs  [0x04be-0x0517] (89 bytes)
+     5. start_payload                    22 instrs  [0x00d3-0x0120] (77 bytes)
+     6. bsp                              21 instrs  [0x014b-0x0189] (62 bytes)
+     7. make_interrupt_gate_stubs        19 instrs  [0x02e6-0x033c] (86 bytes)
+     8. init_64_vga                      15 instrs  [0x034e-0x0391] (67 bytes)
+     9. init_bus_pci_probe_found         15 instrs  [0x046f-0x0492] (35 bytes)
+    10. init_bus_pcie_probe_found        14 instrs  [0x040d-0x042e] (33 bytes)
+    11. create_gate                      14 instrs  [0x03bf-0x03dc] (29 bytes)
+    12. ap_clear                         13 instrs  [0x0120-0x014b] (43 bytes)
+    13. init_sys                         12 instrs  [0x0674-0x0699] (37 bytes)
+    14. init_net                         12 instrs  [0x058b-0x05b0] (37 bytes)
+    15. init_bus_end                     10 instrs  [0x0493-0x04be] (43 bytes)
+    16. init_sys_done                     9 instrs  [0x0699-0x06ae] (21 bytes)
+    17. init_bus_pci                      8 instrs  [0x043c-0x0458] (28 bytes)
+    18. init_net_probe_found_finish       8 instrs  [0x0629-0x064f] (38 bytes)
+    19. init_net_probe_not_found          8 instrs  [0x064f-0x0664] (21 bytes)
+    20. init_net_end                      8 instrs  [0x064f-0x0664] (21 bytes)
+    [GPU] 1 threads x 0 iters = 0.0M evals | range [0x0-0x1]
+    [GPU] Launching 1 blocks x 256 threads...
+    [GPU] Best: thread 0 fitness=58.17
+
+  Baseline GPU fitness: 58.17
+
+  ── GPU Evolution + Security Analysis ──
+  Ratio allocation: scaling GPU time by function size
+  Total: 64 functions, 574 instructions
+
+  [1/64] kernel_start                   60 instrs [0x0000-0x00b0] → 750K iters
+    [GPU] 65536 threads x 750000 iters = 49152.0M evals | range [0x0-0xb0]
+    [GPU] Launching 256 blocks x 256 threads...
+    [GPU] Best: thread 1 fitness=58.18
+    Security: fragility=16.9% worst=58.15 avg_muts=4404 [FRAGILE!] [CRITICAL VULNERABILITY]
+    Optimize: 58.17 → 58.18 (+0.01, +0.02%)
+    ACCEPTED ✓ (cumulative fitness: 58.18)
+  [2/64] init_64                        58 instrs [0x01bc-0x02b5] → 750K iters
+    [GPU] 65536 threads x 750000 iters = 49152.0M evals | range [0x1bc-0x2b5]
+    [GPU] Launching 256 blocks x 256 threads...
