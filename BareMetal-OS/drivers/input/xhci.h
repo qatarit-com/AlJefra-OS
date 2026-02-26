@@ -158,6 +158,9 @@ typedef struct __attribute__((packed)) {
 #define USB_DESC_HID          0x21
 #define USB_DESC_HID_REPORT   0x22
 
+/* ── USB Device Class Codes ── */
+#define USB_CLASS_HID         0x03
+
 /* ── USB Standard Requests ── */
 #define USB_REQ_GET_STATUS     0x00
 #define USB_REQ_SET_ADDRESS    0x05

@@ -25,6 +25,11 @@ static void start_network(void);
 
 /* Forward declarations for built-in driver registration */
 extern void e1000_register(void);
+extern void rtl8169_register(void);
+extern void virtio_net_register(void);
+extern void virtio_blk_register(void);
+extern void ahci_register(void);
+extern void nvme_register(void);
 
 /* ── Hardware manifest (filled by bus scan) ── */
 static hal_device_t g_devices[HAL_BUS_MAX_DEVICES];
@@ -126,7 +131,11 @@ static void detect_hardware(void)
 static void register_builtin_drivers(void)
 {
     e1000_register();
-    /* TODO: add virtio_net_register(), virtio_blk_register(), ahci_register() etc. */
+    rtl8169_register();
+    virtio_net_register();
+    virtio_blk_register();
+    ahci_register();
+    nvme_register();
 }
 
 /* ── Load built-in (compiled-in) drivers ── */
@@ -154,6 +163,16 @@ static void load_builtin_drivers(void)
         if (d->class_code == PCI_CLASS_NETWORK && d->subclass == PCI_SUBCLASS_ETHERNET) {
             if (d->vendor_id == 0x8086) {
                 rc = driver_load_builtin("e1000", d);
+                if (rc == HAL_OK) loaded++;
+            }
+        }
+
+        /* Network: Realtek RTL8169/RTL8168/RTL8111/RTL8101E */
+        if (d->class_code == PCI_CLASS_NETWORK && d->subclass == PCI_SUBCLASS_ETHERNET) {
+            if (d->vendor_id == 0x10EC &&
+                (d->device_id == 0x8136 || d->device_id == 0x8161 ||
+                 d->device_id == 0x8168 || d->device_id == 0x8169)) {
+                rc = driver_load_builtin("rtl8169", d);
                 if (rc == HAL_OK) loaded++;
             }
         }

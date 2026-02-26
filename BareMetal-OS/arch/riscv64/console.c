@@ -267,6 +267,24 @@ void hal_console_printf(const char *fmt, ...)
         }
         fmt++;
 
+        /* Parse optional zero-pad width: %02x, %04x, %08x, etc. */
+        int width = 0;
+        if (*fmt == '0') {
+            fmt++;  /* skip '0' prefix -- print_hex always zero-pads */
+        }
+        while (*fmt >= '0' && *fmt <= '9') {
+            width = width * 10 + (*fmt - '0');
+            fmt++;
+        }
+
+        /* Parse optional 'l' length modifier (ignored, args promoted) */
+        if (*fmt == 'l') {
+            fmt++;
+            if (*fmt == 'l') { /* ll */
+                fmt++;
+            }
+        }
+
         switch (*fmt) {
         case 'd': {
             int val = va_arg(ap, int);
@@ -280,7 +298,10 @@ void hal_console_printf(const char *fmt, ...)
         }
         case 'x': {
             unsigned val = va_arg(ap, unsigned);
-            print_hex(val, 0);
+            if (width > 0)
+                print_hex(val, width);
+            else
+                print_hex(val, 0);
             break;
         }
         case 'p': {
@@ -294,9 +315,17 @@ void hal_console_printf(const char *fmt, ...)
             hal_console_puts(s ? s : "(null)");
             break;
         }
+        case 'c': {
+            int c = va_arg(ap, int);
+            hal_console_putc((char)c);
+            break;
+        }
         case '%':
             hal_console_putc('%');
             break;
+        case '\0':
+            /* Premature end of format string */
+            goto done;
         default:
             hal_console_putc('%');
             hal_console_putc(*fmt);
@@ -304,6 +333,7 @@ void hal_console_printf(const char *fmt, ...)
         }
         fmt++;
     }
+done:
 
     va_end(ap);
 }

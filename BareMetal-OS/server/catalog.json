@@ -1,0 +1,101 @@
+{
+  "drivers": [
+    {
+      "name": "e1000",
+      "version": "1.0.0",
+      "vendor_id": "0x8086",
+      "device_id": "0x10d3",
+      "arch": "x86_64",
+      "category": "network",
+      "size_bytes": 185,
+      "sha256": "d7a37f17b933390f754b29b8d6a4efb470784561e3bf173bf27be7b4c4aa15fa",
+      "description": "Intel e1000/e1000e Gigabit Ethernet driver",
+      "download_url": "/v1/drivers/8086/10d3/x86_64"
+    },
+    {
+      "name": "qemu_vga",
+      "version": "1.0.0",
+      "vendor_id": "0x1234",
+      "device_id": "0x1111",
+      "arch": "x86_64",
+      "category": "display",
+      "size_bytes": 190,
+      "sha256": "f6eeb042e3d2b1a69ab86217bd76e02199994d00c9fd8bf305e9846ba1622751",
+      "description": "QEMU Standard VGA (Bochs VBE) display driver",
+      "download_url": "/v1/drivers/1234/1111/x86_64"
+    },
+    {
+      "name": "virtio_blk",
+      "version": "1.0.0",
+      "vendor_id": "0x1af4",
+      "device_id": "0x1001",
+      "arch": "x86_64",
+      "category": "storage",
+      "size_bytes": 174,
+      "sha256": "16479e3dfc51068fb67e2dd619db10635df4342e4ed5aa0e1142016335b37f62",
+      "description": "VirtIO block device driver",
+      "download_url": "/v1/drivers/1af4/1001/x86_64"
+    },
+    {
+      "name": "virtio_blk",
+      "version": "1.0.0",
+      "vendor_id": "0x1af4",
+      "device_id": "0x1001",
+      "arch": "aarch64",
+      "category": "storage",
+      "size_bytes": 174,
+      "sha256": "3035e853713bda1a882cd41b3b2a7d821a525e734b02c505e9121deff19ff700",
+      "description": "VirtIO block device driver",
+      "download_url": "/v1/drivers/1af4/1001/aarch64"
+    },
+    {
+      "name": "virtio_blk",
+      "version": "1.0.0",
+      "vendor_id": "0x1af4",
+      "device_id": "0x1001",
+      "arch": "riscv64",
+      "category": "storage",
+      "size_bytes": 174,
+      "sha256": "67b27975cf734f7a75d2d71f0aa386414538045727121316ecd9a591d2b2a695",
+      "description": "VirtIO block device driver",
+      "download_url": "/v1/drivers/1af4/1001/riscv64"
+    },
+    {
+      "name": "virtio_net",
+      "version": "1.0.0",
+      "vendor_id": "0x1af4",
+      "device_id": "0x1000",
+      "arch": "x86_64",
+      "category": "network",
+      "size_bytes": 176,
+      "sha256": "f9f11c188d7a89e95a9a10f25a9f5837f18ff68f132e340eacfbe32538f15ce0",
+      "description": "VirtIO network device driver",
+      "download_url": "/v1/drivers/1af4/1000/x86_64"
+    },
+    {
+      "name": "virtio_net",
+      "version": "1.0.0",
+      "vendor_id": "0x1af4",
+      "device_id": "0x1000",
+      "arch": "aarch64",
+      "category": "network",
+      "size_bytes": 176,
+      "sha256": "14d61cd9374c40f9d6bbea433e321848adce12347e09f1cacdbfad85f01f3a64",
+      "description": "VirtIO network device driver",
+      "download_url": "/v1/drivers/1af4/1000/aarch64"
+    },
+    {
+      "name": "virtio_net",
+      "version": "1.0.0",
+      "vendor_id": "0x1af4",
+      "device_id": "0x1000",
+      "arch": "riscv64",
+      "category": "network",
+      "size_bytes": 176,
+      "sha256": "68b79b0a8b75ec86b403db35ac62fae162350bc813b21cc38ea12991b546d7f9",
+      "description": "VirtIO network device driver",
+      "download_url": "/v1/drivers/1af4/1000/riscv64"
+    }
+  ],
+  "total": 8
+}

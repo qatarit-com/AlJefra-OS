@@ -515,3 +515,49 @@ int ahci_find_disk(ahci_hba_t *hba)
     }
     return -1;
 }
+
+/* ── driver_ops_t wrapper for built-in driver registration ── */
+#include "../../kernel/driver_loader.h"
+
+static ahci_hba_t g_ahci_hba;
+static int g_ahci_port = -1;  /* First active SATA port */
+
+static hal_status_t ahci_drv_init(hal_device_t *dev)
+{
+    hal_status_t rc = ahci_init(&g_ahci_hba, dev);
+    if (rc != HAL_OK) return rc;
+    g_ahci_port = ahci_find_disk(&g_ahci_hba);
+    if (g_ahci_port < 0) return HAL_NO_DEVICE;
+    return HAL_OK;
+}
+
+static int64_t ahci_drv_read(void *buf, uint64_t lba, uint32_t count)
+{
+    if (g_ahci_port < 0) return -1;
+    /* Bare-metal identity mapping: virtual address == physical address */
+    hal_status_t rc = ahci_read(&g_ahci_hba, (uint32_t)g_ahci_port,
+                                 lba, count, buf, (uint64_t)buf);
+    return (rc == HAL_OK) ? (int64_t)count : -1;
+}
+
+static int64_t ahci_drv_write(const void *buf, uint64_t lba, uint32_t count)
+{
+    if (g_ahci_port < 0) return -1;
+    hal_status_t rc = ahci_write(&g_ahci_hba, (uint32_t)g_ahci_port,
+                                  lba, count, buf, (uint64_t)buf);
+    return (rc == HAL_OK) ? (int64_t)count : -1;
+}
+
+static const driver_ops_t ahci_driver_ops = {
+    .name       = "ahci",
+    .category   = DRIVER_CAT_STORAGE,
+    .init       = ahci_drv_init,
+    .shutdown   = NULL,
+    .read       = ahci_drv_read,
+    .write      = ahci_drv_write,
+};
+
+void ahci_register(void)
+{
+    driver_register_builtin(&ahci_driver_ops);
+}

@@ -25,10 +25,12 @@
 
 _start:
     /* a0 = hartid, a1 = DTB pointer */
+
     /* Save hartid in tp (thread pointer -- used by hal_cpu_id) */
     mv      tp, a0
-    /* Save DTB pointer in s0 (callee-saved) */
-    mv      s0, a1
+
+    /* Save DTB pointer in s1 (callee-saved, survives BSS zeroing) */
+    mv      s1, a1
 
     /* Set up the global pointer (for linker relaxation) */
 .option push
@@ -49,6 +51,11 @@ _start:
     bltu    t0, t1, .bss_loop
 .bss_done:
 
+    /* Store DTB pointer to global variable (riscv64_dtb_addr is in BSS,
+     * now safely zeroed, so we can write the real value). */
+    la      t0, riscv64_dtb_addr
+    sd      s1, 0(t0)
+
     /* Set up trap vector (stvec): direct mode (bit 0 = 0) */
     la      t0, _trap_vector
     csrw    stvec, t0
@@ -57,9 +64,7 @@ _start:
     li      t0, (1 << 13)
     csrs    sstatus, t0
 
-    /* Call hal_init() with hartid in a0, DTB in a1 */
-    mv      a0, tp
-    mv      a1, s0
+    /* Call hal_init() -- no arguments (hartid in tp, DTB in global) */
     call    hal_init
 
     /* Call kernel_main() */
@@ -205,12 +210,3 @@ _trap_vector:
     addi    sp, sp, (32 * 8)
 
     sret
-
-/* ================================================================== */
-/* Data section                                                        */
-/* ================================================================== */
-
-.section .data
-.global _sec_stack_base
-_sec_stack_base:
-    .dword  0       /* Filled by linker or smp.c */

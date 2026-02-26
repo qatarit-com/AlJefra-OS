@@ -555,3 +555,42 @@ uint64_t virtio_blk_capacity(virtio_blk_dev_t *dev)
 {
     return dev->initialized ? dev->capacity : 0;
 }
+
+/* ── driver_ops_t wrapper for built-in driver registration ── */
+#include "../../kernel/driver_loader.h"
+
+static virtio_blk_dev_t g_virtio_blk;
+
+static hal_status_t virtio_blk_drv_init(hal_device_t *dev)
+{
+    return virtio_blk_init(&g_virtio_blk, dev);
+}
+
+static int64_t virtio_blk_drv_read(void *buf, uint64_t lba, uint32_t count)
+{
+    /* Bare-metal identity mapping: virtual address == physical address */
+    hal_status_t rc = virtio_blk_read(&g_virtio_blk, lba, count,
+                                       buf, (uint64_t)buf);
+    return (rc == HAL_OK) ? (int64_t)count : -1;
+}
+
+static int64_t virtio_blk_drv_write(const void *buf, uint64_t lba, uint32_t count)
+{
+    hal_status_t rc = virtio_blk_write(&g_virtio_blk, lba, count,
+                                        buf, (uint64_t)buf);
+    return (rc == HAL_OK) ? (int64_t)count : -1;
+}
+
+static const driver_ops_t virtio_blk_driver_ops = {
+    .name       = "virtio-blk",
+    .category   = DRIVER_CAT_STORAGE,
+    .init       = virtio_blk_drv_init,
+    .shutdown   = NULL,
+    .read       = virtio_blk_drv_read,
+    .write      = virtio_blk_drv_write,
+};
+
+void virtio_blk_register(void)
+{
+    driver_register_builtin(&virtio_blk_driver_ops);
+}

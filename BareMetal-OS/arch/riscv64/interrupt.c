@@ -224,6 +224,16 @@ uint32_t hal_irq_max(void)
 }
 
 /* ------------------------------------------------------------------ */
+/* Direct timer IRQ registration (pseudo-IRQ 0, bypasses hal_irq_register) */
+/* ------------------------------------------------------------------ */
+
+void riscv64_timer_register_direct(hal_irq_handler_t handler, void *ctx)
+{
+    irq_table[0].handler = handler;
+    irq_table[0].ctx     = ctx;
+}
+
+/* ------------------------------------------------------------------ */
 /* Trap dispatch (called from boot.S trap handler)                     */
 /* ------------------------------------------------------------------ */
 

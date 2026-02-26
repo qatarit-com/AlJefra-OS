@@ -12,6 +12,12 @@ extern void riscv64_timer_irq_handler(uint32_t irq, void *ctx);
 /* Kernel main entry point (defined by the kernel) */
 extern void kernel_main(void);
 
+/* DTB pointer saved by boot.S (global so other modules can access it) */
+uint64_t riscv64_dtb_addr = 0;
+
+/* Timer pseudo-IRQ handler -- registered directly in irq_table[0] */
+extern void riscv64_timer_register_direct(hal_irq_handler_t handler, void *ctx);
+
 /* ------------------------------------------------------------------ */
 /* hal_init() -- master initialization sequence                        */
 /* ------------------------------------------------------------------ */
@@ -28,6 +34,7 @@ hal_status_t hal_init(void)
     }
 
     hal_console_puts("AlJefra OS -- RISC-V 64-bit HAL Init\n");
+    hal_console_printf("[HAL] DTB at 0x%x\n", (unsigned)(riscv64_dtb_addr & 0xFFFFFFFF));
 
     /* 2. CPU: detect ISA extensions, enable FPU */
     st = hal_cpu_init();
@@ -64,20 +71,21 @@ hal_status_t hal_init(void)
     hal_console_printf("[HAL] Timer initialized, freq: %u Hz\n",
                        (uint32_t)hal_timer_freq_hz());
 
-    /* Note: The supervisor timer interrupt (STIP) is not routed through PLIC.
+    /* Register timer interrupt handler directly into irq_table[0].
+     * Note: The supervisor timer interrupt (STIP) is not routed through PLIC.
      * It is handled directly in riscv64_trap_dispatch() (interrupt.c) when
      * scause indicates a supervisor timer interrupt (code 5). The timer
-     * handler is registered on pseudo-IRQ 0 in the irq_table by the
-     * interrupt dispatch code. */
-    hal_irq_register(0, riscv64_timer_irq_handler, 0);
+     * handler is registered on pseudo-IRQ 0 in the irq_table by a direct
+     * registration function (hal_irq_register rejects IRQ 0). */
+    riscv64_timer_register_direct(riscv64_timer_irq_handler, 0);
 
-    /* 5. MMU: set up Sv48 page tables */
+    /* 5. MMU: set up Sv39 page tables */
     st = hal_mmu_init();
     if (st != HAL_OK) {
         hal_console_puts("[HAL] MMU init failed\n");
         return st;
     }
-    hal_console_printf("[HAL] MMU (Sv48) enabled, RAM: %u MB\n",
+    hal_console_printf("[HAL] MMU (Sv39) enabled, RAM: %u MB\n",
                        (uint32_t)(hal_mmu_total_ram() / (1024 * 1024)));
 
     /* 6. Bus enumeration */

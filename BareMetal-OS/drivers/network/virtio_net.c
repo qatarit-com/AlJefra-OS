@@ -573,3 +573,46 @@ void virtio_net_get_mac(virtio_net_dev_t *dev, uint8_t mac[6])
     for (int i = 0; i < 6; i++)
         mac[i] = dev->mac[i];
 }
+
+/* ── driver_ops_t wrapper for built-in driver registration ── */
+#include "../../kernel/driver_loader.h"
+
+static virtio_net_dev_t g_virtio_net;
+
+static hal_status_t virtio_net_drv_init(hal_device_t *dev)
+{
+    return virtio_net_init(&g_virtio_net, dev);
+}
+
+static int64_t virtio_net_drv_tx(const void *frame, uint64_t len)
+{
+    return virtio_net_send(&g_virtio_net, frame, (uint16_t)len);
+}
+
+static int64_t virtio_net_drv_rx(void *frame, uint64_t max_len)
+{
+    uint16_t len = 0;
+    hal_status_t rc = virtio_net_recv(&g_virtio_net, frame, &len);
+    if (rc != HAL_OK) return -1;
+    return (int64_t)len;
+}
+
+static void virtio_net_drv_get_mac(uint8_t mac[6])
+{
+    virtio_net_get_mac(&g_virtio_net, mac);
+}
+
+static const driver_ops_t virtio_net_driver_ops = {
+    .name       = "virtio-net",
+    .category   = DRIVER_CAT_NETWORK,
+    .init       = virtio_net_drv_init,
+    .shutdown   = NULL,
+    .net_tx     = virtio_net_drv_tx,
+    .net_rx     = virtio_net_drv_rx,
+    .net_get_mac = virtio_net_drv_get_mac,
+};
+
+void virtio_net_register(void)
+{
+    driver_register_builtin(&virtio_net_driver_ops);
+}

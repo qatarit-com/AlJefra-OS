@@ -97,6 +97,8 @@ SECTIONS
     }
 }
 
-/* Provide symbols */
+/* Provide symbols (these are defined inline above, but PROVIDE ensures
+ * they exist even if the .bss section is empty) */
 PROVIDE(__bss_start = ADDR(.bss));
 PROVIDE(__bss_end = ADDR(.bss) + SIZEOF(.bss));
+PROVIDE(_sec_stack_base = ADDR(.sec_stacks));

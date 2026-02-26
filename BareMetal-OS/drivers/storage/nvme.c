@@ -560,3 +560,47 @@ hal_status_t nvme_shutdown(nvme_controller_t *ctrl)
     ctrl->initialized = false;
     return HAL_TIMEOUT;
 }
+
+/* ── driver_ops_t wrapper for built-in driver registration ── */
+#include "../../kernel/driver_loader.h"
+
+static nvme_controller_t g_nvme_ctrl;
+
+static hal_status_t nvme_drv_init(hal_device_t *dev)
+{
+    return nvme_init(&g_nvme_ctrl, dev);
+}
+
+static void nvme_drv_shutdown(void)
+{
+    nvme_shutdown(&g_nvme_ctrl);
+}
+
+static int64_t nvme_drv_read(void *buf, uint64_t lba, uint32_t count)
+{
+    /* Bare-metal identity mapping: virtual address == physical address */
+    hal_status_t rc = nvme_read(&g_nvme_ctrl, lba, count,
+                                 buf, (uint64_t)buf);
+    return (rc == HAL_OK) ? (int64_t)count : -1;
+}
+
+static int64_t nvme_drv_write(const void *buf, uint64_t lba, uint32_t count)
+{
+    hal_status_t rc = nvme_write(&g_nvme_ctrl, lba, count,
+                                  buf, (uint64_t)buf);
+    return (rc == HAL_OK) ? (int64_t)count : -1;
+}
+
+static const driver_ops_t nvme_driver_ops = {
+    .name       = "nvme",
+    .category   = DRIVER_CAT_STORAGE,
+    .init       = nvme_drv_init,
+    .shutdown   = nvme_drv_shutdown,
+    .read       = nvme_drv_read,
+    .write      = nvme_drv_write,
+};
+
+void nvme_register(void)
+{
+    driver_register_builtin(&nvme_driver_ops);
+}
