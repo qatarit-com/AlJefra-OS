@@ -72,17 +72,17 @@ echo ""
 
 # ── Build Kernel (if needed) ──────────────────────────────────────
 
-BAREMETAL_DIR="$SCRIPT_DIR/.."
-KERNEL_BIN="$BAREMETAL_DIR/sys/kernel.bin"
+ALJEFRA_DIR="$SCRIPT_DIR/.."
+KERNEL_BIN="$ALJEFRA_DIR/sys/kernel.bin"
 
 if [ ! -f "$KERNEL_BIN" ]; then
     echo "Building AlJefra OS kernel..."
-    cd "$BAREMETAL_DIR"
-    if [ -f baremetal.sh ]; then
-        ./baremetal.sh setup 2>&1 | tail -5
-        ./baremetal.sh build 2>&1 | tail -5
+    cd "$ALJEFRA_DIR"
+    if [ -f aljefra.sh ]; then
+        ./aljefra.sh setup 2>&1 | tail -5
+        ./aljefra.sh build 2>&1 | tail -5
     else
-        echo "Error: baremetal.sh not found in $BAREMETAL_DIR"
+        echo "Error: aljefra.sh not found in $ALJEFRA_DIR"
         exit 1
     fi
     cd "$SCRIPT_DIR"
@@ -105,7 +105,7 @@ echo ""
 # ── Create Results Directory ──────────────────────────────────────
 
 mkdir -p results
-mkdir -p "$BAREMETAL_DIR/evolution/logs"
+mkdir -p "$ALJEFRA_DIR/evolution/logs"
 
 # ── Launch Evolution ──────────────────────────────────────────────
 

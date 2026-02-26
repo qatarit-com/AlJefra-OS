@@ -2,7 +2,7 @@
 
 **Generated:** 2026-02-25 22:40 UTC
 **Tool:** benchmark_compare.sh | NASM version 2.16.03
-**Baseline:** commit `fd5a707` — Original BareMetal OS fork
+**Baseline:** commit `fd5a707` — Original AlJefra OS fork
 **Gen-8:** commit `0269721` — 8 generations of AI-directed evolution (~200+ optimizations)
 
 > Both kernels built with `-dNO_VGA`. Gen-8 additionally uses `-dNO_GPU` to exclude
@@ -220,8 +220,8 @@ Detailed comparison of the most performance-critical functions.
    288                              <2> ; EOF
     15                              <1> %include "syscalls/system.asm"
      1                              <2> ; =============================================================================
-     2                              <2> ; BareMetal -- a 64-bit OS written in Assembly for x86-64 systems
-     3                              <2> ; Copyright (C) 2008-2026 Return Infinity -- see LICENSE.TXT
+     2                              <2> ; AlJefra -- a 64-bit OS written in Assembly for x86-64 systems
+     3                              <2> ; Copyright (C) 2008-2026 AlJefra -- see LICENSE.TXT
      4                              <2> ;
      5                              <2> ; System Functions
      6                              <2> ; =============================================================================
@@ -380,7 +380,7 @@ Detailed comparison of the most performance-critical functions.
 
 | Commit | Generation | Description |
 |--------|-----------|-------------|
-| `fd5a707` | Baseline | Original BareMetal OS fork |
+| `fd5a707` | Baseline | Original AlJefra OS fork |
 | `299d302` | Gen-1 | 8 critical kernel optimizations |
 | `6d50acc` | Drivers-1 | 8 driver subsystem optimizations |
 | `e7829d6` | Gen-6 | 25 optimizations + SMP bug fix |

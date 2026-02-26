@@ -242,7 +242,7 @@
 #define BR_BE_UNALIGNED   1
  */
 
-/* BareMetal OS: Disable all OS-dependent features */
+/* AlJefra OS: Disable all OS-dependent features */
 #define BR_USE_URANDOM      0
 #define BR_USE_WIN32_RAND   0
 #define BR_USE_GETENTROPY   0

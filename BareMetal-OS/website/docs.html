@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Documentation - Architecture, HAL specifications, driver development guides, and more.">
+    <meta name="keywords" content="documentation, HAL, drivers, architecture, porting, security, marketplace">
+    <title>Documentation - AlJefra OS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav>
+        <div class="nav-inner">
+            <div class="logo">AlJefra OS</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="docs.html">Docs</a></li>
+                <li><a href="architecture.html">Architecture</a></li>
+                <li><a href="marketplace.html">Marketplace</a></li>
+                <li><a href="download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <h1>Documentation</h1>
+        <p>Everything you need to know about AlJefra OS architecture, development, and deployment.</p>
+    </section>
+
+    <!-- Documentation Grid -->
+    <section class="section">
+        <div class="doc-grid">
+            <a href="docs/architecture.html" class="doc-card">
+                <h3>Architecture Overview</h3>
+                <p>Multi-arch kernel design, layered architecture, and layer diagram. Understand the core design principles.</p>
+            </a>
+            <a href="docs/hal-spec.html" class="doc-card">
+                <h3>HAL Specification</h3>
+                <p>Hardware Abstraction Layer API reference. Complete CPU, interrupt, timer, memory, and I/O abstractions.</p>
+            </a>
+            <a href="docs/driver-guide.html" class="doc-card">
+                <h3>Driver Development Guide</h3>
+                <p>How to write portable drivers. APIs, device detection, example implementations, and best practices.</p>
+            </a>
+            <a href="docs/boot-protocol.html" class="doc-card">
+                <h3>Boot Protocol</h3>
+                <p>Boot process per architecture. Bootloader handoff, kernel entry, device tree parsing, and initialization.</p>
+            </a>
+            <a href="docs/marketplace-spec.html" class="doc-card">
+                <h3>Marketplace API</h3>
+                <p>Driver store REST API specification. Package format, signing, verification, and distribution.</p>
+            </a>
+            <a href="docs/security-model.html" class="doc-card">
+                <h3>Security Model</h3>
+                <p>Ed25519 code signing and trust chain. Verification process, key management, and security best practices.</p>
+            </a>
+            <a href="docs/porting-guide.html" class="doc-card">
+                <h3>Porting Guide</h3>
+                <p>How to add a new architecture. HAL implementation, toolchain setup, testing, and validation.</p>
+            </a>
+            <a href="docs/developer-guide.html" class="doc-card">
+                <h3>Developer Guide</h3>
+                <p>Getting started with AlJefra OS development. Build environment, project structure, and contribution workflow.</p>
+            </a>
+            <a href="docs/memory-maps.html" class="doc-card">
+                <h3>Memory Maps</h3>
+                <p>Physical memory layouts per architecture. Address spaces, reserved regions, and memory allocation strategy.</p>
+            </a>
+        </div>
+    </section>
+
+    <!-- Quick Start Section -->
+    <section class="section">
+        <h2>Quick Start</h2>
+        <p>Get AlJefra OS built and running in minutes.</p>
+
+        <h3>Build Instructions</h3>
+        <p>AlJefra OS includes a unified build system that compiles for all supported architectures:</p>
+
+        <pre><code># Build for all architectures
+make all-arch
+
+# Or specific architecture
+make ARCH=x86_64
+make ARCH=aarch64
+make ARCH=riscv64</code></pre>
+
+        <p style="margin-top: 1.5rem; color: var(--text-secondary);">
+            After building, the kernel binaries will be located in <code>build/[arch]/bin/kernel_[arch].bin</code>.
+            See the <a href="docs/developer-guide.html">Developer Guide</a> for detailed setup instructions.
+        </p>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+    </footer>
+</body>
+</html>

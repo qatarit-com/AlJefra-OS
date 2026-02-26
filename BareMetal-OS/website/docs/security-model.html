@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Security Model. Ed25519 code signing, TLS transport security, and runtime isolation.">
+    <title>Security Model | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Security Model</h1>
+            <p>Code signing, transport security, and runtime isolation</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Threat Model</h2>
+            <p>AlJefra OS downloads and executes driver code from the internet. The security model must ensure:</p>
+            <ol>
+                <li><strong>Driver integrity</strong>: Downloaded drivers haven't been tampered with</li>
+                <li><strong>Driver authenticity</strong>: Drivers come from trusted sources</li>
+                <li><strong>Transport security</strong>: Network communication is encrypted</li>
+                <li><strong>Runtime isolation</strong>: Drivers can't corrupt the kernel</li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Code Signing</h2>
+
+            <h3>Ed25519 Digital Signatures</h3>
+            <p>Every <code>.ajdrv</code> package includes a 64-byte Ed25519 signature over the package contents (excluding the signature itself).</p>
+
+            <h4>Why Ed25519:</h4>
+            <ul>
+                <li>Small keys (32 bytes) and signatures (64 bytes)</li>
+                <li>Fast verification (~70K ops/sec)</li>
+                <li>No NIST dependency, no patents</li>
+                <li>Deterministic (no RNG needed for signing)</li>
+            </ul>
+
+            <h3>Trust Chain</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+AlJefra Root Key (offline, HSM)
+  └→ Signs: Store Signing Key
+       └→ Signs: Individual .ajdrv packages
+            </pre>
+            <p>The OS image ships with the Store Signing Key's public key (32 bytes).</p>
+
+            <h3>Verification Flow</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+1. Download .ajdrv from marketplace
+2. Parse header, extract signature offset
+3. Compute SHA-512 over signed region
+4. Verify Ed25519 signature using Store public key
+5. If valid: proceed to load driver
+6. If invalid: reject, log error
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Transport Security</h2>
+
+            <h3>TLS 1.2</h3>
+            <p>All marketplace communication uses TLS 1.2 via BearSSL:</p>
+            <ul>
+                <li>Certificate chain validation against embedded root CAs</li>
+                <li>ISRG Root X1, Amazon Root CA 1, DigiCert Global Root G2</li>
+                <li>Compile-time date for X.509 validation</li>
+            </ul>
+
+            <h3>Certificate Pinning</h3>
+            <p>The marketplace domain (<code>api.aljefra.com</code>) uses certificate pinning:</p>
+            <ul>
+                <li>Pin the intermediate CA certificate</li>
+                <li>Reject connections with unexpected certificates</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Runtime Isolation</h2>
+
+            <h3>Current Model (Exokernel)</h3>
+            <p>In the exokernel model, drivers run in the same address space as the kernel. Protection relies on:</p>
+            <ul>
+                <li>Code signing (only trusted code executes)</li>
+                <li>Review process for marketplace submissions</li>
+                <li>Community auditing</li>
+            </ul>
+
+            <h3>Future Model (Planned)</h3>
+            <p>Phase 5 will add:</p>
+            <ul>
+                <li><strong>Driver sandboxing</strong>: Drivers run in isolated address spaces</li>
+                <li><strong>Capability-based access</strong>: Drivers can only access hardware they're authorized for</li>
+                <li><strong>Watchdog timer</strong>: Drivers that hang are terminated</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Secure Boot</h2>
+
+            <h3>x86-64 UEFI Secure Boot</h3>
+            <ul>
+                <li>Sign the bootloader with a UEFI key</li>
+                <li>Pure64 verifies kernel signature</li>
+                <li>Kernel verifies payload signature</li>
+            </ul>
+
+            <h3>ARM64 Secure Boot</h3>
+            <ul>
+                <li>Use platform-specific secure boot (e.g., ARM TrustZone)</li>
+                <li>U-Boot verified boot with FIT images</li>
+            </ul>
+
+            <h3>RISC-V</h3>
+            <ul>
+                <li>OpenSBI verified boot (when available)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Key Management</h2>
+
+            <h3>AlJefra Root Key</h3>
+            <ul>
+                <li>Generated offline on air-gapped machine</li>
+                <li>Stored in HSM (Hardware Security Module)</li>
+                <li>Used only to sign the Store Signing Key</li>
+                <li>Rotated annually</li>
+            </ul>
+
+            <h3>Store Signing Key</h3>
+            <ul>
+                <li>Used to sign all <code>.ajdrv</code> packages</li>
+                <li>Embedded in OS image (32-byte Ed25519 public key)</li>
+                <li>Rotated quarterly, with overlap period</li>
+            </ul>
+
+            <h3>Developer Keys</h3>
+            <ul>
+                <li>Third-party developers sign their submissions</li>
+                <li>Developer keys are registered with the marketplace</li>
+                <li>Multi-signature support for critical drivers</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Audit and Review</h2>
+
+            <h3>Community Audit System</h3>
+            <ol>
+                <li>Developer submits <code>.ajdrv</code> with source code</li>
+                <li>Automated analysis: static analysis, fuzzing</li>
+                <li>Community reviewers verify source matches binary</li>
+                <li>Minimum 2 approvals before publishing</li>
+                <li>All versions tracked in version control</li>
+            </ol>
+
+            <h3>Incident Response</h3>
+            <ul>
+                <li>Compromised packages can be revoked via CRL</li>
+                <li>Emergency key rotation procedure documented</li>
+                <li>Devices check revocation list on each boot (when online)</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

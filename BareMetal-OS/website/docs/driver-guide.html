@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Driver Development Guide. How to write portable drivers using HAL.">
+    <title>Driver Development Guide | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Driver Development Guide</h1>
+            <p>Write portable drivers that work on all architectures</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Overview</h2>
+            <p>AlJefra OS drivers are portable C modules that use the HAL interface. A driver never contains inline assembly — all hardware access goes through <code>hal_mmio_*</code>, <code>hal_bus_*</code>, <code>hal_irq_*</code>, and other HAL functions.</p>
+        </div>
+
+        <div class="section">
+            <h2>Driver Structure</h2>
+            <p>Every driver implements the <code>driver_ops_t</code> interface defined in <code>kernel/driver_loader.h</code>:</p>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+typedef struct {
+    const char       *name;       // "nvme", "e1000", "xhci"
+    driver_category_t category;   // DRIVER_CAT_STORAGE, _NETWORK, etc.
+
+    hal_status_t    (*init)(hal_device_t *dev);  // Initialize for device
+    void            (*shutdown)(void);            // Clean shutdown
+
+    // Storage drivers:
+    int64_t         (*read)(void *buf, uint64_t lba, uint32_t count);
+    int64_t         (*write)(const void *buf, uint64_t lba, uint32_t count);
+
+    // Network drivers:
+    int64_t         (*net_tx)(const void *frame, uint64_t len);
+    int64_t         (*net_rx)(void *frame, uint64_t max_len);
+    void            (*net_get_mac)(uint8_t mac[6]);
+
+    // Input drivers:
+    int             (*input_poll)(void);  // Returns keycode or -1
+} driver_ops_t;
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Writing a Driver</h2>
+
+            <h3>1. Create header and source files</h3>
+            <pre style="background: #f5f5f5; padding: 1rem;">
+drivers/&lt;category&gt;/&lt;name&gt;.h
+drivers/&lt;category&gt;/&lt;name&gt;.c
+            </pre>
+
+            <h3>2. Define hardware registers</h3>
+            <p>Use packed structs for MMIO register blocks:</p>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+typedef struct __attribute__((packed)) {
+    volatile uint32_t CTRL;     // 0x00: Device control
+    volatile uint32_t STATUS;   // 0x04: Device status
+    // ...
+} my_device_regs_t;
+            </pre>
+
+            <h3>3. Implement init function</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+static my_device_regs_t *g_regs;
+
+static hal_status_t my_driver_init(hal_device_t *dev)
+{
+    // Enable PCI bus-mastering and memory space
+    hal_bus_pci_enable(dev);
+
+    // Map BAR0
+    g_regs = (my_device_regs_t *)hal_bus_map_bar(dev, 0);
+    if (!g_regs) return HAL_ERROR;
+
+    // Reset device
+    hal_mmio_write32(&g_regs->CTRL, CTRL_RESET);
+    hal_timer_delay_us(100);
+
+    // Wait for reset complete
+    uint64_t start = hal_timer_ms();
+    while (hal_mmio_read32(&g_regs->STATUS) & STATUS_RESET) {
+        if (hal_timer_ms() - start > 1000) return HAL_TIMEOUT;
+    }
+
+    // Register interrupt handler
+    hal_irq_register(dev->irq, my_irq_handler, NULL);
+    hal_irq_enable(dev->irq);
+
+    return HAL_OK;
+}
+            </pre>
+
+            <h3>4. Register as built-in driver</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+static const driver_ops_t my_driver_ops = {
+    .name     = "my_driver",
+    .category = DRIVER_CAT_STORAGE,
+    .init     = my_driver_init,
+    .shutdown = my_driver_shutdown,
+    .read     = my_driver_read,
+    .write    = my_driver_write,
+};
+
+// Called during kernel startup
+void my_driver_register(void)
+{
+    driver_register_builtin(&my_driver_ops);
+}
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Hardware Access Rules</h2>
+            <ol>
+                <li><strong>MMIO only</strong>: Use <code>hal_mmio_read32()</code> / <code>hal_mmio_write32()</code>, never raw pointer dereference</li>
+                <li><strong>Barriers</strong>: Call <code>hal_mmio_barrier()</code> between writes that must be ordered</li>
+                <li><strong>DMA buffers</strong>: Allocate with <code>hal_dma_alloc()</code>, never use stack/global buffers for DMA</li>
+                <li><strong>Timeouts</strong>: Every hardware wait loop must have a timeout using <code>hal_timer_ms()</code></li>
+                <li><strong>No busy-wait</strong>: Use <code>hal_timer_delay_us()</code> for short waits, not empty loops</li>
+                <li><strong>Interrupts</strong>: Register handlers via <code>hal_irq_register()</code>, acknowledge via <code>hal_irq_eoi()</code></li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Driver Categories</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Category</th>
+                        <th style="padding: 0.5rem; text-align: left;">Ops Required</th>
+                        <th style="padding: 0.5rem; text-align: left;">Examples</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>DRIVER_CAT_STORAGE</code></td>
+                        <td style="padding: 0.5rem;"><code>init</code>, <code>read</code>, <code>write</code></td>
+                        <td style="padding: 0.5rem;">NVMe, AHCI, VirtIO-Blk, eMMC</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>DRIVER_CAT_NETWORK</code></td>
+                        <td style="padding: 0.5rem;"><code>init</code>, <code>net_tx</code>, <code>net_rx</code>, <code>net_get_mac</code></td>
+                        <td style="padding: 0.5rem;">e1000, VirtIO-Net</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>DRIVER_CAT_INPUT</code></td>
+                        <td style="padding: 0.5rem;"><code>init</code>, <code>input_poll</code></td>
+                        <td style="padding: 0.5rem;">xHCI+USB HID, PS/2</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>DRIVER_CAT_DISPLAY</code></td>
+                        <td style="padding: 0.5rem;"><code>init</code></td>
+                        <td style="padding: 0.5rem;">Framebuffer, serial console</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>DRIVER_CAT_GPU</code></td>
+                        <td style="padding: 0.5rem;"><code>init</code></td>
+                        <td style="padding: 0.5rem;">NVIDIA GPU</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;"><code>DRIVER_CAT_BUS</code></td>
+                        <td style="padding: 0.5rem;"><code>init</code></td>
+                        <td style="padding: 0.5rem;">PCIe, Device Tree, ACPI</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Building as .ajdrv Package</h2>
+            <p>Runtime drivers are distributed as <code>.ajdrv</code> files. To create one:</p>
+
+            <h3>1. Compile the driver to a position-independent binary:</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+gcc -ffreestanding -fPIC -c my_driver.c -o my_driver.o
+ld -shared -o my_driver.bin my_driver.o
+            </pre>
+
+            <h3>2. Create the package with the ajdrv_pack tool:</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+ajdrv_pack --name "my_driver" --arch x86_64 \
+           --vendor 0x1234 --device 0x5678 \
+           --code my_driver.bin --key private.key \
+           --output my_driver.ajdrv
+            </pre>
+
+            <p>The entry point must be a function returning <code>const driver_ops_t *</code>.</p>
+        </div>
+
+        <div class="section">
+            <h2>Testing</h2>
+            <ol>
+                <li><strong>QEMU</strong>: Add the device to QEMU command line and test in the full OS</li>
+                <li><strong>Unit test</strong>: Mock the HAL functions and test driver logic in isolation</li>
+                <li><strong>Hardware</strong>: Test on physical devices via the boot image</li>
+            </ol>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

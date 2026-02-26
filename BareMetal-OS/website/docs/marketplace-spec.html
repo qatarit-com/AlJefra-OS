@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Driver Marketplace API Specification. REST API for driver distribution and discovery.">
+    <title>Marketplace Specification | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Driver Marketplace API Specification</h1>
+            <p>REST API for driver distribution, discovery, and recommendations</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Base URL</h2>
+            <pre style="background: #f5f5f5; padding: 1rem;">
+https://api.aljefra.com/v1
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Authentication</h2>
+            <p>Boot-time requests use a device certificate embedded in the OS image. Third-party submissions use API keys.</p>
+        </div>
+
+        <div class="section">
+            <h2>Endpoints</h2>
+
+            <h3>GET /catalog</h3>
+            <p>List all available drivers.</p>
+
+            <h4>Query Parameters:</h4>
+            <ul>
+                <li><code>arch</code> — Filter by architecture: <code>x86_64</code>, <code>aarch64</code>, <code>riscv64</code></li>
+                <li><code>category</code> — Filter by category: <code>storage</code>, <code>network</code>, <code>input</code>, <code>display</code>, <code>gpu</code>, <code>bus</code></li>
+                <li><code>page</code>, <code>per_page</code> — Pagination</li>
+            </ul>
+
+            <h4>Response:</h4>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+{
+  "drivers": [
+    {
+      "name": "nvme",
+      "version": "1.0.0",
+      "vendor_id": "0x144d",
+      "device_id": "0xa808",
+      "arch": "x86_64",
+      "category": "storage",
+      "size_bytes": 45056,
+      "sha256": "abcd1234...",
+      "download_url": "/v1/drivers/144d/a808/x86_64"
+    }
+  ],
+  "total": 42,
+  "page": 1
+}
+            </pre>
+
+            <h3>POST /manifest</h3>
+            <p>Send a hardware manifest, receive driver recommendations.</p>
+
+            <h4>Request Body:</h4>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+{
+  "arch": "x86_64",
+  "cpu_vendor": "GenuineIntel",
+  "cpu_model": "Intel Core i7-12700K",
+  "ram_mb": 32768,
+  "devices": [
+    {"v": "8086", "d": "15f3", "c": 2, "s": 0, "has_drv": false},
+    {"v": "144d", "d": "a808", "c": 1, "s": 8, "has_drv": false},
+    {"v": "8086", "d": "a0a3", "c": 12, "s": 3, "has_drv": false}
+  ]
+}
+            </pre>
+
+            <h4>Response:</h4>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+{
+  "recommendations": [
+    {
+      "vendor_id": "8086",
+      "device_id": "15f3",
+      "driver_name": "intel_i225",
+      "version": "1.0.0",
+      "priority": "critical",
+      "download_url": "/v1/drivers/8086/15f3/x86_64"
+    }
+  ],
+  "os_update_available": false
+}
+            </pre>
+
+            <h3>GET /drivers/{vendor}/{device}/{arch}</h3>
+            <p>Download a signed <code>.ajdrv</code> driver package.</p>
+            <p><strong>Response:</strong> Binary <code>.ajdrv</code> file with <code>Content-Type: application/octet-stream</code>.</p>
+
+            <h3>POST /drivers</h3>
+            <p>Submit a new driver (requires API key).</p>
+            <p><strong>Request:</strong> Multipart form with <code>.ajdrv</code> file and metadata JSON.</p>
+
+            <h3>GET /updates/{os_version}</h3>
+            <p>Check for OS updates.</p>
+
+            <h4>Response:</h4>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+{
+  "update_available": true,
+  "version": "2.0.0",
+  "changelog": "Multi-arch support, DHCP, ...",
+  "download_url": "/v1/updates/2.0.0/x86_64"
+}
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>.ajdrv Package Format</h2>
+            <p>See <code>store/package.h</code> for the binary format specification.</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Offset</th>
+                        <th style="padding: 0.5rem; text-align: left;">Size</th>
+                        <th style="padding: 0.5rem; text-align: left;">Field</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x00</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Magic: "AJDV" (0x56444A41)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x04</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Format version</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x08</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Architecture (0=x86_64, 1=aarch64, 2=riscv64)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x0C</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Category</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x10</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Code offset</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x14</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Code size</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x18</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Name offset</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x1C</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Name size</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x20</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Description offset</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x24</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Description size</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x28</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Entry point offset (within code)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x2C</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Signature offset</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x30</td>
+                        <td style="padding: 0.5rem;">2</td>
+                        <td style="padding: 0.5rem;">Vendor ID</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x32</td>
+                        <td style="padding: 0.5rem;">2</td>
+                        <td style="padding: 0.5rem;">Device ID</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x34</td>
+                        <td style="padding: 0.5rem;">2</td>
+                        <td style="padding: 0.5rem;">Min OS version</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x36</td>
+                        <td style="padding: 0.5rem;">2</td>
+                        <td style="padding: 0.5rem;">Flags</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x38</td>
+                        <td style="padding: 0.5rem;">8</td>
+                        <td style="padding: 0.5rem;">Reserved</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">[name]</td>
+                        <td style="padding: 0.5rem;"></td>
+                        <td style="padding: 0.5rem;">Driver name (null-terminated)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">[desc]</td>
+                        <td style="padding: 0.5rem;"></td>
+                        <td style="padding: 0.5rem;">Description (null-terminated)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">[code]</td>
+                        <td style="padding: 0.5rem;"></td>
+                        <td style="padding: 0.5rem;">Relocatable binary</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">[sig]</td>
+                        <td style="padding: 0.5rem;">64</td>
+                        <td style="padding: 0.5rem;">Ed25519 signature</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Security</h2>
+            <ul>
+                <li>All packages are signed with Ed25519</li>
+                <li>The OS ships with the AlJefra Store public key</li>
+                <li>Signature covers header + name + description + code</li>
+                <li>HTTPS (TLS 1.2+) for all API communication</li>
+                <li>Certificate pinning for the marketplace domain</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

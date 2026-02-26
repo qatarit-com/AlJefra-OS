@@ -31,7 +31,7 @@ Payload (our new C kernel)
 |---------|------|----------|
 | 0x0000 - 0x7FFF | 32 KB | Real-mode IVT + BIOS data |
 | 0x8000 - 0xFFFF | 32 KB | Pure64 bootloader |
-| 0x100000 | 64 KB | BareMetal kernel |
+| 0x100000 | 64 KB | AlJefra kernel |
 | 0x1E0000 | ~1 MB | Payload (C kernel + drivers) |
 | 0x800000 | 8 MB | Task stacks |
 | 0x1000000 | varies | DMA buffers, page tables |
@@ -124,7 +124,7 @@ The rest of the boot (driver loading, networking, AI bootstrap) is entirely arch
 ### x86-64
 ```bash
 qemu-system-x86_64 -machine q35 -smp 1 -cpu Westmere -m 256 \
-  -drive file=baremetal_os.img,format=raw,if=none,id=disk0 \
+  -drive file=aljefra_os.img,format=raw,if=none,id=disk0 \
   -device virtio-blk,drive=disk0 \
   -netdev tap,id=net0,ifname=tap0,script=no \
   -device virtio-net-pci,netdev=net0 \

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /* AlJefra OS — x86-64 CPU HAL Implementation (Standalone)
- * CPUID, FPU/SSE, RDTSC, RDRAND.  No BareMetal b_system() dependency.
+ * CPUID, FPU/SSE, RDTSC, RDRAND.  No AlJefra b_system() dependency.
  * Core count and APIC ID read directly from CPUID.
  */
 

@@ -1,6 +1,6 @@
 /* SPDX-License-Identifier: MIT */
 /* AlJefra OS — x86-64 C entry point
- * Called by the BareMetal kernel at 0x1E0000.
+ * Called by the AlJefra kernel at 0x1E0000.
  * Zeroes BSS, calls hal_init(), then kernel_main().
  */
 

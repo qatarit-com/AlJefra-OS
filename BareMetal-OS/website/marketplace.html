@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra Store - AI-powered driver marketplace. Download verified drivers for your hardware. Ed25519-signed packages for secure installation.">
+    <meta name="keywords" content="driver marketplace, driver store, hardware drivers, Ed25519, verified packages">
+    <title>AlJefra Store - Driver Marketplace</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav>
+        <div class="nav-inner">
+            <div class="logo">AlJefra OS</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="docs.html">Docs</a></li>
+                <li><a href="architecture.html">Architecture</a></li>
+                <li><a href="marketplace.html">Marketplace</a></li>
+                <li><a href="download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>AlJefra Store</h1>
+        <p>AI-powered driver marketplace with verified, signed packages</p>
+    </div>
+
+    <!-- How It Works Section -->
+    <section class="section">
+        <h2>How It Works</h2>
+        <p>AlJefra Store is an intelligent driver marketplace that boots with your OS. When the system starts, it automatically detects your hardware and intelligently downloads the right drivers from the store.</p>
+
+        <h3>AI Bootstrap Flow</h3>
+        <p>The AI bootstrap process works as follows:</p>
+        <pre><code>1. System Powers On
+   └─ Kernel boots with minimal drivers (storage, network)
+
+2. Hardware Detection
+   ├─ Bus enumeration (PCIe, USB, device tree)
+   ├─ Discover devices
+   └─ Collect hardware manifest (vendor IDs, device IDs, arch)
+
+3. Send Manifest to Store
+   ├─ HTTPS POST to /v1/manifest
+   ├─ Include: CPU architecture, devices found, OS version
+   └─ Receive: list of recommended drivers
+
+4. Download Drivers
+   ├─ Retrieve .ajdrv packages from store
+   ├─ Verify Ed25519 signatures
+   └─ Check device compatibility
+
+5. Install Drivers
+   ├─ Unpack signed package
+   ├─ Load driver binary
+   ├─ Initialize driver via HAL interface
+   └─ Enable device
+
+6. System Ready
+   └─ All hardware available, applications can launch</code></pre>
+
+        <p>This approach ensures that you get the exact drivers you need, optimized for your specific hardware configuration, without manual intervention.</p>
+    </section>
+
+    <!-- API Endpoints Section -->
+    <section class="section">
+        <h2>Store API Endpoints</h2>
+        <p>Applications and the kernel communicate with AlJefra Store via a standard HTTPS REST API. All endpoints require valid Ed25519 signatures for driver uploads.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Method</th>
+                    <th>Endpoint</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/v1/manifest</code></td>
+                    <td>Send hardware manifest, receive driver recommendations</td>
+                </tr>
+                <tr>
+                    <td><code>GET</code></td>
+                    <td><code>/v1/drivers/{vendor}/{device}/{arch}</code></td>
+                    <td>Download driver package (.ajdrv) for specific hardware and architecture</td>
+                </tr>
+                <tr>
+                    <td><code>GET</code></td>
+                    <td><code>/v1/catalog</code></td>
+                    <td>List all available drivers, categories, and metadata</td>
+                </tr>
+                <tr>
+                    <td><code>GET</code></td>
+                    <td><code>/v1/updates/{version}</code></td>
+                    <td>Check for OS updates and security patches</td>
+                </tr>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/v1/drivers</code></td>
+                    <td>Upload new driver package (requires valid Ed25519 signature)</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Example: Get Driver Recommendations</h3>
+        <pre><code>POST /v1/manifest HTTP/1.1
+Host: store.aljefra.com
+Content-Type: application/json
+
+{
+  "arch": "x86_64",
+  "devices": [
+    {"type": "pci", "vendor_id": "0x8086", "device_id": "0x1234"},
+    {"type": "pci", "vendor_id": "0x10de", "device_id": "0x2204"}
+  ],
+  "os_version": "1.0"
+}
+
+HTTP/1.1 200 OK
+Content-Type: application/json
+
+{
+  "recommendations": [
+    {
+      "driver": "intel-e1000",
+      "version": "2.1.0",
+      "url": "/v1/drivers/8086/1234/x86_64",
+      "priority": "critical"
+    },
+    {
+      "driver": "nvidia-rtx",
+      "version": "1.5.0",
+      "url": "/v1/drivers/10de/2204/x86_64",
+      "priority": "high"
+    }
+  ]
+}</code></pre>
+    </section>
+
+    <!-- Driver Package Format Section -->
+    <section class="section">
+        <h2>Driver Package Format (.ajdrv)</h2>
+        <p>AlJefra driver packages use a standardized binary format called .ajdrv (AlJefra Driver). Each package is a self-contained, signed, position-independent binary that can be loaded and executed by the kernel.</p>
+
+        <h3>Package Structure</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Section</th>
+                    <th>Size</th>
+                    <th>Description</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Header</strong></td>
+                    <td>64 bytes</td>
+                    <td>Magic number (0x414A4452), version, target architecture, vendor ID, device ID</td>
+                </tr>
+                <tr>
+                    <td><strong>Metadata</strong></td>
+                    <td>Variable</td>
+                    <td>JSON-formatted driver name, version, description, dependencies, required features</td>
+                </tr>
+                <tr>
+                    <td><strong>Binary Code</strong></td>
+                    <td>Variable</td>
+                    <td>Position-independent executable code implementing the HAL interface</td>
+                </tr>
+                <tr>
+                    <td><strong>Signature</strong></td>
+                    <td>64 bytes</td>
+                    <td>Ed25519 signature over header + metadata + binary code</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <h3>Example .ajdrv Header (Hex Dump)</h3>
+        <pre><code>00000000: 414a 4452                          AJDR (magic)
+00000004: 01 00                              version=1.0
+00000006: 01                                 arch=x86_64 (1=x86_64, 2=aarch64, 3=riscv64)
+00000007: 8086                               vendor_id=0x8086 (Intel)
+00000009: 1234                               device_id=0x1234
+0000000b: 0000 0800                          metadata_size=2048 bytes
+0000000f: 0000 4000                          binary_size=16384 bytes
+...
+00000040: 7b22 6e61 6d65 223a ...           metadata (JSON): {"name": "intel-e1000", ...}</code></pre>
+    </section>
+
+    <!-- Security Section -->
+    <section class="section">
+        <h2>Security Model</h2>
+        <p>AlJefra Store provides multiple layers of security to ensure that drivers are safe, authentic, and unmodified:</p>
+
+        <h3>Ed25519 Digital Signatures</h3>
+        <p>Every driver package is signed with Ed25519, a modern public-key signature algorithm based on elliptic curve cryptography. Drivers are verified before installation:</p>
+        <ul style="color: var(--text-secondary); margin-left: 2rem; margin-bottom: 1rem;">
+            <li><strong>Signature included in package:</strong> The .ajdrv file includes a 64-byte Ed25519 signature</li>
+            <li><strong>Verification on install:</strong> The kernel verifies the signature before loading the driver</li>
+            <li><strong>Tamper detection:</strong> Any modification to the package invalidates the signature</li>
+            <li><strong>Public key included:</strong> Driver publisher public keys are distributed alongside packages</li>
+        </ul>
+
+        <h3>Trust Chain</h3>
+        <p>AlJefra Store establishes a chain of trust:</p>
+        <pre><code>AlJefra Root Key (distributed with OS)
+  ↓
+Driver Publisher Keys (signed by root)
+  ↓
+Driver Packages (signed by publisher)
+  ↓
+Kernel Verification (checks signature chain)
+  ↓
+Safe Loading (driver can be loaded)</code></pre>
+
+        <h3>Verification at Install</h3>
+        <p>When installing a driver, the kernel performs the following checks:</p>
+        <ol style="color: var(--text-secondary); margin-left: 2rem; margin-bottom: 1rem;">
+            <li>Read .ajdrv package header and extract signature</li>
+            <li>Verify Ed25519 signature against publisher's public key</li>
+            <li>Check that driver architecture matches system (x86_64, ARM64, RISC-V)</li>
+            <li>Verify device IDs match detected hardware</li>
+            <li>Check driver version and dependencies</li>
+            <li>Load driver binary into protected memory region</li>
+            <li>Initialize driver via standardized HAL interface</li>
+        </ol>
+
+        <h3>Publisher Requirements</h3>
+        <p>To publish drivers on AlJefra Store:</p>
+        <ul style="color: var(--text-secondary); margin-left: 2rem; margin-bottom: 1rem;">
+            <li>Register with AlJefra Foundation</li>
+            <li>Provide Ed25519 public key and organizational details</li>
+            <li>Agree to security and compatibility standards</li>
+            <li>Include source code availability for open-source drivers</li>
+            <li>Maintain regular security updates and patches</li>
+        </ul>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p style="margin-top: 1rem; font-size: 0.75rem;">Driver Marketplace | Verified, signed packages for all architectures</p>
+    </footer>
+</body>
+</html>

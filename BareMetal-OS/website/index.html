@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS - Boot on any device. AI downloads the rest. Universal exokernel OS for x86-64, ARM64, and RISC-V.">
+    <meta name="keywords" content="OS, exokernel, universal boot, AI, drivers, marketplace, barebone">
+    <title>AlJefra OS - Universal Boot OS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="docs.html">Docs</a></li>
+                <li><a href="architecture.html">Architecture</a></li>
+                <li><a href="marketplace.html">Marketplace</a></li>
+                <li><a href="download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero">
+        <div class="container">
+            <div class="hero-content">
+                <div class="version-badge">v1.0</div>
+                <h1>AlJefra OS</h1>
+                <p class="hero-tagline">Boot on any device. AI downloads the rest.</p>
+                <div class="hero-cta">
+                    <a href="download.html" class="btn btn-primary">Download</a>
+                    <a href="docs.html" class="btn btn-secondary">Documentation</a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Stats Bar -->
+    <section class="stats">
+        <div class="container">
+            <div class="stat-item">
+                <div class="stat-number">3</div>
+                <div class="stat-label">Architectures</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">14</div>
+                <div class="stat-label">Drivers</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">20,400+</div>
+                <div class="stat-label">Lines of Code</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number">97</div>
+                <div class="stat-label">Files</div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section class="features">
+        <div class="container">
+            <h2>Core Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🌍</div>
+                    <h3>Universal Boot</h3>
+                    <p>Boots on x86-64, ARM64, and RISC-V with the same kernel design. One codebase for every architecture.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🤖</div>
+                    <h3>AI Bootstrap</h3>
+                    <p>Detects hardware at boot and automatically downloads the right drivers from AlJefra Store. True plug-and-play for every device.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🛒</div>
+                    <h3>Driver Marketplace</h3>
+                    <p>Ed25519-signed .ajdrv packages. Verified and secure drivers available on-demand. Community and official drivers in one store.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🏗️</div>
+                    <h3>Hardware Abstraction</h3>
+                    <p>Clean HAL (Hardware Abstraction Layer) separates architecture-specific code from portable drivers. Portable C drivers run on all platforms.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🌐</div>
+                    <h3>Full Network Stack</h3>
+                    <p>TCP/IP, DHCP, TLS, HTTP, and DNS — all built-in and self-contained. Connect to the internet from day one.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>GPU Acceleration</h3>
+                    <p>NVIDIA driver support with genetic algorithm evolution framework. Optimize kernel performance with continuous GPU-powered experiments.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Architecture Section -->
+    <section class="arch-section">
+        <div class="container">
+            <h2>Architecture Overview</h2>
+            <div class="arch-diagram">
+                <pre>┌─────────────────────────────────────────┐
+│       Applications / AI Agent           │
+├─────────────────────────────────────────┤
+│      Kernel Core (C, portable)          │
+│ scheduler · syscalls · driver loader    │
+├─────────────────────────────────────────┤
+│  HAL — Hardware Abstraction Layer       │
+├────────────┬────────────┬───────────────┤
+│  x86-64    │  AArch64   │   RISC-V 64   │
+│ APIC/HPET  │ GIC/Timer  │ PLIC/SBI      │
+└────────────┴────────────┴───────────────┘</pre>
+            </div>
+            <div class="arch-description">
+                <h3>Layered Design</h3>
+                <p>AlJefra OS uses a clean layered architecture: Applications sit on top of a portable kernel core, which communicates with hardware through a unified HAL. Each architecture (x86-64, AArch64, RISC-V) implements the HAL independently, while all drivers are written in portable C.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

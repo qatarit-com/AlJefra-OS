@@ -19,7 +19,7 @@ typedef unsigned int   u32;
 typedef unsigned short u16;
 typedef unsigned char  u8;
 
-/* BareMetal kernel API calls */
+/* AlJefra kernel API calls */
 static inline void serial_putc(char c)
 {
     /* Direct COM1 I/O — same as boot_test.c */

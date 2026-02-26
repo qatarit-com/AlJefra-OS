@@ -57,10 +57,10 @@ mkdir -p "$SCRIPT_DIR/logs"
 info "Step 1: Building base kernel ($BASE_SHORT)..."
 BASE_DIR=$(mktemp -d)
 cd "$GIT_DIR"
-git archive "$BASE_COMMIT" -- BareMetal-OS/BareMetal/ | tar -C "$BASE_DIR" -x
+git archive "$BASE_COMMIT" -- AlJefra-OS/aljefra/ | tar -C "$BASE_DIR" -x
 
-BASE_SRC="$BASE_DIR/BareMetal-OS/BareMetal/src"
-BASE_BIN="$BASE_DIR/BareMetal-OS/BareMetal/bin"
+BASE_SRC="$BASE_DIR/AlJefra-OS/aljefra/src"
+BASE_BIN="$BASE_DIR/AlJefra-OS/aljefra/bin"
 mkdir -p "$BASE_BIN"
 
 cd "$BASE_SRC"
@@ -79,10 +79,10 @@ ok "Base kernel built: $(wc -c < "$BASE_BIN/kernel.sys") bytes"
 info "Step 2: Building target kernel ($TARGET_SHORT)..."
 TARGET_DIR=$(mktemp -d)
 cd "$GIT_DIR"
-git archive "$TARGET_COMMIT" -- BareMetal-OS/BareMetal/ | tar -C "$TARGET_DIR" -x
+git archive "$TARGET_COMMIT" -- AlJefra-OS/aljefra/ | tar -C "$TARGET_DIR" -x
 
-TARGET_SRC="$TARGET_DIR/BareMetal-OS/BareMetal/src"
-TARGET_BIN="$TARGET_DIR/BareMetal-OS/BareMetal/bin"
+TARGET_SRC="$TARGET_DIR/AlJefra-OS/aljefra/src"
+TARGET_BIN="$TARGET_DIR/AlJefra-OS/aljefra/bin"
 mkdir -p "$TARGET_BIN"
 
 cd "$TARGET_SRC"

@@ -1,6 +1,6 @@
 #!/bin/bash
 # Auto-chain: wait for current run to finish, then start new run with security analysis
-cd /home/sidra/aljefra_os_ai/os_ai/BareMetal-OS/experiment_b
+cd /home/sidra/aljefra_os_ai/os_ai/AlJefra-OS/experiment_b
 
 echo "[$(date)] Waiting for current evolution (PID 138374) to finish..."
 while kill -0 138374 2>/dev/null; do

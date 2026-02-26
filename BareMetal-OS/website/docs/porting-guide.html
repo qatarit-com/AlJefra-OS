@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Porting Guide. How to add support for a new CPU architecture.">
+    <title>Porting Guide | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Porting Guide</h1>
+            <p>Add support for a new CPU architecture to AlJefra OS</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Prerequisites</h2>
+            <p>You need:</p>
+            <ul>
+                <li>Cross-compiler for the target architecture (GCC or Clang)</li>
+                <li>QEMU system emulator for the target</li>
+                <li>Understanding of the target's: boot process, MMU, interrupt controller, timer, UART</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Steps</h2>
+
+            <h3>1. Create Architecture Directory</h3>
+            <pre style="background: #f5f5f5; padding: 1rem;">
+mkdir -p arch/&lt;arch_name&gt;/
+            </pre>
+
+            <h3>2. Implement Required Files</h3>
+            <p>Create these files, implementing all HAL functions:</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">File</th>
+                        <th style="padding: 0.5rem; text-align: left;">Purpose</th>
+                        <th style="padding: 0.5rem; text-align: left;">Key Functions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>boot.S</code></td>
+                        <td style="padding: 0.5rem;">Assembly entry point</td>
+                        <td style="padding: 0.5rem;">CPU mode setup, stack init, BSS clear, call hal_init</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>cpu.c</code></td>
+                        <td style="padding: 0.5rem;">CPU operations</td>
+                        <td style="padding: 0.5rem;">hal_cpu_init, hal_cpu_halt, hal_cpu_cycles</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>interrupt.c</code></td>
+                        <td style="padding: 0.5rem;">Interrupt controller</td>
+                        <td style="padding: 0.5rem;">hal_irq_init, hal_irq_register, hal_irq_eoi</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>timer.c</code></td>
+                        <td style="padding: 0.5rem;">System timer</td>
+                        <td style="padding: 0.5rem;">hal_timer_init, hal_timer_ns, hal_timer_delay_us</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>io.c</code></td>
+                        <td style="padding: 0.5rem;">Port I/O + DMA</td>
+                        <td style="padding: 0.5rem;">hal_port_in/out (can be no-ops), hal_dma_alloc</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>bus.c</code></td>
+                        <td style="padding: 0.5rem;">Device discovery</td>
+                        <td style="padding: 0.5rem;">hal_bus_scan, hal_bus_pci_read32</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>mmu.c</code></td>
+                        <td style="padding: 0.5rem;">Page tables</td>
+                        <td style="padding: 0.5rem;">hal_mmu_init, hal_mmu_map, hal_mmu_alloc_pages</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>smp.c</code></td>
+                        <td style="padding: 0.5rem;">Multi-core</td>
+                        <td style="padding: 0.5rem;">hal_smp_init, hal_smp_start_core, hal_spin_lock</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>console.c</code></td>
+                        <td style="padding: 0.5rem;">UART output</td>
+                        <td style="padding: 0.5rem;">hal_console_init, hal_console_putc, hal_console_printf</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal_init.c</code></td>
+                        <td style="padding: 0.5rem;">Master init</td>
+                        <td style="padding: 0.5rem;">hal_init() calls all sub-inits in order</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;"><code>linker.ld</code></td>
+                        <td style="padding: 0.5rem;">Memory layout</td>
+                        <td style="padding: 0.5rem;">.text, .rodata, .data, .bss sections</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>3. Implement boot.S</h3>
+            <p>The boot stub must:</p>
+            <ol>
+                <li>Be the entry point (firmware jumps here)</li>
+                <li>Set up the CPU for C execution (stack, mode, FPU)</li>
+                <li>Zero the BSS section</li>
+                <li>Call <code>hal_init()</code></li>
+                <li>Call <code>kernel_main()</code></li>
+            </ol>
+
+            <p>Example structure:</p>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+.section .text.entry
+.global _start
+_start:
+    /* Architecture-specific CPU setup */
+    /* Set stack pointer */
+    /* Zero BSS */
+    /* Call hal_init */
+    /* Call kernel_main */
+    /* Infinite halt loop */
+            </pre>
+
+            <h3>4. Add to Build System</h3>
+            <p>Edit <code>Makefile</code>:</p>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+ifeq ($(ARCH),new_arch)
+    CC = new_arch-elf-gcc
+    AS = new_arch-elf-as
+    LD = new_arch-elf-ld
+    ARCH_DIR = arch/new_arch
+    CFLAGS += -march=...
+endif
+            </pre>
+
+            <h3>5. Test in QEMU</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+make ARCH=new_arch
+qemu-system-new_arch -machine virt -kernel kernel.bin -serial stdio -nographic
+            </pre>
+
+            <p>Expected output:</p>
+            <pre style="background: #f5f5f5; padding: 1rem;">
+==============================================
+  AlJefra OS — Universal Boot
+  Architecture: NewArch
+  CPU: ...
+  Cores: 1
+  RAM: 256 MB
+==============================================
+
+[kernel] Scanning buses...
+[kernel] Found N devices
+...
+            </pre>
+
+            <h3>6. Verify All HAL Functions</h3>
+            <p>Test each HAL subsystem:</p>
+            <ul>
+                <li>[ ] Console output works (you can see boot messages)</li>
+                <li>[ ] CPU info is detected correctly</li>
+                <li>[ ] Timer returns monotonically increasing nanoseconds</li>
+                <li>[ ] Memory allocation works (hal_mmu_alloc_pages)</li>
+                <li>[ ] Bus scan finds devices (at minimum VirtIO on QEMU)</li>
+                <li>[ ] Interrupts fire and are handled</li>
+                <li>[ ] SMP cores can be started</li>
+                <li>[ ] A driver initializes successfully (e.g., VirtIO-Blk)</li>
+                <li>[ ] Network works (VirtIO-Net TX/RX)</li>
+                <li>[ ] DHCP obtains an IP address</li>
+                <li>[ ] TLS handshake succeeds</li>
+                <li>[ ] AI bootstrap completes</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Common Pitfalls</h2>
+
+            <h3>1. Memory barriers</h3>
+            <p>Each architecture has different memory ordering. Make sure <code>hal_mmio_barrier()</code> uses the correct fence instruction.</p>
+
+            <h3>2. Cache coherency</h3>
+            <p>DMA buffers may need cache invalidation/flush on non-x86 architectures. Use appropriate barriers.</p>
+
+            <h3>3. Endianness</h3>
+            <p>All HAL structures use little-endian. ARM and RISC-V can be big-endian; ensure your port runs in LE mode.</p>
+
+            <h3>4. Alignment</h3>
+            <p>Some architectures fault on unaligned access. Packed structs in drivers may need alignment wrappers.</p>
+
+            <h3>5. Address space</h3>
+            <p>Identity mapping simplifies things but may not be possible with all firmware. Document any address translation.</p>
+        </div>
+
+        <div class="section">
+            <h2>Architecture Reference</h2>
+
+            <h3>AArch64</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Feature</th>
+                        <th style="padding: 0.5rem; text-align: left;">Implementation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Entry</td>
+                        <td style="padding: 0.5rem;">UEFI or flat binary at 0x40000000</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">CPU mode</td>
+                        <td style="padding: 0.5rem;">EL1, AArch64, LE</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">MMU</td>
+                        <td style="padding: 0.5rem;">TTBR0_EL1, 4KB granule, 48-bit VA</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Interrupts</td>
+                        <td style="padding: 0.5rem;">GICv2 (GICD + GICC) or GICv3</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Timer</td>
+                        <td style="padding: 0.5rem;">CNTVCT_EL0, CNTFRQ_EL0</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">SMP</td>
+                        <td style="padding: 0.5rem;">PSCI CPU_ON via SMC/HVC</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">UART</td>
+                        <td style="padding: 0.5rem;">PL011 (QEMU virt: 0x09000000)</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">Barrier</td>
+                        <td style="padding: 0.5rem;">DMB ISH / DSB SY</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>RISC-V 64</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Feature</th>
+                        <th style="padding: 0.5rem; text-align: left;">Implementation</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Entry</td>
+                        <td style="padding: 0.5rem;">SBI hands off at 0x80000000, DTB in a1</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">CPU mode</td>
+                        <td style="padding: 0.5rem;">S-mode (supervisor)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">MMU</td>
+                        <td style="padding: 0.5rem;">Sv48 page tables</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Interrupts</td>
+                        <td style="padding: 0.5rem;">PLIC (0x0C000000) + CLINT (0x02000000)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Timer</td>
+                        <td style="padding: 0.5rem;">rdtime CSR, timebase from DTB</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">SMP</td>
+                        <td style="padding: 0.5rem;">SBI HSM hart_start</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">UART</td>
+                        <td style="padding: 0.5rem;">16550 (QEMU virt: 0x10000000) or SBI console</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">Barrier</td>
+                        <td style="padding: 0.5rem;">FENCE instruction</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

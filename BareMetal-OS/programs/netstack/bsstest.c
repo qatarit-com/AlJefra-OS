@@ -1,7 +1,7 @@
 // Test: large BSS with no netstack
 // If this crashes, BSS overlaps with stack
 
-#include "../../BareMetal/api/libBareMetal.h"
+#include "../../aljefra/api/libAlJefra.h"
 
 // Force a large BSS section (~132KB, same as netstack)
 static char big_bss[135000];

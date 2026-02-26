@@ -73,7 +73,7 @@ hal_status_t hal_irq_unregister(uint32_t irq)
 
 void hal_irq_enable(uint32_t irq)
 {
-    /* On BareMetal, IRQs are enabled by registering callbacks.
+    /* On AlJefra, IRQs are enabled by registering callbacks.
      * For direct APIC manipulation, we would need MMIO access to the
      * IO-APIC redirection table.  The kernel handles this internally. */
     (void)irq;
@@ -90,7 +90,7 @@ void hal_irq_eoi(uint32_t irq)
     (void)irq;
     /* Write EOI to the local APIC.
      * The local APIC EOI register is at APIC_BASE + 0xB0.
-     * On BareMetal, APIC base is typically at 0xFEE00000 (default x2APIC). */
+     * On AlJefra, APIC base is typically at 0xFEE00000 (default x2APIC). */
     volatile uint32_t *apic_eoi = (volatile uint32_t *)0xFEE000B0ULL;
     *apic_eoi = 0;
 }
@@ -102,7 +102,7 @@ hal_status_t hal_exception_register(uint32_t vector, hal_exception_handler_t han
 
     exception_handlers[vector] = handler;
 
-    /* Note: On BareMetal, the kernel owns the IDT.  User-space programs
+    /* Note: On AlJefra, the kernel owns the IDT.  User-space programs
      * cannot directly modify IDT entries.  This stores the handler for
      * use if the kernel dispatches exceptions to user callbacks (future). */
     return HAL_OK;

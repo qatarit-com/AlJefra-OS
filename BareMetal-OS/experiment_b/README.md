@@ -19,7 +19,7 @@ sudo apt install nvidia-cuda-toolkit
 ## Quick Start
 
 ```bash
-cd BareMetal-OS/experiment_b
+cd AlJefra-OS/experiment_b
 ./evolve_binary.sh interrupts 50
 ```
 

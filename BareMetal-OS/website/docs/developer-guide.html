@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Developer Onboarding Guide. Quick start, build, test, and extend AlJefra OS.">
+    <title>Developer Guide | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Developer Onboarding Guide</h1>
+            <p>Quick start, build instructions, and development workflow</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Quick Start</h2>
+
+            <h3>Prerequisites</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+# Debian/Ubuntu
+sudo apt install build-essential gcc-aarch64-linux-gnu gcc-riscv64-linux-gnu \
+                 nasm qemu-system-x86 qemu-system-arm qemu-system-misc
+            </pre>
+
+            <h3>Build</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+cd AlJefra-OS
+
+# Build for a single architecture (default: x86-64)
+make                       # x86-64
+make ARCH=aarch64          # ARM64
+make ARCH=riscv64          # RISC-V 64
+
+# Build all architectures
+make all-arch
+
+# Clean
+make clean
+            </pre>
+
+            <p>Output binaries go to <code>build/&lt;arch&gt;/bin/kernel_&lt;arch&gt;.bin</code>.</p>
+
+            <h3>Run in QEMU</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+# x86-64 (multiboot1 kernel, serial output)
+qemu-system-x86_64 -machine q35 -cpu Westmere -smp 1 -m 256 \
+  -kernel build/x86_64/kernel.elf -serial stdio -display none \
+  -device virtio-net-pci,netdev=n0 -netdev user,id=n0 \
+  -drive if=none,id=d0,file=/tmp/disk.img,format=raw \
+  -device virtio-blk-pci,drive=d0
+
+# ARM64 (Device Tree, UART output)
+qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 256 \
+  -kernel build/aarch64/bin/kernel_aarch64.bin -serial stdio -display none \
+  -device virtio-net-pci,netdev=n0 -netdev user,id=n0
+
+# RISC-V 64 (OpenSBI + kernel, UART output)
+qemu-system-riscv64 -machine virt -m 256 \
+  -kernel build/riscv64/bin/kernel_riscv64.bin -serial stdio -display none \
+  -device virtio-net-pci,netdev=n0 -netdev user,id=n0
+            </pre>
+
+            <h3>Run with Marketplace Server</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+# Terminal 1: Start the marketplace Flask server
+cd server && python3 app.py
+
+# Terminal 2: Run QEMU with host port forwarding
+# QEMU user-mode networking maps 10.0.2.2 → host automatically
+qemu-system-x86_64 -machine q35 -cpu Westmere -smp 1 -m 256 \
+  -kernel build/x86_64/kernel.elf -serial stdio -display none \
+  -device virtio-net-pci,netdev=n0 -netdev user,id=n0 \
+  -drive if=none,id=d0,file=/tmp/disk.img,format=raw \
+  -device virtio-blk-pci,drive=d0
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Project Structure</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+AlJefra-OS/
+├── hal/            # Hardware Abstraction Layer headers
+├── arch/           # Architecture-specific implementations
+│   ├── x86_64/     # x86-64: boot.S, cpu.c, interrupt.c, timer.c
+│   ├── aarch64/    # ARM64: boot.S, cpu.c, interrupt.c (GIC), timer.c
+│   └── riscv64/    # RISC-V: boot.S, cpu.c, interrupt.c (PLIC)
+├── kernel/         # Architecture-independent kernel core
+│   ├── main.c      # Entry point
+│   ├── sched.c     # Cooperative scheduler
+│   ├── syscall.c   # Syscall dispatch
+│   ├── driver_loader.c  # Driver loading
+│   └── ai_bootstrap.c   # AI-driven hardware setup
+├── drivers/        # Portable C drivers
+│   ├── storage/    # NVMe, AHCI, VirtIO-Blk, eMMC, UFS
+│   ├── network/    # e1000, VirtIO-Net, RTL8169, Intel WiFi, BCM WiFi
+│   ├── input/      # xHCI (USB 3.0), USB HID, PS/2, Touchscreen
+│   ├── display/    # Linear framebuffer, serial console
+│   ├── bus/        # PCIe enumeration, Device Tree parser, ACPI lite
+│   └── runtime/    # .ajdrv packages
+├── net/            # Minimal network stack (DHCP, TCP)
+├── ai/             # AI marketplace client
+├── store/          # Package verification (Ed25519), installation
+├── lib/            # Runtime library (memcpy, memset, etc.)
+├── server/         # Marketplace Flask API server
+└── doc/            # Documentation
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>How It Works</h2>
+
+            <h3>Boot Sequence</h3>
+            <ol>
+                <li><strong>Arch-specific boot</strong> (<code>arch/&lt;arch&gt;/boot.S</code>) — CPU init, MMU, interrupts, UART</li>
+                <li><strong>HAL init</strong> (<code>arch/&lt;arch&gt;/hal_init.c</code>) — Registers arch functions into HAL vtable</li>
+                <li><strong>kernel_main()</strong> — Architecture-independent from here on:
+                    <ul>
+                        <li>Register built-in driver ops tables</li>
+                        <li>Bus scan (PCIe on x86, Device Tree on ARM/RISC-V)</li>
+                        <li>Match devices to drivers, init matched drivers</li>
+                        <li>DHCP → TCP init → Connect to marketplace</li>
+                        <li>Send hardware manifest → download recommended .ajdrv drivers</li>
+                        <li>Load runtime drivers → system ready</li>
+                    </ul>
+                </li>
+            </ol>
+
+            <h3>Driver Categories</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Category</th>
+                        <th style="padding: 0.5rem; text-align: left;">Examples</th>
+                        <th style="padding: 0.5rem; text-align: left;">HAL functions used</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Storage</td>
+                        <td style="padding: 0.5rem;">NVMe, AHCI, VirtIO-Blk, eMMC, UFS</td>
+                        <td style="padding: 0.5rem;"><code>hal_mmio_*</code>, <code>hal_dma_alloc</code>, <code>hal_bus_*</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Network</td>
+                        <td style="padding: 0.5rem;">e1000, VirtIO-Net, RTL8169, WiFi</td>
+                        <td style="padding: 0.5rem;"><code>hal_mmio_*</code>, <code>hal_dma_alloc</code>, <code>hal_irq_*</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Input</td>
+                        <td style="padding: 0.5rem;">xHCI, USB HID, PS/2, Touchscreen</td>
+                        <td style="padding: 0.5rem;"><code>hal_mmio_*</code>, <code>hal_irq_register</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">Display</td>
+                        <td style="padding: 0.5rem;">Framebuffer, Serial console</td>
+                        <td style="padding: 0.5rem;"><code>hal_mmio_*</code></td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">Bus</td>
+                        <td style="padding: 0.5rem;">PCIe, Device Tree, ACPI</td>
+                        <td style="padding: 0.5rem;"><code>hal_bus_*</code></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Writing a New Driver</h2>
+
+            <h3>1. Create the driver file</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+/* drivers/network/my_nic.c */
+#include "../../hal/hal.h"
+#include "../../kernel/driver_loader.h"
+
+static hal_status_t my_nic_init(hal_device_t *dev)
+{
+    /* Map BAR0 for MMIO access */
+    volatile void *regs = hal_bus_map_bar(dev, 0);
+    if (!regs) return HAL_ERROR;
+
+    /* Enable bus mastering */
+    hal_bus_pci_enable(dev);
+
+    /* Initialize hardware... */
+    uint32_t status = hal_mmio_read32(regs + 0x08);
+    hal_console_printf("[my_nic] Status: 0x%08x\n", status);
+
+    return HAL_OK;
+}
+
+static int64_t my_nic_tx(const void *frame, uint64_t len) { /* ... */ }
+static int64_t my_nic_rx(void *frame, uint64_t max_len) { /* ... */ }
+static void my_nic_get_mac(uint8_t mac[6]) { /* ... */ }
+
+static const driver_ops_t my_nic_ops = {
+    .name       = "my_nic",
+    .category   = DRIVER_CAT_NETWORK,
+    .init       = my_nic_init,
+    .net_tx     = my_nic_tx,
+    .net_rx     = my_nic_rx,
+    .net_get_mac = my_nic_get_mac,
+};
+
+void my_nic_register(void)
+{
+    driver_register_builtin(&my_nic_ops);
+}
+            </pre>
+
+            <h3>2. Register in kernel/main.c</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+extern void my_nic_register(void);
+
+// In register_builtin_drivers():
+    my_nic_register();
+
+// In load_builtin_drivers():
+    if (d->vendor_id == 0xAAAA && d->device_id == 0xBBBB) {
+        rc = driver_load_builtin("my_nic", d);
+        if (rc == HAL_OK) loaded++;
+    }
+            </pre>
+
+            <h3>3. Build and test</h3>
+            <p>The Makefile auto-discovers <code>drivers/network/*.c</code>. Just run <code>make</code>.</p>
+        </div>
+
+        <div class="section">
+            <h2>Adding a New Architecture</h2>
+            <p>See <code>doc/porting_guide.md</code> for the full guide. Summary:</p>
+            <ol>
+                <li>Create <code>arch/&lt;newarch&gt;/</code> with: boot.S, cpu.c, interrupt.c, timer.c, io.c, bus.c, mmu.c, smp.c, console.c, hal_init.c, linker.ld</li>
+                <li>Add toolchain to Makefile (new <code>ifeq ($(ARCH),newarch)</code> block)</li>
+                <li>Test in QEMU: <code>qemu-system-&lt;newarch&gt; -kernel build/&lt;newarch&gt;/bin/kernel_&lt;newarch&gt;.bin</code></li>
+            </ol>
+        </div>
+
+        <div class="section">
+            <h2>Runtime Drivers (.ajdrv)</h2>
+
+            <h3>Building a .ajdrv</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+cd drivers/runtime
+./build_ajdrv.sh my_driver.c x86_64
+# Output: my_driver.ajdrv
+            </pre>
+
+            <h3>.ajdrv format</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Offset</th>
+                        <th style="padding: 0.5rem; text-align: left;">Size</th>
+                        <th style="padding: 0.5rem; text-align: left;">Field</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x00</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Magic (0x414A4456 = "AJDV")</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x04</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Version</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x08</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Architecture (0=x86_64, 1=aarch64, 2=riscv64, 0xFF=any)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x0C</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Code offset</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x10</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Code size</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x14</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Entry offset (relative to code start)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x18</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Name offset</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x1C</td>
+                        <td style="padding: 0.5rem;">4</td>
+                        <td style="padding: 0.5rem;">Name size</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x20</td>
+                        <td style="padding: 0.5rem;">64</td>
+                        <td style="padding: 0.5rem;">Ed25519 signature</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">0x60+</td>
+                        <td style="padding: 0.5rem;">...</td>
+                        <td style="padding: 0.5rem;">Code + data</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>Signing</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+python3 server/ajdrv_builder.py sign my_driver.ajdrv --key private_key.pem
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Marketplace API</h2>
+            <p>The marketplace server (in <code>server/</code>) provides:</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Endpoint</th>
+                        <th style="padding: 0.5rem; text-align: left;">Method</th>
+                        <th style="padding: 0.5rem; text-align: left;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>/v1/manifest</code></td>
+                        <td style="padding: 0.5rem;">POST</td>
+                        <td style="padding: 0.5rem;">Send hardware manifest, get driver recommendations</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>/v1/drivers/{vendor}/{device}/{arch}</code></td>
+                        <td style="padding: 0.5rem;">GET</td>
+                        <td style="padding: 0.5rem;">Download .ajdrv for specific device</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>/v1/catalog</code></td>
+                        <td style="padding: 0.5rem;">GET</td>
+                        <td style="padding: 0.5rem;">Browse all available drivers</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>/v1/updates/{version}</code></td>
+                        <td style="padding: 0.5rem;">GET</td>
+                        <td style="padding: 0.5rem;">Check for OS updates</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;"><code>/v1/drivers</code></td>
+                        <td style="padding: 0.5rem;">POST</td>
+                        <td style="padding: 0.5rem;">Upload a new driver (with signature)</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <p>See <code>doc/marketplace_spec.md</code> for the full API reference.</p>
+        </div>
+
+        <div class="section">
+            <h2>Coding Conventions</h2>
+            <ul>
+                <li><strong>No inline assembly</strong> in drivers — use HAL functions</li>
+                <li><strong>No libc</strong> — use <code>hal_console_printf</code> for output, <code>lib/string.c</code> for memcpy/memset</li>
+                <li><strong>No dynamic memory</strong> — use <code>hal_dma_alloc()</code> for buffers</li>
+                <li><strong>Compile with -Werror</strong> — all warnings are errors</li>
+                <li><strong>Naming</strong>: <code>snake_case</code> for functions and variables, <code>UPPER_CASE</code> for constants</li>
+                <li><strong>Driver names</strong>: lowercase with underscores (e.g., <code>virtio_net</code>, <code>bcm_wifi</code>)</li>
+            </ul>
+        </div>
+
+        <div class="section">
+            <h2>Key Documentation</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Document</th>
+                        <th style="padding: 0.5rem; text-align: left;">Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/architecture.md</code></td>
+                        <td style="padding: 0.5rem;">Multi-arch design overview</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/hal_spec.md</code></td>
+                        <td style="padding: 0.5rem;">HAL interface specification (all functions)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/driver_guide.md</code></td>
+                        <td style="padding: 0.5rem;">How to write portable drivers</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/boot_protocol.md</code></td>
+                        <td style="padding: 0.5rem;">Boot process per architecture</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/marketplace_spec.md</code></td>
+                        <td style="padding: 0.5rem;">Store API reference</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/security_model.md</code></td>
+                        <td style="padding: 0.5rem;">Ed25519 signing, trust chain</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>doc/porting_guide.md</code></td>
+                        <td style="padding: 0.5rem;">How to add a new architecture</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;"><code>doc/memory_maps.md</code></td>
+                        <td style="padding: 0.5rem;">Memory layouts per architecture</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

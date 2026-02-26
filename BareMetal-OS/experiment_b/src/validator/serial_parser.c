@@ -29,7 +29,7 @@ int serial_parse(const char *log_path, benchmark_result_t *out) {
 
     while (fgets(line, sizeof(line), f)) {
         /* Check for boot success */
-        if (strstr(line, "AlJefra") || strstr(line, "BareMetal")) {
+        if (strstr(line, "AlJefra") || strstr(line, "aljefra")) {
             out->boot_success = 1;
         }
 
@@ -80,7 +80,7 @@ int serial_check_boot(const char *log_path) {
     int booted = 0;
 
     while (fgets(line, sizeof(line), f)) {
-        if (strstr(line, "AlJefra") || strstr(line, "BareMetal") ||
+        if (strstr(line, "AlJefra") || strstr(line, "aljefra") ||
             strstr(line, "OK") || strstr(line, "Ready")) {
             booted = 1;
             break;

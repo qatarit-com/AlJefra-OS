@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS HAL Interface Specification. Hardware Abstraction Layer API for portable drivers.">
+    <title>HAL Specification | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>HAL Interface Specification</h1>
+            <p>Hardware Abstraction Layer API for architecture-independent code</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Overview</h2>
+            <p>The Hardware Abstraction Layer (HAL) provides architecture-independent C interfaces for all hardware operations. Code above the HAL never uses inline assembly or architecture-specific features.</p>
+        </div>
+
+        <div class="section">
+            <h2>Headers</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Header</th>
+                        <th style="padding: 0.5rem; text-align: left;">Purpose</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/hal.h</code></td>
+                        <td style="padding: 0.5rem;">Master include, common types, <code>hal_init()</code></td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/cpu.h</code></td>
+                        <td style="padding: 0.5rem;">CPU detection, control, barriers</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/interrupt.h</code></td>
+                        <td style="padding: 0.5rem;">IRQ registration, enable/disable, EOI</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/timer.h</code></td>
+                        <td style="padding: 0.5rem;">Monotonic clock, delays, one-shot timer</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/bus.h</code></td>
+                        <td style="padding: 0.5rem;">Device discovery (PCIe/DT/ACPI)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/io.h</code></td>
+                        <td style="padding: 0.5rem;">MMIO read/write, port I/O, DMA allocation</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/mmu.h</code></td>
+                        <td style="padding: 0.5rem;">Page tables, memory mapping, physical allocator</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal/smp.h</code></td>
+                        <td style="padding: 0.5rem;">Multi-core management, spinlocks</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;"><code>hal/console.h</code></td>
+                        <td style="padding: 0.5rem;">Early text output (UART/VGA/framebuffer)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Common Types</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+typedef enum {
+    HAL_OK, HAL_ERROR, HAL_TIMEOUT, HAL_BUSY,
+    HAL_NO_DEVICE, HAL_NO_MEMORY, HAL_NOT_SUPPORTED
+} hal_status_t;
+
+typedef enum {
+    HAL_ARCH_X86_64, HAL_ARCH_AARCH64, HAL_ARCH_RISCV64
+} hal_arch_t;
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>CPU Interface (hal/cpu.h)</h2>
+            <h3>hal_cpu_init() → hal_status_t</h3>
+            <p>Initialize the boot processor. Detect features, enable FPU/SIMD.</p>
+
+            <h3>hal_cpu_get_info(hal_cpu_info_t *info)</h3>
+            <p>Fill structure with vendor string, model name, feature flags, core counts, cache line size.</p>
+
+            <h3>hal_cpu_id() → uint64_t</h3>
+            <p>Return the current core's ID (APIC ID on x86, MPIDR on ARM, mhartid on RISC-V).</p>
+
+            <h3>hal_cpu_halt()</h3>
+            <p>Low-power wait until next interrupt (HLT/WFI/WFI).</p>
+
+            <h3>hal_cpu_enable_interrupts() / hal_cpu_disable_interrupts()</h3>
+            <p>Enable/disable interrupts on the current core (STI/CLI, DAIFClr/DAIFSet, sstatus.SIE).</p>
+
+            <h3>hal_cpu_cycles() → uint64_t</h3>
+            <p>Read the cycle counter (TSC/CNTVCT/rdcycle).</p>
+
+            <h3>hal_cpu_random() → uint64_t</h3>
+            <p>Hardware random number (RDRAND/RNDR). Returns 0 if unsupported.</p>
+        </div>
+
+        <div class="section">
+            <h2>Interrupt Interface (hal/interrupt.h)</h2>
+            <h3>hal_irq_init() → hal_status_t</h3>
+            <p>Initialize the interrupt controller (APIC/GIC/PLIC).</p>
+
+            <h3>hal_irq_register(irq, handler, ctx) → hal_status_t</h3>
+            <p>Register a handler for IRQ number <code>irq</code>. Handler signature: <code>void handler(uint32_t irq, void *ctx)</code>.</p>
+
+            <h3>hal_irq_eoi(irq)</h3>
+            <p>Signal end-of-interrupt to the controller.</p>
+
+            <h3>hal_exception_register(vector, handler) → hal_status_t</h3>
+            <p>Register an exception/fault handler. Handler receives vector number, error code, and faulting address.</p>
+        </div>
+
+        <div class="section">
+            <h2>Timer Interface (hal/timer.h)</h2>
+            <h3>hal_timer_ns() → uint64_t</h3>
+            <p>Nanoseconds since boot. Monotonic, never wraps.</p>
+
+            <h3>hal_timer_delay_us(us)</h3>
+            <p>Busy-wait for the specified microseconds. Uses <code>hal_timer_ns()</code> internally.</p>
+
+            <h3>hal_timer_arm(ns, callback, ctx) → hal_status_t</h3>
+            <p>Arm a one-shot timer. Only one may be active at a time.</p>
+        </div>
+
+        <div class="section">
+            <h2>Bus Interface (hal/bus.h)</h2>
+            <h3>hal_bus_scan(devs, max) → uint32_t</h3>
+            <p>Scan all buses and fill an array of <code>hal_device_t</code> structs. Returns device count.</p>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+typedef struct {
+    hal_bus_type_t bus_type;    // PCIE, DT, ACPI, MMIO
+    uint16_t vendor_id, device_id;
+    uint8_t  class_code, subclass, prog_if;
+    uint8_t  irq;
+    uint64_t bar[6], bar_size[6];
+    uint16_t bus; uint8_t dev, func;
+    char     compatible[64];    // Device Tree compatible string
+} hal_device_t;
+            </pre>
+
+            <h3>hal_bus_pci_read32(bdf, reg) → uint32_t</h3>
+            <p>Read PCI configuration space. <code>bdf = bus&lt;&lt;8 | dev&lt;&lt;3 | func</code>.</p>
+
+            <h3>hal_bus_pci_enable(dev)</h3>
+            <p>Set bus-master and memory-space bits in PCI command register.</p>
+        </div>
+
+        <div class="section">
+            <h2>I/O Interface (hal/io.h)</h2>
+            <h3>MMIO (inline functions)</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+hal_mmio_read8/16/32/64(addr)
+hal_mmio_write8/16/32/64(addr, val)
+hal_mmio_barrier()
+            </pre>
+            <p>All include compiler barriers. <code>hal_mmio_barrier()</code> issues a full memory fence.</p>
+
+            <h3>Port I/O (x86-64 only)</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+hal_port_in8/16/32(port)
+hal_port_out8/16/32(port, val)
+            </pre>
+            <p>No-ops on ARM and RISC-V (these architectures don't have port I/O).</p>
+
+            <h3>DMA</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+void *hal_dma_alloc(size, &phys)  // Allocate physically-contiguous buffer
+void  hal_dma_free(virt, size)    // Free DMA buffer
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>MMU Interface (hal/mmu.h)</h2>
+            <h3>hal_mmu_map(virt, phys, size, perms, type) → hal_status_t</h3>
+            <p>Map physical pages. Permissions: <code>HAL_PAGE_READ|WRITE|EXEC|USER</code>. Types: <code>NORMAL</code>, <code>DEVICE</code>, <code>WC</code>.</p>
+
+            <h3>hal_mmu_alloc_pages(count) → uint64_t</h3>
+            <p>Allocate contiguous physical pages. Returns physical address (0 on failure).</p>
+
+            <h3>hal_mmu_total_ram() → uint64_t / hal_mmu_free_ram() → uint64_t</h3>
+            <p>Query total and free RAM in bytes.</p>
+        </div>
+
+        <div class="section">
+            <h2>SMP Interface (hal/smp.h)</h2>
+            <h3>hal_smp_start_core(core_id, fn, arg) → hal_status_t</h3>
+            <p>Start an application processor running <code>fn(arg)</code>.</p>
+
+            <h3>Spinlocks</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+hal_spin_lock(&lock)    // Acquire (blocking)
+hal_spin_unlock(&lock)  // Release
+hal_spin_trylock(&lock) // Non-blocking attempt, returns 1 on success
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Console Interface (hal/console.h)</h2>
+            <h3>hal_console_puts(str) / hal_console_printf(fmt, ...)</h3>
+            <p>Early text output. Supports <code>%s %d %u %x %p %%</code> format specifiers.</p>
+
+            <h3>hal_console_getc() → char</h3>
+            <p>Blocking character read.</p>
+        </div>
+
+        <div class="section">
+            <h2>Implementation Requirements</h2>
+            <p>Each architecture must provide implementations for all HAL functions in <code>arch/&lt;arch&gt;/</code>:</p>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">File</th>
+                        <th style="padding: 0.5rem; text-align: left;">Implements</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>cpu.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/cpu.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>interrupt.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/interrupt.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>timer.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/timer.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>bus.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/bus.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>io.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/io.h</code> port I/O + DMA</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>mmu.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/mmu.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>smp.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/smp.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>console.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal/console.h</code> functions</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>hal_init.c</code></td>
+                        <td style="padding: 0.5rem;"><code>hal_init()</code> master init</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>boot.S</code></td>
+                        <td style="padding: 0.5rem;">Assembly entry point</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;"><code>linker.ld</code></td>
+                        <td style="padding: 0.5rem;">Memory layout</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

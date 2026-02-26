@@ -141,7 +141,7 @@ $(BUILD_DIR)/%.o: %.S | dirs
 # Directory creation
 dirs:
 	@mkdir -p $(BUILD_DIR)/$(ARCH_DIR)
-	@mkdir -p $(BUILD_DIR)/src/BareMetal/api
+	@mkdir -p $(BUILD_DIR)/src/aljefra/api
 	@mkdir -p $(BUILD_DIR)/kernel
 	@mkdir -p $(BUILD_DIR)/drivers/storage
 	@mkdir -p $(BUILD_DIR)/drivers/network

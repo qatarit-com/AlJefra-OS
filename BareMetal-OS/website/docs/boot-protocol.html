@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Boot Protocol. Architecture-specific boot sequences for x86-64, ARM64, and RISC-V.">
+    <title>Boot Protocol | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Boot Protocol</h1>
+            <p>Architecture-specific boot sequences that converge at kernel_main()</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Overview</h2>
+            <p>Each architecture has a different boot path, but they all converge at the same point: <code>hal_init()</code> followed by <code>kernel_main()</code>.</p>
+        </div>
+
+        <div class="section">
+            <h2>x86-64 Boot</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+BIOS/UEFI
+  └→ Pure64 bootloader
+       ├→ Enables long mode (64-bit)
+       ├→ Sets up identity-mapped page tables (2MB pages)
+       ├→ Detects memory via E820
+       ├→ Initializes all APs via INIT/SIPI
+       └→ Jumps to kernel at 0x100000
+
+Kernel (kernel.asm)
+  └→ Sets up function dispatch table at 0x100010
+  └→ Initializes drivers, interrupts, timer
+  └→ Loads payload from BMFS at 0x1E0000
+  └→ Executes payload
+
+Payload (our new C kernel)
+  └→ Entry at 0x1E0000
+  └→ hal_init() → kernel_main()
+            </pre>
+
+            <h3>x86-64 Memory Map</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Address</th>
+                        <th style="padding: 0.5rem; text-align: left;">Size</th>
+                        <th style="padding: 0.5rem; text-align: left;">Contents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x0000 - 0x7FFF</td>
+                        <td style="padding: 0.5rem;">32 KB</td>
+                        <td style="padding: 0.5rem;">Real-mode IVT + BIOS data</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x8000 - 0xFFFF</td>
+                        <td style="padding: 0.5rem;">32 KB</td>
+                        <td style="padding: 0.5rem;">Pure64 bootloader</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x100000</td>
+                        <td style="padding: 0.5rem;">64 KB</td>
+                        <td style="padding: 0.5rem;">AlJefra kernel</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x1E0000</td>
+                        <td style="padding: 0.5rem;">~1 MB</td>
+                        <td style="padding: 0.5rem;">Payload (C kernel + drivers)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x800000</td>
+                        <td style="padding: 0.5rem;">8 MB</td>
+                        <td style="padding: 0.5rem;">Task stacks</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">0x1000000</td>
+                        <td style="padding: 0.5rem;">varies</td>
+                        <td style="padding: 0.5rem;">DMA buffers, page tables</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>AArch64 Boot</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+UEFI / U-Boot / Device Tree
+  └→ arch/aarch64/boot.S
+       ├→ Check exception level (EL2 or EL1)
+       ├→ If EL2: configure HCR_EL2, drop to EL1
+       ├→ Set up initial stack (64 KB)
+       ├→ Zero BSS section
+       └→ Call hal_init()
+
+hal_init()
+  └→ Console (PL011 UART at 0x09000000 on QEMU virt)
+  └→ CPU (read MIDR_EL1, enable FP/NEON)
+  └→ MMU (4KB granule, 48-bit VA identity map)
+  └→ Interrupts (GICv2/v3 at device-tree addresses)
+  └→ Timer (Generic Timer, CNTFRQ_EL0)
+  └→ Bus (Device Tree + PCIe ECAM)
+  └→ SMP (PSCI CPU_ON)
+
+kernel_main()
+  └→ Standard boot sequence
+            </pre>
+
+            <h3>AArch64 Memory Map (QEMU virt)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Address</th>
+                        <th style="padding: 0.5rem; text-align: left;">Contents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x00000000</td>
+                        <td style="padding: 0.5rem;">Flash (U-Boot/UEFI)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x08000000</td>
+                        <td style="padding: 0.5rem;">GICv2 Distributor</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x08010000</td>
+                        <td style="padding: 0.5rem;">GICv2 CPU Interface</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x09000000</td>
+                        <td style="padding: 0.5rem;">PL011 UART</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x0A000000</td>
+                        <td style="padding: 0.5rem;">VirtIO devices</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x10000000</td>
+                        <td style="padding: 0.5rem;">PCIe ECAM</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x40000000</td>
+                        <td style="padding: 0.5rem;">Kernel load address</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">0x40000000 + size</td>
+                        <td style="padding: 0.5rem;">RAM</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>RISC-V 64 Boot</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+SBI (OpenSBI) / UEFI
+  └→ arch/riscv64/boot.S
+       ├→ Save hart ID (a0) and DTB pointer (a1)
+       ├→ Set up stack
+       ├→ Zero BSS
+       └→ Call hal_init(hart_id, dtb_ptr)
+
+hal_init()
+  └→ Console (16550 UART or SBI ecall)
+  └→ CPU (read misa for extensions)
+  └→ MMU (Sv48 page tables)
+  └→ Interrupts (PLIC at 0x0C000000, CLINT at 0x02000000)
+  └→ Timer (rdtime CSR, timebase from DTB)
+  └→ Bus (Device Tree)
+  └→ SMP (SBI HSM hart_start)
+
+kernel_main()
+  └→ Standard boot sequence
+            </pre>
+
+            <h3>RISC-V Memory Map (QEMU virt)</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Address</th>
+                        <th style="padding: 0.5rem; text-align: left;">Contents</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x02000000</td>
+                        <td style="padding: 0.5rem;">CLINT (timer, IPI)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x0C000000</td>
+                        <td style="padding: 0.5rem;">PLIC</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x10000000</td>
+                        <td style="padding: 0.5rem;">UART (16550)</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x10001000</td>
+                        <td style="padding: 0.5rem;">VirtIO devices</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x30000000</td>
+                        <td style="padding: 0.5rem;">PCIe ECAM</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">0x80000000</td>
+                        <td style="padding: 0.5rem;">Kernel load address</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">0x80000000 + size</td>
+                        <td style="padding: 0.5rem;">RAM</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Convergence Point</h2>
+            <p>All architectures converge at <code>kernel_main()</code> in <code>kernel/main.c</code>. At this point:</p>
+            <ul>
+                <li>Console is working (can print messages)</li>
+                <li>CPU is initialized (features detected)</li>
+                <li>MMU is set up (identity mapping)</li>
+                <li>Interrupts are configured</li>
+                <li>Timer is running (nanosecond precision)</li>
+                <li>Bus scan is ready</li>
+                <li>SMP cores are discoverable</li>
+            </ul>
+            <p>The rest of the boot (driver loading, networking, AI bootstrap) is entirely architecture-independent.</p>
+        </div>
+
+        <div class="section">
+            <h2>QEMU Test Commands</h2>
+
+            <h3>x86-64</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+qemu-system-x86_64 -machine q35 -smp 1 -cpu Westmere -m 256 \
+  -drive file=aljefra_os.img,format=raw,if=none,id=disk0 \
+  -device virtio-blk,drive=disk0 \
+  -netdev tap,id=net0,ifname=tap0,script=no \
+  -device virtio-net-pci,netdev=net0 \
+  -serial stdio
+            </pre>
+
+            <h3>AArch64</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 256 \
+  -kernel kernel_aarch64.bin \
+  -drive file=disk.img,format=raw,if=none,id=disk0 \
+  -device virtio-blk-device,drive=disk0 \
+  -netdev user,id=net0 \
+  -device virtio-net-device,netdev=net0 \
+  -serial stdio -nographic
+            </pre>
+
+            <h3>RISC-V 64</h3>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+qemu-system-riscv64 -machine virt -m 256 \
+  -kernel kernel_riscv64.bin \
+  -drive file=disk.img,format=raw,if=none,id=disk0 \
+  -device virtio-blk-device,drive=disk0 \
+  -netdev user,id=net0 \
+  -device virtio-net-device,netdev=net0 \
+  -serial stdio -nographic
+            </pre>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

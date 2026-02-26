@@ -18,13 +18,13 @@ Claude Code must be installed: https://docs.anthropic.com/en/docs/claude-code
 
 ### Option 1: Launch Script
 ```bash
-cd BareMetal-OS/experiment_a
+cd AlJefra-OS/experiment_a
 ./evolve_ai.sh smp
 ```
 
 ### Option 2: Manual Session
 ```bash
-cd BareMetal-OS
+cd AlJefra-OS
 claude
 ```
 
@@ -57,8 +57,8 @@ record any breakthroughs to evolution/logs/evolution_log.jsonl
 1. Claude reads source assembly for the target component
 2. Identifies patterns: redundant instructions, suboptimal encodings, missed optimizations
 3. Applies changes directly to the .asm source
-4. Builds with `./baremetal.sh build`
-5. Benchmarks with `./baremetal.sh run` (QEMU)
+4. Builds with `./aljefra.sh build`
+5. Benchmarks with `./aljefra.sh run` (QEMU)
 6. If improvement >= 5%: records breakthrough to `evolution/logs/`
 
 ## Results

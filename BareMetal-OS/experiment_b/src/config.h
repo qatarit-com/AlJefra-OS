@@ -87,11 +87,11 @@ typedef enum {
 #define SERIAL_LOG    "serial.log"
 
 /* ── File Paths (relative to experiment_b/ working dir) ──────────── */
-#define KERNEL_ASM     "../BareMetal/src/kernel.asm"
+#define KERNEL_ASM     "../aljefra/src/kernel.asm"
 #define KERNEL_BIN     "../sys/kernel.sys"
 #define KERNEL_LST     "../sys/kernel-debug.txt"
-#define DISK_IMAGE     "../sys/baremetal_os.img"
-#define BUILD_SCRIPT   "../baremetal.sh"
+#define DISK_IMAGE     "../sys/aljefra_os.img"
+#define BUILD_SCRIPT   "../aljefra.sh"
 #define GUIDES_DIR     "guides/"
 #define RESULTS_DIR    "results/"
 #define EVOLUTION_LOG  "../evolution/logs/evolution_log.jsonl"

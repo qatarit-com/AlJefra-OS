@@ -2,7 +2,7 @@
 /* AlJefra OS — x86-64 Bus HAL Implementation (Standalone)
  *
  * PCIe config space access via legacy I/O ports 0xCF8/0xCFC.
- * No dependency on BareMetal b_system().
+ * No dependency on AlJefra b_system().
  */
 
 #include "../../hal/hal.h"

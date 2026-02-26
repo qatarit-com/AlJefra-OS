@@ -372,7 +372,7 @@ int hal_console_has_input(void)
     if (serial_available) {
         return serial_has_data();
     }
-    /* BareMetal's b_input is blocking; no non-blocking check available.
+    /* AlJefra's b_input is blocking; no non-blocking check available.
      * Return 0 to indicate "we don't know". */
     return 0;
 }

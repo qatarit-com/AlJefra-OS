@@ -650,7 +650,7 @@ int main(int argc, char *argv[]) {
     if (!kernel_bin) {
         /* Try building first */
         printf("  Kernel not found, attempting build...\n");
-        if (system("cd .. && bash baremetal.sh build 2>&1") != 0) {
+        if (system("cd .. && bash aljefra.sh build 2>&1") != 0) {
             fprintf(stderr, "Error: Cannot build kernel\n");
             return 1;
         }

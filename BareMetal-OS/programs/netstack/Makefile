@@ -8,11 +8,11 @@ LD = ld
 NASM = nasm
 
 # Paths
-DEMO_SRC = ../../src/BareMetal-Demo/src
-API_SRC = ../../BareMetal/api
+DEMO_SRC = ../../src/aljefra-demo/src
+API_SRC = ../../aljefra/api
 BEARSSL_DIR = bearssl
 
-# Compiler flags (BareMetal freestanding)
+# Compiler flags (AlJefra freestanding)
 CFLAGS = -c -m64 -nostdlib -nostartfiles -nodefaultlibs -ffreestanding \
          -fno-pic -fno-pie -mcmodel=large \
          -falign-functions=16 -fomit-frame-pointer -mno-red-zone \
@@ -53,7 +53,7 @@ BEARSSL_OBJS = $(patsubst %.c,%.o,$(BEARSSL_SRCS))
 
 # Runtime objects
 CRT0_OBJ = crt0.o
-LIBBAREMETAL_OBJ = libBareMetal.o
+LIBALJEFRA_OBJ = libAlJefra.o
 
 # Output
 TARGET = ai_agent.app
@@ -66,7 +66,7 @@ all: $(TARGET)
 $(CRT0_OBJ): $(DEMO_SRC)/crt0.c
 	$(CC) $(CFLAGS) -o $@ $<
 
-$(LIBBAREMETAL_OBJ): $(API_SRC)/libBareMetal.c $(API_SRC)/libBareMetal.h
+$(LIBALJEFRA_OBJ): $(API_SRC)/libAlJefra.c $(API_SRC)/libAlJefra.h
 	$(CC) $(CFLAGS) -o $@ $<
 
 # Build netstack/TLS/HTTP objects
@@ -78,27 +78,27 @@ $(BEARSSL_DIR)/src/%.o: $(BEARSSL_DIR)/src/%.c
 	$(CC) $(CFLAGS) -I$(BEARSSL_DIR)/src -o $@ $<
 
 # Link everything
-$(TARGET): $(CRT0_OBJ) $(LIBBAREMETAL_OBJ) $(ALL_OBJS) $(BEARSSL_OBJS)
+$(TARGET): $(CRT0_OBJ) $(LIBALJEFRA_OBJ) $(ALL_OBJS) $(BEARSSL_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 # Build without BearSSL (for testing TCP/IP only)
 nettest_main.o: nettest_main.c netstack.h
 	$(CC) $(CFLAGS) -o $@ $<
 
-nettest.app: $(CRT0_OBJ) $(LIBBAREMETAL_OBJ) nettest_main.o $(NETSTACK_SRCS:.c=.o)
+nettest.app: $(CRT0_OBJ) $(LIBALJEFRA_OBJ) nettest_main.o $(NETSTACK_SRCS:.c=.o)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 minitest.o: minitest.c netstack.h
 	$(CC) $(CFLAGS) -o $@ $<
 
-minitest.app: $(CRT0_OBJ) $(LIBBAREMETAL_OBJ) minitest.o $(NETSTACK_SRCS:.c=.o)
+minitest.app: $(CRT0_OBJ) $(LIBALJEFRA_OBJ) minitest.o $(NETSTACK_SRCS:.c=.o)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 tlstest.o: tlstest.c netstack.h tls.h
 	$(CC) $(CFLAGS) -o $@ $<
 
 TLS_TEST_OBJS = $(NETSTACK_SRCS:.c=.o) $(TLS_SRCS:.c=.o) libc_shim.o
-tlstest.app: $(CRT0_OBJ) $(LIBBAREMETAL_OBJ) tlstest.o $(TLS_TEST_OBJS) $(BEARSSL_OBJS)
+tlstest.app: $(CRT0_OBJ) $(LIBALJEFRA_OBJ) tlstest.o $(TLS_TEST_OBJS) $(BEARSSL_OBJS)
 	$(LD) $(LDFLAGS) -o $@ $^
 
 clean:

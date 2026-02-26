@@ -13,7 +13,7 @@
   0x5060: Number of activated APs
 0x0000_6000 - 0x0000_6FFF   4 KB    E820 memory map entries
 0x0000_8000 - 0x0000_FFFF  32 KB    Pure64 bootloader
-0x0010_0000 - 0x0010_FFFF  64 KB    BareMetal kernel
+0x0010_0000 - 0x0010_FFFF  64 KB    AlJefra kernel
   0x100010: API dispatch table (dq pointers)
   0x100010: b_input
   0x100018: b_output

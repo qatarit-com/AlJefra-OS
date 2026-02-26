@@ -77,7 +77,7 @@ The kernel provides minimal abstractions. Applications get near-hardware access 
 ## Directory Structure
 
 ```
-BareMetal-OS/
+AlJefra-OS/
 ├── hal/            # HAL C headers (arch-independent interface)
 ├── arch/           # Architecture-specific implementations
 │   ├── x86_64/     # Intel/AMD 64-bit
@@ -95,7 +95,7 @@ BareMetal-OS/
 ├── ai/             # AI agent and marketplace client
 ├── store/          # Driver package format, verification, catalog
 ├── doc/            # Documentation
-└── src/            # Original BareMetal kernel (x86-64 assembly)
+└── src/            # Original AlJefra kernel (x86-64 assembly)
 ```
 
 ## Supported Architectures

@@ -34,7 +34,7 @@
 - [x] `arch/x86_64/start.c` — `_start` entry (BSS zero → hal_init → kernel_main)
 - [x] `arch/x86_64/linker.ld` — Multiboot1, KERNEL_BASE=0x100000
 - [x] **Compiles clean**: 44 objects → 134KB binary, 0 errors, 0 warnings
-- [x] **Standalone boot**: No BareMetal b_system() dependency — boots via multiboot1
+- [x] **Standalone boot**: No AlJefra b_system() dependency — boots via multiboot1
 
 ### 0.3 Portable C Drivers
 - [x] `drivers/storage/nvme.c` — NVMe (admin+IO queues, PRP, read/write)
@@ -80,7 +80,7 @@
 - [x] `doc/memory_maps.md` — Physical memory maps per arch
 
 ### 0.8 Integration Testing
-- [x] x86-64 boots standalone on QEMU via multiboot1 (no BareMetal dependency)
+- [x] x86-64 boots standalone on QEMU via multiboot1 (no AlJefra dependency)
 - [x] HAL init: Console + CPU (Westmere) + MMU (255MB from multiboot mmap) + Timer (RDTSC+PIT) + PCIe + SMP
 - [x] PCI scan finds 8 devices: e1000/VirtIO-Net, NVMe/VirtIO-Blk, xHCI, AHCI, host bridge, ISA bridge, SMBus
 - [x] All 3 drivers load: VirtIO-Net + NVMe (read/write PASSED) + xHCI (USB keyboard detected on slot 1, speed=3)

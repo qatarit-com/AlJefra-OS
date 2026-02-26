@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS — Multi-Architecture Overview. Exokernel design for x86-64, ARM64, and RISC-V.">
+    <title>Architecture | AlJefra OS</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-brand">
+                <a href="../index.html">AlJefra OS</a>
+            </div>
+            <ul class="nav-links">
+                <li><a href="../docs.html">Docs</a></li>
+                <li><a href="../architecture.html">Architecture</a></li>
+                <li><a href="../marketplace.html">Marketplace</a></li>
+                <li><a href="../download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <div class="container">
+            <h1>Multi-Architecture Overview</h1>
+            <p>Self-evolving exokernel that boots on any device — x86-64, ARM64, and RISC-V</p>
+        </div>
+    </section>
+
+    <!-- Main Content -->
+    <div class="container">
+        <div class="section">
+            <h2>Vision</h2>
+            <p>AlJefra OS is a self-evolving exokernel that boots on <strong>any device</strong> — desktops, laptops, tablets, SBCs, servers — across x86-64, ARM64, and RISC-V architectures. The core insight: we only need enough built-in drivers to get network connectivity, then AI handles everything else by downloading drivers from the marketplace.</p>
+        </div>
+
+        <div class="section">
+            <h2>Architecture Layers</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+┌─────────────────────────────────────────────────┐
+│  Applications / AI Agent                         │
+│  (C, architecture-independent)                   │
+├─────────────────────────────────────────────────┤
+│  Kernel Core                                     │
+│  main.c, sched.c, syscall.c, driver_loader.c    │
+│  ai_bootstrap.c                                  │
+├─────────────────────────────────────────────────┤
+│  Network Stack          │  Driver Store          │
+│  TCP/IP, TLS, HTTP,     │  package.h, verify.c,  │
+│  DHCP, DNS              │  install.c, catalog.c  │
+├─────────────────────────────────────────────────┤
+│  Portable Drivers (C)                            │
+│  NVMe, AHCI, e1000, VirtIO, xHCI, USB HID,     │
+│  PCIe, Device Tree, ACPI, eMMC                   │
+├─────────────────────────────────────────────────┤
+│  Hardware Abstraction Layer (HAL)                │
+│  cpu.h, interrupt.h, timer.h, bus.h, io.h,      │
+│  mmu.h, smp.h, console.h                        │
+├──────────┬──────────┬───────────────────────────┤
+│ x86-64   │ AArch64  │ RISC-V 64                 │
+│ arch/    │ arch/    │ arch/                      │
+│ x86_64/  │ aarch64/ │ riscv64/                  │
+└──────────┴──────────┴───────────────────────────┘
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Boot Sequence</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+1. Firmware (BIOS/UEFI/SBI/U-Boot)
+   └→ Loads bootloader (Pure64 on x86, or arch-specific)
+
+2. Arch Boot Stub (arch/&lt;arch&gt;/boot.S)
+   └→ CPU mode setup, MMU init, stack setup
+   └→ Calls hal_init()
+
+3. HAL Init (arch/&lt;arch&gt;/hal_init.c)
+   └→ Console → CPU → MMU → Interrupts → Timer → Bus → SMP
+
+4. Kernel Main (kernel/main.c)
+   └→ Banner → Bus Scan → Built-in Drivers → Scheduler → Network
+
+5. AI Bootstrap (kernel/ai_bootstrap.c)
+   └→ Build HW manifest → DHCP → Connect to marketplace
+   └→ Send manifest → Download drivers → Load & init
+
+6. System Ready
+   └→ All hardware operational, interactive mode
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Key Design Principles</h2>
+
+            <h3>1. HAL Abstraction</h3>
+            <p>All architecture-specific code lives in <code>arch/&lt;arch&gt;/</code>. Everything above the HAL is pure portable C. Drivers never use inline assembly — they call HAL functions.</p>
+
+            <h3>2. Minimal Boot Drivers</h3>
+            <p>The kernel only needs: CPU init + UART + one NIC driver + TCP/IP. Everything else can be downloaded. This minimizes the code that must be ported per architecture.</p>
+
+            <h3>3. Driver Hot-Loading</h3>
+            <p>Drivers can be loaded at runtime from <code>.ajdrv</code> packages. The driver loader handles binary relocation and initialization. Drivers are signed with Ed25519 for security.</p>
+
+            <h3>4. AI-First Configuration</h3>
+            <p>Instead of manual configuration, the OS sends a hardware manifest to the AlJefra marketplace API. The AI analyzes the hardware and returns the optimal driver set. This means zero configuration for the user.</p>
+
+            <h3>5. Exokernel Philosophy</h3>
+            <p>The kernel provides minimal abstractions. Applications get near-hardware access through the HAL and syscall interface. This enables maximum performance and flexibility.</p>
+        </div>
+
+        <div class="section">
+            <h2>Directory Structure</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+AlJefra-OS/
+├── hal/            # HAL C headers (arch-independent interface)
+├── arch/           # Architecture-specific implementations
+│   ├── x86_64/     # Intel/AMD 64-bit
+│   ├── aarch64/    # ARM 64-bit
+│   └── riscv64/    # RISC-V 64-bit
+├── kernel/         # Arch-independent kernel core
+├── drivers/        # Portable C drivers
+│   ├── storage/    # NVMe, AHCI, VirtIO-Blk, eMMC
+│   ├── network/    # e1000, VirtIO-Net, WiFi
+│   ├── input/      # xHCI, USB HID, PS/2
+│   ├── display/    # Framebuffer, serial console
+│   ├── gpu/        # NVIDIA GPU
+│   └── bus/        # PCIe, Device Tree, ACPI
+├── net/            # Network stack (TCP/IP, TLS, HTTP, DHCP)
+├── ai/             # AI agent and marketplace client
+├── store/          # Driver package format, verification, catalog
+├── doc/            # Documentation
+└── src/            # Original AlJefra kernel (x86-64 assembly)
+            </pre>
+        </div>
+
+        <div class="section">
+            <h2>Supported Architectures</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+                <thead>
+                    <tr style="border-bottom: 2px solid #ccc;">
+                        <th style="padding: 0.5rem; text-align: left;">Architecture</th>
+                        <th style="padding: 0.5rem; text-align: left;">Status</th>
+                        <th style="padding: 0.5rem; text-align: left;">Boot Method</th>
+                        <th style="padding: 0.5rem; text-align: left;">Interrupt Controller</th>
+                        <th style="padding: 0.5rem; text-align: left;">Timer</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">x86-64</td>
+                        <td style="padding: 0.5rem;">Production</td>
+                        <td style="padding: 0.5rem;">BIOS/UEFI via Pure64</td>
+                        <td style="padding: 0.5rem;">APIC/IO-APIC</td>
+                        <td style="padding: 0.5rem;">HPET/KVM</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;">AArch64</td>
+                        <td style="padding: 0.5rem;">Development</td>
+                        <td style="padding: 0.5rem;">UEFI/DTB</td>
+                        <td style="padding: 0.5rem;">GICv2/v3</td>
+                        <td style="padding: 0.5rem;">Generic Timer</td>
+                    </tr>
+                    <tr>
+                        <td style="padding: 0.5rem;">RISC-V 64</td>
+                        <td style="padding: 0.5rem;">Planned</td>
+                        <td style="padding: 0.5rem;">SBI/UEFI</td>
+                        <td style="padding: 0.5rem;">PLIC/CLINT</td>
+                        <td style="padding: 0.5rem;">mtime CSR</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="section">
+            <h2>Driver Model</h2>
+            <p>Drivers implement the <code>driver_ops_t</code> interface:</p>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+typedef struct {
+    const char       *name;
+    driver_category_t category;
+    hal_status_t    (*init)(hal_device_t *dev);
+    void            (*shutdown)(void);
+    /* Category-specific ops: read/write, net_tx/rx, input_poll */
+} driver_ops_t;
+            </pre>
+            <p>Built-in drivers are compiled into the kernel image. Runtime drivers come from <code>.ajdrv</code> packages downloaded via the marketplace.</p>
+        </div>
+
+        <div class="section">
+            <h2>AI Bootstrap Flow</h2>
+            <pre style="background: #f5f5f5; padding: 1rem; overflow-x: auto;">
+Device boots → HAL init → Bus scan → Find NIC →
+  Load NIC driver → DHCP → TCP/IP + TLS →
+  POST /v1/manifest (hardware list) →
+  Marketplace AI analyzes hardware →
+  Returns optimal driver set →
+  Download signed .ajdrv packages →
+  Verify Ed25519 signatures →
+  Load & initialize each driver →
+  System fully operational
+            </pre>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        </div>
+    </footer>
+</body>
+</html>

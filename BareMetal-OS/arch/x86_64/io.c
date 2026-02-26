@@ -58,7 +58,7 @@ void hal_mmio_barrier(void)
 /* -------------------------------------------------------------------------- */
 /* DMA Allocator — Simple bump allocator                                      */
 /*                                                                            */
-/* On BareMetal with identity mapping (virt == phys), we allocate from a      */
+/* On AlJefra with identity mapping (virt == phys), we allocate from a      */
 /* reserved DMA region above the payload.  The region starts at 0x800000      */
 /* (8 MB) which is well above the kernel (loaded at 0x100000) and payload     */
 /* (loaded at 0x1E0000) but below the free memory pool.                       */

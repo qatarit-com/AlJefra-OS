@@ -5,7 +5,7 @@
 #ifndef NETSTACK_H
 #define NETSTACK_H
 
-#include "libBareMetal.h"
+#include "libAlJefra.h"
 
 // Ethernet
 #define ETH_ALEN	6

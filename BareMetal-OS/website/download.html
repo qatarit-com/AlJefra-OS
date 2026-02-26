@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Download AlJefra OS - USB boot images, source code, and QEMU emulation. Build from source or use pre-built images.">
+    <meta name="keywords" content="download, ISO, USB, QEMU, build from source, installation">
+    <title>Download - AlJefra OS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav>
+        <div class="nav-inner">
+            <div class="logo">AlJefra OS</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="docs.html">Docs</a></li>
+                <li><a href="architecture.html">Architecture</a></li>
+                <li><a href="marketplace.html">Marketplace</a></li>
+                <li><a href="download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <section class="page-header">
+        <h1>Download AlJefra OS</h1>
+        <p>Get started with AlJefra OS. Choose a pre-built image or build from source.</p>
+    </section>
+
+    <!-- Download Box -->
+    <section class="section">
+        <div class="download-box">
+            <h3>USB Boot Image (ISO)</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                Ready-to-boot x86-64 hybrid image. Write to USB with <code>dd</code> or your favorite USB writer.
+            </p>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                <strong>Size:</strong> 9.2 MB | <strong>Format:</strong> ISO 9660 Hybrid | <strong>Architecture:</strong> x86-64
+            </p>
+            <a href="#" class="btn btn-primary">Download alj efra-os-1.0.iso</a>
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+                MD5: e3b0c44298fc1c149afbf4c8996fb924 | Updated 2026-02-26
+            </p>
+        </div>
+    </section>
+
+    <!-- Build from Source -->
+    <section class="section">
+        <h2>Build from Source</h2>
+        <p>Build AlJefra OS for any supported architecture using the included build system.</p>
+
+        <h3>Requirements</h3>
+        <ul style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            <li>Git</li>
+            <li>NASM (Netwide Assembler)</li>
+            <li>GCC cross-compiler (for target architecture)</li>
+            <li>GNU Make</li>
+        </ul>
+
+        <h3>Clone and Build</h3>
+        <pre><code>git clone https://github.com/AlJefra/aljefra-os.git
+cd aljefra-os
+
+# Build for all architectures
+make all-arch
+
+# Or build for a specific architecture
+make ARCH=x86_64
+make ARCH=aarch64
+make ARCH=riscv64</code></pre>
+
+        <p style="margin-top: 1.5rem; color: var(--text-secondary);">
+            Kernels will be built to <code>build/[arch]/bin/kernel_[arch].bin</code>. For detailed build instructions, see the <a href="docs/developer-guide.html">Developer Guide</a>.
+        </p>
+    </section>
+
+    <!-- QEMU Quick Start -->
+    <section class="section">
+        <h2>QEMU Quick Start</h2>
+        <p>Test AlJefra OS in the QEMU emulator before deploying to real hardware.</p>
+
+        <h3>x86-64 (Intel/AMD)</h3>
+        <pre><code>qemu-system-x86_64 -machine q35 -cpu Westmere -m 256 -smp 1 \
+  -kernel build/x86_64/bin/kernel_x86_64.bin \
+  -nographic</code></pre>
+
+        <h3>ARM64 (AArch64)</h3>
+        <pre><code>qemu-system-aarch64 -M virt -cpu cortex-a72 -m 256 \
+  -nographic \
+  -kernel build/aarch64/bin/kernel_aarch64.bin</code></pre>
+
+        <h3>RISC-V 64-bit</h3>
+        <pre><code>qemu-system-riscv64 -M virt -m 256 \
+  -nographic \
+  -kernel build/riscv64/bin/kernel_riscv64.bin</code></pre>
+
+        <p style="margin-top: 1.5rem; color: var(--text-secondary);">
+            The <code>-nographic</code> flag disables the graphical interface and uses serial console output. Press <code>Ctrl+a x</code> to exit QEMU.
+        </p>
+    </section>
+
+    <!-- System Requirements -->
+    <section class="section">
+        <h2>System Requirements</h2>
+        <p>AlJefra OS runs on minimal hardware across all supported architectures.</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>Architecture</th>
+                    <th>CPU Requirements</th>
+                    <th>Minimum RAM</th>
+                    <th>Disk Space</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>x86-64</strong></td>
+                    <td>Intel/AMD x86-64 (Core 2 Duo or newer)</td>
+                    <td>256 MB</td>
+                    <td>10 MB</td>
+                </tr>
+                <tr>
+                    <td><strong>ARM64</strong></td>
+                    <td>ARMv8 64-bit (Cortex-A72 or newer)</td>
+                    <td>256 MB</td>
+                    <td>10 MB</td>
+                </tr>
+                <tr>
+                    <td><strong>RISC-V 64</strong></td>
+                    <td>RV64IMA or RV64IMAC</td>
+                    <td>256 MB</td>
+                    <td>10 MB</td>
+                </tr>
+            </tbody>
+        </table>
+
+        <p style="margin-top: 1.5rem; color: var(--text-secondary);">
+            AlJefra OS is designed for minimal footprint. The kernel itself is under 100 KB, leaving plenty of room for applications and drivers.
+        </p>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+    </footer>
+</body>
+</html>

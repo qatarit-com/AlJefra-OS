@@ -15,7 +15,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-BAREMETAL_DIR="$PROJECT_ROOT/BareMetal"
+ALJEFRA_DIR="$PROJECT_ROOT/AlJefra"
 
 COMPONENT="${1:-all}"
 GENERATIONS="${2:-100}"
@@ -60,12 +60,12 @@ echo ""
 echo "[2/6] Building baseline OS..."
 
 cd "$PROJECT_ROOT"
-if [ -f "baremetal.sh" ]; then
+if [ -f "aljefra.sh" ]; then
     # Build with GPU support enabled
-    bash baremetal.sh build 2>&1 | tail -5
+    bash aljefra.sh build 2>&1 | tail -5
     echo "  Baseline build: OK"
 else
-    echo "  WARN: baremetal.sh not found, skipping build"
+    echo "  WARN: aljefra.sh not found, skipping build"
 fi
 
 # =============================================================================
@@ -79,12 +79,12 @@ mkdir -p "$SCRIPT_DIR/benchmarks"
 
 # Run QEMU with benchmark mode (timeout after 30 seconds)
 # The OS will output benchmark results via serial
-if [ -f "$PROJECT_ROOT/sys/baremetal_os.img" ]; then
+if [ -f "$PROJECT_ROOT/sys/aljefra_os.img" ]; then
     timeout 30 qemu-system-x86_64 \
         -machine q35 \
         -smp 4 \
         -m 512M \
-        -drive file="$PROJECT_ROOT/sys/baremetal_os.img",format=raw \
+        -drive file="$PROJECT_ROOT/sys/aljefra_os.img",format=raw \
         -serial stdio \
         -display none \
         -nographic \
@@ -101,9 +101,9 @@ cat > "$BASELINE_FILE" << EOF
   "component": "${COMPONENT}",
   "metrics": {
     "build_success": true,
-    "kernel_size_bytes": $(stat -c%s "$BAREMETAL_DIR/src/kernel.asm" 2>/dev/null || echo 0),
-    "total_asm_lines": $(find "$BAREMETAL_DIR/src" -name "*.asm" -exec cat {} + 2>/dev/null | wc -l || echo 0),
-    "driver_count": $(find "$BAREMETAL_DIR/src/drivers" -name "*.asm" 2>/dev/null | wc -l || echo 0)
+    "kernel_size_bytes": $(stat -c%s "$ALJEFRA_DIR/src/kernel.asm" 2>/dev/null || echo 0),
+    "total_asm_lines": $(find "$ALJEFRA_DIR/src" -name "*.asm" -exec cat {} + 2>/dev/null | wc -l || echo 0),
+    "driver_count": $(find "$ALJEFRA_DIR/src/drivers" -name "*.asm" 2>/dev/null | wc -l || echo 0)
   }
 }
 EOF
@@ -153,8 +153,8 @@ for GEN in $(seq 1 "$GENERATIONS"); do
     done
 
     # Rebuild after each generation to verify changes
-    if [ -f "$PROJECT_ROOT/baremetal.sh" ]; then
-        bash "$PROJECT_ROOT/baremetal.sh" build 2>/dev/null || echo "  WARN: Build failed, reverting"
+    if [ -f "$PROJECT_ROOT/aljefra.sh" ]; then
+        bash "$PROJECT_ROOT/aljefra.sh" build 2>/dev/null || echo "  WARN: Build failed, reverting"
     fi
 done
 
@@ -174,9 +174,9 @@ cat > "$FINAL_FILE" << EOF
   "generations": ${GENERATIONS},
   "total_breakthroughs": ${TOTAL_BREAKTHROUGHS},
   "metrics": {
-    "kernel_size_bytes": $(stat -c%s "$BAREMETAL_DIR/src/kernel.asm" 2>/dev/null || echo 0),
-    "total_asm_lines": $(find "$BAREMETAL_DIR/src" -name "*.asm" -exec cat {} + 2>/dev/null | wc -l || echo 0),
-    "driver_count": $(find "$BAREMETAL_DIR/src/drivers" -name "*.asm" 2>/dev/null | wc -l || echo 0)
+    "kernel_size_bytes": $(stat -c%s "$ALJEFRA_DIR/src/kernel.asm" 2>/dev/null || echo 0),
+    "total_asm_lines": $(find "$ALJEFRA_DIR/src" -name "*.asm" -exec cat {} + 2>/dev/null | wc -l || echo 0),
+    "driver_count": $(find "$ALJEFRA_DIR/src/drivers" -name "*.asm" 2>/dev/null | wc -l || echo 0)
   }
 }
 EOF

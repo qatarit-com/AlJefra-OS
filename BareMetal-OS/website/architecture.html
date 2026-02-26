@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="AlJefra OS Architecture - Exokernel design, HAL layer, multi-architecture support for x86-64, ARM64, and RISC-V.">
+    <meta name="keywords" content="OS architecture, exokernel, HAL, hardware abstraction, x86-64, ARM64, RISC-V">
+    <title>Architecture - AlJefra OS</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav>
+        <div class="nav-inner">
+            <div class="logo">AlJefra OS</div>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="docs.html">Docs</a></li>
+                <li><a href="architecture.html">Architecture</a></li>
+                <li><a href="marketplace.html">Marketplace</a></li>
+                <li><a href="download.html">Download</a></li>
+            </ul>
+        </div>
+    </nav>
+
+    <!-- Page Header -->
+    <div class="page-header">
+        <h1>Architecture</h1>
+        <p>Exokernel design with Hardware Abstraction Layer and multi-architecture support</p>
+    </div>
+
+    <!-- Overview Section -->
+    <section class="section">
+        <h2>Overview</h2>
+        <h3>Exokernel Design</h3>
+        <p>AlJefra OS uses an exokernel architecture that minimizes the kernel's responsibility by delegating hardware management to user-level drivers and applications. The kernel provides minimal abstractions, giving applications direct (safe) access to hardware resources while maintaining isolation and security.</p>
+        <p>This design philosophy enables:</p>
+        <ul style="color: var(--text-secondary); margin-left: 2rem; margin-bottom: 1rem;">
+            <li>Faster driver development and iteration</li>
+            <li>Better resource utilization across different hardware platforms</li>
+            <li>Easier customization for embedded and specialized systems</li>
+            <li>Direct hardware access without microkernel overhead</li>
+        </ul>
+
+        <h3>Hardware Abstraction Layer (HAL)</h3>
+        <p>The HAL provides a unified interface that abstracts away architecture-specific details. All drivers and kernel components use the HAL to interact with hardware, allowing the same portable C code to run on any supported architecture.</p>
+        <p>By implementing the HAL interface for each architecture, we achieve true code reuse: 14 portable C drivers work identically on x86-64, ARM64, and RISC-V without modification.</p>
+
+        <h3>Multi-Architecture Approach</h3>
+        <p>Rather than maintaining separate OS versions for different architectures, AlJefra OS provides a single unified codebase with architecture-specific implementations of the HAL layer. This approach ensures:</p>
+        <ul style="color: var(--text-secondary); margin-left: 2rem; margin-bottom: 1rem;">
+            <li>Consistent behavior across all platforms</li>
+            <li>Simplified maintenance and bug fixes</li>
+            <li>Faster integration of new features and drivers</li>
+            <li>Reduced development time for new architectures</li>
+        </ul>
+    </section>
+
+    <!-- Layer Diagram Section -->
+    <section class="section">
+        <h2>System Layer Diagram</h2>
+        <pre><code>┌─────────────────────────────────────────┐
+│       Applications / AI Agent           │
+├─────────────────────────────────────────┤
+│      Kernel Core (C, portable)          │
+│ scheduler · syscalls · driver loader    │
+├─────────────────────────────────────────┤
+│  Portable Drivers (C)                   │
+│  NVMe·AHCI·VirtIO·e1000·WiFi·USB·PCIe  │
+├─────────────────────────────────────────┤
+│    HAL — Hardware Abstraction Layer     │
+├────────────┬────────────┬───────────────┤
+│  x86-64    │  AArch64   │   RISC-V 64   │
+│ APIC/HPET  │ GIC/Timer  │ PLIC/mtime    │
+└────────────┴────────────┴───────────────┘</code></pre>
+    </section>
+
+    <!-- HAL Interface Section -->
+    <section class="section">
+        <h2>HAL Interface</h2>
+        <p>The Hardware Abstraction Layer defines a portable interface that all architectures must implement. Key HAL functions include:</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Function</th>
+                    <th>Purpose</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><code>hal_cpu_init()</code></td>
+                    <td>Initialize CPU: set up control registers, enable caches, detect features</td>
+                </tr>
+                <tr>
+                    <td><code>hal_irq_init()</code></td>
+                    <td>Initialize interrupt controller and set up IRQ routing</td>
+                </tr>
+                <tr>
+                    <td><code>hal_timer_init()</code></td>
+                    <td>Initialize system timer and set up periodic interrupts</td>
+                </tr>
+                <tr>
+                    <td><code>hal_bus_scan()</code></td>
+                    <td>Enumerate and discover devices on PCIe, USB, or device tree</td>
+                </tr>
+                <tr>
+                    <td><code>hal_mmio_read32(addr)</code></td>
+                    <td>Read 32-bit value from memory-mapped I/O register</td>
+                </tr>
+                <tr>
+                    <td><code>hal_mmio_write32(addr, value)</code></td>
+                    <td>Write 32-bit value to memory-mapped I/O register</td>
+                </tr>
+                <tr>
+                    <td><code>hal_console_putc(c)</code></td>
+                    <td>Output single character to debug console</td>
+                </tr>
+                <tr>
+                    <td><code>hal_mmu_map(vaddr, paddr, size, flags)</code></td>
+                    <td>Map virtual address to physical address in page tables</td>
+                </tr>
+                <tr>
+                    <td><code>hal_smp_init()</code></td>
+                    <td>Initialize SMP and bring up additional CPU cores</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Boot Sequence Section -->
+    <section class="section">
+        <h2>Boot Sequence</h2>
+        <p>AlJefra OS boots through the following sequence:</p>
+        <pre><code>Power On
+  ↓
+Firmware (UEFI/BIOS)
+  ↓
+Bootloader (loads AlJefra kernel)
+  ↓
+HAL Initialization
+  ├─ CPU: set up control registers, detect features
+  ├─ MMU: enable virtual memory, set up page tables
+  ├─ Interrupts: initialize interrupt controller
+  └─ Timer: set up system timer
+  ↓
+Kernel Main
+  ├─ Initialize kernel data structures
+  ├─ Launch process manager and scheduler
+  └─ Load bootloader drivers
+  ↓
+Bus Enumeration
+  ├─ Scan PCIe/USB/Device Tree
+  ├─ Discover available devices
+  └─ Load device drivers via driver marketplace
+  ↓
+Network Initialization
+  ├─ Initialize NIC driver
+  ├─ Configure TCP/IP stack
+  └─ Join network
+  ↓
+AI Bootstrap
+  ├─ Send hardware manifest to AlJefra Store
+  ├─ Receive driver recommendations
+  ├─ Download optimized drivers
+  ├─ Verify signatures (Ed25519)
+  └─ Install drivers
+  ↓
+System Ready
+  └─ Applications can launch</code></pre>
+    </section>
+
+    <!-- Supported Architectures Section -->
+    <section class="section">
+        <h2>Supported Architectures</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Architecture</th>
+                    <th>CPU Instructions</th>
+                    <th>Interrupt Handler</th>
+                    <th>Timer</th>
+                    <th>MMU</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>x86-64</td>
+                    <td>CPUID, MSR, privileged instructions</td>
+                    <td>APIC / I/O APIC</td>
+                    <td>HPET / TSC</td>
+                    <td>4-level page tables</td>
+                    <td>Verified</td>
+                </tr>
+                <tr>
+                    <td>ARM64 (AArch64)</td>
+                    <td>ARMv8 system instructions</td>
+                    <td>GICv2 / GICv3</td>
+                    <td>Generic Timer</td>
+                    <td>4-level page tables (Armv8.x)</td>
+                    <td>Verified</td>
+                </tr>
+                <tr>
+                    <td>RISC-V 64</td>
+                    <td>RV64GC ISA extensions</td>
+                    <td>PLIC (Platform-Level Interrupt Controller)</td>
+                    <td>mtime (machine timer)</td>
+                    <td>Sv39 / Sv48 virtual memory</td>
+                    <td>Verified</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Drivers Section -->
+    <section class="section">
+        <h2>Portable Drivers</h2>
+        <p>All drivers are written in portable C and use the HAL interface. This ensures the same driver code runs identically on x86-64, ARM64, and RISC-V.</p>
+        <table>
+            <thead>
+                <tr>
+                    <th>Category</th>
+                    <th>Drivers</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>Storage</strong></td>
+                    <td>NVMe, AHCI (SATA), VirtIO-Blk, eMMC, UFS</td>
+                </tr>
+                <tr>
+                    <td><strong>Network</strong></td>
+                    <td>Intel e1000, VirtIO-Net, Intel WiFi, Realtek RTL8169, Broadcom BCM WiFi</td>
+                </tr>
+                <tr>
+                    <td><strong>Input Devices</strong></td>
+                    <td>xHCI (USB 3.0), USB HID, PS/2 Keyboard/Mouse, Touchscreen</td>
+                </tr>
+                <tr>
+                    <td><strong>Display & Output</strong></td>
+                    <td>Framebuffer (VESA/EFI GOP), Serial Console</td>
+                </tr>
+                <tr>
+                    <td><strong>Bus Controllers</strong></td>
+                    <td>PCIe (PCI Express), Device Tree Parser, ACPI (lite subset)</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
+    <!-- Footer -->
+    <footer>
+        <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p style="margin-top: 1rem; font-size: 0.75rem;">Universal boot OS for x86-64, ARM64, and RISC-V</p>
+    </footer>
+</body>
+</html>

@@ -27,23 +27,23 @@ jobs:
       run: brew install cdrtools
 
     - name: Build
-      run: ./baremetal.sh setup
+      run: ./aljefra.sh setup
 
     # this is here just as a QA check to ensure it works on OS X
     - name: Build img
-      run: ./baremetal.sh setup
+      run: ./aljefra.sh setup
 
     # this is here just as a QA check to ensure it works on OS X
     - name: Build vdi
-      run: ./baremetal.sh vdi
+      run: ./aljefra.sh vdi
 
     # this is here just as a QA check to ensure it works on OS X
     - name: Build vmdk
-      run: ./baremetal.sh vmdk
+      run: ./aljefra.sh vmdk
 
     # this is here just as a QA check to ensure it works on OS X
     - name: Build vpc
-      run: ./baremetal.sh vpc
+      run: ./aljefra.sh vpc
 
   build-ubuntu:
     runs-on: ubuntu-latest
@@ -66,33 +66,33 @@ jobs:
       run: sudo apt install mkisofs
 
     - name: Build img
-      run: ./baremetal.sh setup
+      run: ./aljefra.sh setup
 
     - name: Build vdi
-      run: ./baremetal.sh vdi
+      run: ./aljefra.sh vdi
 
     - name: Build vmdk
-      run: ./baremetal.sh vmdk
+      run: ./aljefra.sh vmdk
 
     - name: Build vpc
-      run: ./baremetal.sh vpc
+      run: ./aljefra.sh vpc
 
     - uses: actions/upload-artifact@v4
       with:
-        name: BareMetal_OS.img
+        name: AlJefra_OS.img
         path: sys/floppy.img
 
     - uses: actions/upload-artifact@v4
       with:
-        name: BareMetal_OS.vdi
-        path: sys/BareMetal_OS.vdi
+        name: AlJefra_OS.vdi
+        path: sys/AlJefra_OS.vdi
     
     - uses: actions/upload-artifact@v4
       with:
-        name: BareMetal_OS.vmdk
-        path: sys/BareMetal_OS.vmdk
+        name: AlJefra_OS.vmdk
+        path: sys/AlJefra_OS.vmdk
 
     - uses: actions/upload-artifact@v4
       with:
-        name: BareMetal_OS.vpc
-        path: sys/BareMetal_OS.vpc
+        name: AlJefra_OS.vpc
+        path: sys/AlJefra_OS.vpc

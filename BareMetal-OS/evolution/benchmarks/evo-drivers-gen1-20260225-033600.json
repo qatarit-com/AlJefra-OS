@@ -77,6 +77,6 @@
   "system_info": {
     "gpu": "NVIDIA RTX 5090 (GB202)",
     "gpu_vram": "32GB GDDR7",
-    "architecture": "x86-64 BareMetal Exokernel"
+    "architecture": "x86-64 AlJefra Exokernel"
   }
 }

@@ -5,7 +5,7 @@
 This document tracks all breakthroughs achieved through GPU-accelerated self-evolution.
 
 ### Architecture
-- **Base OS:** BareMetal Exokernel (x86-64 pure assembly)
+- **Base OS:** AlJefra Exokernel (x86-64 pure assembly)
 - **GPU Engine:** NVIDIA RTX 5090 (Blackwell GB202) - 32GB GDDR7
 - **Evolution Framework:** GPU-accelerated genetic algorithm
 - **Components:** 15 independently evolvable subsystems

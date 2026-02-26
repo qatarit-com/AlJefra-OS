@@ -13,7 +13,7 @@ sudo apt install build-essential gcc-aarch64-linux-gnu gcc-riscv64-linux-gnu \
 ### Build
 
 ```bash
-cd BareMetal-OS
+cd AlJefra-OS
 
 # Build for a single architecture (default: x86-64)
 make                       # x86-64
@@ -70,7 +70,7 @@ qemu-system-x86_64 -machine q35 -cpu Westmere -smp 1 -m 256 \
 ## Project Structure
 
 ```
-BareMetal-OS/
+AlJefra-OS/
 ├── hal/            # Hardware Abstraction Layer headers (architecture-independent API)
 ├── arch/           # Architecture-specific implementations
 │   ├── x86_64/     # x86-64: boot.S, cpu.c, interrupt.c, timer.c, io.c, bus.c, mmu.c, smp.c

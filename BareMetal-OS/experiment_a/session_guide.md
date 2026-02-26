@@ -5,7 +5,7 @@ Step-by-step workflow for AI-directed kernel evolution.
 ## Session Setup
 
 1. Open a terminal
-2. `cd BareMetal-OS`
+2. `cd AlJefra-OS`
 3. `claude` (starts Claude Code)
 
 ## Evolution Commands
@@ -17,8 +17,8 @@ Evolve the [component] component:
 2. Identify optimization opportunities (instruction selection,
    register usage, branch prediction, alignment, lock contention)
 3. Apply the most promising optimizations
-4. Build with ./baremetal.sh build
-5. Run benchmarks with ./baremetal.sh run
+4. Build with ./aljefra.sh build
+5. Run benchmarks with ./aljefra.sh run
 6. If improvement >= 5%, record to evolution/logs/evolution_log.jsonl
 ```
 

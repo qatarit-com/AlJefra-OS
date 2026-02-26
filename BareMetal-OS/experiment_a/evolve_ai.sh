@@ -9,7 +9,7 @@ set -e
 
 COMPONENT="${1:-}"
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-BAREMETAL_DIR="$SCRIPT_DIR/.."
+ALJEFRA_DIR="$SCRIPT_DIR/.."
 
 echo "============================================"
 echo "  AlJefra OS — AI-Directed Evolution"
@@ -51,5 +51,5 @@ echo ""
 echo "Press Enter to launch Claude Code..."
 read -r
 
-cd "$BAREMETAL_DIR"
+cd "$ALJEFRA_DIR"
 claude

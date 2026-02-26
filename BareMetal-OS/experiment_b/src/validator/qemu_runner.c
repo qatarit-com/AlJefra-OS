@@ -69,7 +69,7 @@ int qemu_build_image(const uint8_t *kernel_bin, uint32_t kernel_size,
     }
     fclose(f);
 
-    /* Build the disk image using baremetal.sh or direct dd.
+    /* Build the disk image using aljefra.sh or direct dd.
      * The AlJefra OS disk image layout:
      *   Sector 0-2: Pure64 boot loader
      *   Sector 3+:  Kernel binary
@@ -78,21 +78,21 @@ int qemu_build_image(const uint8_t *kernel_bin, uint32_t kernel_size,
      */
     char cmd[1024];
     snprintf(cmd, sizeof(cmd),
-        "cp ../sys/baremetal_os.img %s/tmp/test.img 2>/dev/null && "
+        "cp ../sys/aljefra_os.img %s/tmp/test.img 2>/dev/null && "
         "dd if=%s of=%s/tmp/test.img bs=4096 seek=3 conv=notrunc 2>/dev/null",
         work_dir, kernel_path, work_dir);
 
     if (system(cmd) != 0) {
         /* Try alternative: build from scratch */
         snprintf(cmd, sizeof(cmd),
-            "cd .. && ./baremetal.sh build 2>/dev/null");
+            "cd .. && ./aljefra.sh build 2>/dev/null");
         if (system(cmd) != 0) {
             fprintf(stderr, "Error: Failed to build disk image\n");
             return -1;
         }
         /* Copy the built image */
         snprintf(cmd, sizeof(cmd),
-            "cp ../sys/baremetal_os.img %s/tmp/test.img",
+            "cp ../sys/aljefra_os.img %s/tmp/test.img",
             work_dir);
         system(cmd);
     }
