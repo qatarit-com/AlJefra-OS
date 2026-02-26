@@ -1,0 +1,342 @@
+/* SPDX-License-Identifier: MIT */
+/* AlJefra OS -- RISC-V 64-bit Bus / Device Discovery
+ * Implements hal/bus.h for RISC-V platforms.
+ *
+ * RISC-V platforms primarily use Device Tree (FDT) for device enumeration.
+ * PCIe is available on some boards via ECAM (same as ARM).
+ *
+ * QEMU virt machine:
+ *   PCIe ECAM: 0x30000000 (bus 0-255)
+ *   PLIC:      0x0C000000
+ *   CLINT:     0x02000000
+ *   UART:      0x10000000 (ns16550a)
+ *   VirtIO:    0x10001000-0x10008000
+ */
+
+#include "../../hal/hal.h"
+
+/* ------------------------------------------------------------------ */
+/* PCIe ECAM Configuration                                             */
+/* ------------------------------------------------------------------ */
+
+#define ECAM_BASE       0x30000000ULL   /* QEMU virt PCIe ECAM */
+#define ECAM_BUS_MAX    256
+#define ECAM_DEV_MAX    32
+#define ECAM_FUNC_MAX   8
+
+/* ------------------------------------------------------------------ */
+/* Private state                                                       */
+/* ------------------------------------------------------------------ */
+
+static volatile uint8_t *ecam_base = (volatile uint8_t *)ECAM_BASE;
+static hal_device_t device_cache[HAL_BUS_MAX_DEVICES];
+static uint32_t device_count = 0;
+static int bus_initialized = 0;
+
+/* ------------------------------------------------------------------ */
+/* ECAM helpers                                                        */
+/* ------------------------------------------------------------------ */
+
+static inline volatile uint8_t *ecam_addr(uint32_t bus, uint32_t dev,
+                                           uint32_t func, uint32_t reg)
+{
+    uint64_t offset = ((uint64_t)bus << 20) |
+                      ((uint64_t)dev << 15) |
+                      ((uint64_t)func << 12) |
+                      (uint64_t)reg;
+    return ecam_base + offset;
+}
+
+static inline uint32_t ecam_read32(uint32_t bus, uint32_t dev,
+                                    uint32_t func, uint32_t reg)
+{
+    volatile uint32_t *p = (volatile uint32_t *)ecam_addr(bus, dev, func, reg);
+    uint32_t v = *p;
+    __asm__ volatile("fence i, i" ::: "memory");
+    return v;
+}
+
+static inline void ecam_write32(uint32_t bus, uint32_t dev,
+                                 uint32_t func, uint32_t reg, uint32_t val)
+{
+    __asm__ volatile("fence o, o" ::: "memory");
+    volatile uint32_t *p = (volatile uint32_t *)ecam_addr(bus, dev, func, reg);
+    *p = val;
+}
+
+/* ------------------------------------------------------------------ */
+/* BAR size detection                                                  */
+/* ------------------------------------------------------------------ */
+
+static uint64_t probe_bar_size(uint32_t bus, uint32_t dev, uint32_t func,
+                                uint32_t bar_reg)
+{
+    uint32_t orig = ecam_read32(bus, dev, func, bar_reg);
+    ecam_write32(bus, dev, func, bar_reg, 0xFFFFFFFF);
+    uint32_t sized = ecam_read32(bus, dev, func, bar_reg);
+    ecam_write32(bus, dev, func, bar_reg, orig);
+
+    if (orig & 1) {
+        sized &= ~0x3;
+        return (~sized) + 1;
+    } else {
+        sized &= ~0xF;
+        if (sized == 0) return 0;
+        return (~sized) + 1;
+    }
+}
+
+/* ------------------------------------------------------------------ */
+/* PCIe enumeration                                                    */
+/* ------------------------------------------------------------------ */
+
+static uint32_t pcie_scan(hal_device_t *devs, uint32_t max)
+{
+    uint32_t count = 0;
+
+    for (uint32_t bus = 0; bus < ECAM_BUS_MAX && count < max; bus++) {
+        for (uint32_t dev = 0; dev < ECAM_DEV_MAX && count < max; dev++) {
+            for (uint32_t func = 0; func < ECAM_FUNC_MAX && count < max; func++) {
+                uint32_t id = ecam_read32(bus, dev, func, 0x00);
+                if (id == 0xFFFFFFFF || id == 0)
+                    continue;
+
+                hal_device_t *d = &devs[count];
+                d->bus_type  = HAL_BUS_PCIE;
+                d->vendor_id = id & 0xFFFF;
+                d->device_id = (id >> 16) & 0xFFFF;
+
+                uint32_t class_reg = ecam_read32(bus, dev, func, 0x08);
+                d->class_code = (class_reg >> 24) & 0xFF;
+                d->subclass   = (class_reg >> 16) & 0xFF;
+                d->prog_if    = (class_reg >> 8)  & 0xFF;
+
+                uint32_t intr = ecam_read32(bus, dev, func, 0x3C);
+                d->irq = intr & 0xFF;
+
+                d->bus  = bus;
+                d->dev  = dev;
+                d->func = func;
+
+                for (int bar = 0; bar < 6; bar++) {
+                    uint32_t bar_reg = 0x10 + bar * 4;
+                    uint32_t bar_val = ecam_read32(bus, dev, func, bar_reg);
+
+                    if (bar_val & 1) {
+                        d->bar[bar] = bar_val & ~0x3ULL;
+                    } else {
+                        d->bar[bar] = bar_val & ~0xFULL;
+                        if (((bar_val >> 1) & 3) == 2 && bar < 5) {
+                            uint32_t hi = ecam_read32(bus, dev, func, bar_reg + 4);
+                            d->bar[bar] |= ((uint64_t)hi << 32);
+                            d->bar_size[bar] = probe_bar_size(bus, dev, func, bar_reg);
+                            bar++;
+                            d->bar[bar] = 0;
+                            d->bar_size[bar] = 0;
+                            continue;
+                        }
+                    }
+                    d->bar_size[bar] = probe_bar_size(bus, dev, func, bar_reg);
+                }
+
+                d->compatible[0] = '\0';
+                count++;
+
+                if (func == 0) {
+                    uint32_t header = ecam_read32(bus, dev, func, 0x0C);
+                    if (!((header >> 16) & 0x80))
+                        break;
+                }
+            }
+        }
+    }
+
+    return count;
+}
+
+/* ------------------------------------------------------------------ */
+/* Device Tree enumeration placeholder                                 */
+/* ------------------------------------------------------------------ */
+
+/* TODO: Parse FDT (Flattened Device Tree) blob.
+ * The DTB pointer is in a1 at _start (OpenSBI passes it there).
+ * For now, add hardcoded QEMU virt platform devices. */
+
+static void copy_compat(char *dst, const char *src)
+{
+    int i = 0;
+    while (src[i] && i < 63) { dst[i] = src[i]; i++; }
+    dst[i] = '\0';
+}
+
+static uint32_t dt_scan_qemu_virt(hal_device_t *devs, uint32_t start, uint32_t max)
+{
+    uint32_t count = start;
+
+    /* NS16550a UART */
+    if (count < max) {
+        hal_device_t *d = &devs[count];
+        d->bus_type = HAL_BUS_DT;
+        d->vendor_id = 0; d->device_id = 0;
+        d->class_code = 0; d->subclass = 0; d->prog_if = 0;
+        d->irq = 10;  /* PLIC IRQ 10 for UART0 on QEMU virt */
+        d->bar[0] = 0x10000000;  /* UART MMIO base */
+        d->bar_size[0] = 0x100;
+        for (int i = 1; i < HAL_BUS_MAX_BARS; i++) {
+            d->bar[i] = 0; d->bar_size[i] = 0;
+        }
+        d->bus = 0; d->dev = 0; d->func = 0;
+        copy_compat(d->compatible, "ns16550a");
+        count++;
+    }
+
+    /* PLIC */
+    if (count < max) {
+        hal_device_t *d = &devs[count];
+        d->bus_type = HAL_BUS_DT;
+        d->vendor_id = 0; d->device_id = 0;
+        d->class_code = 0; d->subclass = 0; d->prog_if = 0;
+        d->irq = 0;
+        d->bar[0] = 0x0C000000;  /* PLIC base */
+        d->bar_size[0] = 0x4000000;  /* 64MB */
+        for (int i = 1; i < HAL_BUS_MAX_BARS; i++) {
+            d->bar[i] = 0; d->bar_size[i] = 0;
+        }
+        d->bus = 0; d->dev = 0; d->func = 0;
+        copy_compat(d->compatible, "riscv,plic0");
+        count++;
+    }
+
+    /* CLINT */
+    if (count < max) {
+        hal_device_t *d = &devs[count];
+        d->bus_type = HAL_BUS_DT;
+        d->vendor_id = 0; d->device_id = 0;
+        d->class_code = 0; d->subclass = 0; d->prog_if = 0;
+        d->irq = 0;
+        d->bar[0] = 0x02000000;
+        d->bar_size[0] = 0x10000;
+        for (int i = 1; i < HAL_BUS_MAX_BARS; i++) {
+            d->bar[i] = 0; d->bar_size[i] = 0;
+        }
+        d->bus = 0; d->dev = 0; d->func = 0;
+        copy_compat(d->compatible, "riscv,clint0");
+        count++;
+    }
+
+    /* VirtIO MMIO devices (QEMU virt has 8 slots) */
+    for (uint32_t slot = 0; slot < 8 && count < max; slot++) {
+        hal_device_t *d = &devs[count];
+        d->bus_type = HAL_BUS_DT;
+        d->vendor_id = 0; d->device_id = 0;
+        d->class_code = 0; d->subclass = 0; d->prog_if = 0;
+        d->irq = 1 + slot;  /* PLIC IRQ 1-8 */
+        d->bar[0] = 0x10001000 + 0x1000 * slot;
+        d->bar_size[0] = 0x1000;
+        for (int i = 1; i < HAL_BUS_MAX_BARS; i++) {
+            d->bar[i] = 0; d->bar_size[i] = 0;
+        }
+        d->bus = 0; d->dev = 0; d->func = 0;
+        copy_compat(d->compatible, "virtio,mmio");
+        count++;
+    }
+
+    return count;
+}
+
+/* ------------------------------------------------------------------ */
+/* HAL Interface Implementation                                        */
+/* ------------------------------------------------------------------ */
+
+hal_status_t hal_bus_init(void)
+{
+    device_count = 0;
+    bus_initialized = 1;
+
+    /* Scan PCIe */
+    device_count = pcie_scan(device_cache, HAL_BUS_MAX_DEVICES);
+
+    /* Add device-tree devices */
+    device_count = dt_scan_qemu_virt(device_cache, device_count, HAL_BUS_MAX_DEVICES);
+
+    return HAL_OK;
+}
+
+uint32_t hal_bus_scan(hal_device_t *devs, uint32_t max)
+{
+    if (!bus_initialized)
+        hal_bus_init();
+
+    uint32_t n = (device_count < max) ? device_count : max;
+    const char *src = (const char *)device_cache;
+    char *dst = (char *)devs;
+    for (uint64_t i = 0; i < n * sizeof(hal_device_t); i++)
+        dst[i] = src[i];
+
+    return n;
+}
+
+uint32_t hal_bus_pci_read32(uint32_t bdf, uint32_t reg)
+{
+    uint32_t bus  = (bdf >> 8) & 0xFF;
+    uint32_t dev  = (bdf >> 3) & 0x1F;
+    uint32_t func = bdf & 0x7;
+    return ecam_read32(bus, dev, func, reg);
+}
+
+void hal_bus_pci_write32(uint32_t bdf, uint32_t reg, uint32_t val)
+{
+    uint32_t bus  = (bdf >> 8) & 0xFF;
+    uint32_t dev  = (bdf >> 3) & 0x1F;
+    uint32_t func = bdf & 0x7;
+    ecam_write32(bus, dev, func, reg, val);
+}
+
+void hal_bus_pci_enable(hal_device_t *dev)
+{
+    uint32_t bdf = ((uint32_t)dev->bus << 8) | ((uint32_t)dev->dev << 3) | dev->func;
+    uint32_t cmd = hal_bus_pci_read32(bdf, 0x04);
+    cmd |= (1 << 1) | (1 << 2);
+    hal_bus_pci_write32(bdf, 0x04, cmd);
+}
+
+volatile void *hal_bus_map_bar(hal_device_t *dev, uint32_t bar_index)
+{
+    if (bar_index >= HAL_BUS_MAX_BARS)
+        return (volatile void *)0;
+    return (volatile void *)dev->bar[bar_index];
+}
+
+uint32_t hal_bus_find_by_class(uint8_t class_code, uint8_t subclass,
+                                hal_device_t *out, uint32_t max)
+{
+    uint32_t found = 0;
+    for (uint32_t i = 0; i < device_count && found < max; i++) {
+        if (device_cache[i].class_code == class_code &&
+            device_cache[i].subclass == subclass) {
+            const char *src = (const char *)&device_cache[i];
+            char *dst = (char *)&out[found];
+            for (unsigned k = 0; k < sizeof(hal_device_t); k++)
+                dst[k] = src[k];
+            found++;
+        }
+    }
+    return found;
+}
+
+uint32_t hal_bus_find_by_id(uint16_t vendor, uint16_t device,
+                             hal_device_t *out, uint32_t max)
+{
+    uint32_t found = 0;
+    for (uint32_t i = 0; i < device_count && found < max; i++) {
+        if (device_cache[i].vendor_id == vendor &&
+            device_cache[i].device_id == device) {
+            const char *src = (const char *)&device_cache[i];
+            char *dst = (char *)&out[found];
+            for (unsigned k = 0; k < sizeof(hal_device_t); k++)
+                dst[k] = src[k];
+            found++;
+        }
+    }
+    return found;
+}
