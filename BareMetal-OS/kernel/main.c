@@ -30,6 +30,9 @@ extern void virtio_net_register(void);
 extern void virtio_blk_register(void);
 extern void ahci_register(void);
 extern void nvme_register(void);
+extern void touch_register(void);
+extern void ufs_register(void);
+extern void intel_wifi_register(void);
 
 /* ── Hardware manifest (filled by bus scan) ── */
 static hal_device_t g_devices[HAL_BUS_MAX_DEVICES];
@@ -124,6 +127,7 @@ static void detect_hardware(void)
 
 #define PCI_SUBCLASS_NVME      0x08
 #define PCI_SUBCLASS_AHCI      0x06
+#define PCI_SUBCLASS_UFS       0x09
 #define PCI_SUBCLASS_ETHERNET  0x00
 #define PCI_SUBCLASS_USB       0x03
 
@@ -136,6 +140,9 @@ static void register_builtin_drivers(void)
     virtio_blk_register();
     ahci_register();
     nvme_register();
+    touch_register();
+    ufs_register();
+    intel_wifi_register();
 }
 
 /* ── Load built-in (compiled-in) drivers ── */
@@ -191,12 +198,31 @@ static void load_builtin_drivers(void)
             if (rc == HAL_OK) loaded++;
         }
 
+        /* Storage: UFS */
+        if (d->class_code == PCI_CLASS_STORAGE && d->subclass == PCI_SUBCLASS_UFS) {
+            rc = driver_load_builtin("ufs", d);
+            if (rc == HAL_OK) loaded++;
+        }
+
+        /* Network: Intel WiFi (AX200/AX210) */
+        if (d->class_code == PCI_CLASS_NETWORK && d->vendor_id == 0x8086 &&
+            (d->device_id == 0x2723 || d->device_id == 0x2725)) {
+            rc = driver_load_builtin("intel-wifi", d);
+            if (rc == HAL_OK) loaded++;
+        }
+
         /* USB: xHCI */
         if (d->class_code == PCI_CLASS_SERIAL_BUS && d->subclass == PCI_SUBCLASS_USB) {
             if (d->prog_if == 0x30) { /* xHCI */
                 rc = driver_load_builtin("xhci", d);
                 if (rc == HAL_OK) loaded++;
             }
+        }
+
+        /* Input: Touchscreen (Device Tree / platform I2C controllers) */
+        if (d->bus_type == HAL_BUS_DT || d->bus_type == HAL_BUS_MMIO) {
+            rc = driver_load_builtin("touch", d);
+            if (rc == HAL_OK) loaded++;
         }
     }
 
