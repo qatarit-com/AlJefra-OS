@@ -5,6 +5,7 @@
  */
 
 #include "nvme.h"
+#include "../../lib/string.h"
 
 /* ── Internal helpers ── */
 
@@ -73,14 +74,6 @@ static hal_status_t nvme_wait_ready(nvme_controller_t *ctrl, bool expected)
     return HAL_TIMEOUT;
 }
 
-/* Zero out memory — no memset dependency */
-static void nvme_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
 /* ── Queue management ── */
 
 /* Allocate and initialize a queue pair */
@@ -94,7 +87,7 @@ static hal_status_t nvme_alloc_queue(nvme_controller_t *ctrl, nvme_queue_t *q,
     q->sq = (volatile nvme_sq_entry_t *)hal_dma_alloc(sq_size, &q->sq_phys);
     if (!q->sq)
         return HAL_NO_MEMORY;
-    nvme_memzero((void *)q->sq, sq_size);
+    memset((void *)q->sq, 0, sq_size);
 
     /* Allocate completion queue */
     q->cq = (volatile nvme_cq_entry_t *)hal_dma_alloc(cq_size, &q->cq_phys);
@@ -102,7 +95,7 @@ static hal_status_t nvme_alloc_queue(nvme_controller_t *ctrl, nvme_queue_t *q,
         hal_dma_free((void *)q->sq, sq_size);
         return HAL_NO_MEMORY;
     }
-    nvme_memzero((void *)q->cq, cq_size);
+    memset((void *)q->cq, 0, cq_size);
 
     /* Set up doorbell pointers */
     q->sq_doorbell = nvme_sq_doorbell(ctrl, qid);
@@ -231,7 +224,7 @@ static hal_status_t nvme_enable_controller(nvme_controller_t *ctrl)
 static hal_status_t nvme_identify_controller(nvme_controller_t *ctrl)
 {
     nvme_sq_entry_t cmd;
-    nvme_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
 
     cmd.opc = NVME_ADMIN_IDENTIFY;
     cmd.nsid = 0;
@@ -258,7 +251,7 @@ static hal_status_t nvme_identify_controller(nvme_controller_t *ctrl)
 static hal_status_t nvme_identify_namespace(nvme_controller_t *ctrl)
 {
     nvme_sq_entry_t cmd;
-    nvme_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
 
     cmd.opc = NVME_ADMIN_IDENTIFY;
     cmd.nsid = 1;
@@ -285,7 +278,7 @@ static hal_status_t nvme_create_io_cq(nvme_controller_t *ctrl, uint16_t qid,
                                        uint16_t depth, uint64_t cq_phys)
 {
     nvme_sq_entry_t cmd;
-    nvme_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
 
     cmd.opc = NVME_ADMIN_CREATE_IO_CQ;
     cmd.prp1 = cq_phys;
@@ -301,7 +294,7 @@ static hal_status_t nvme_create_io_sq(nvme_controller_t *ctrl, uint16_t qid,
                                        uint16_t cqid)
 {
     nvme_sq_entry_t cmd;
-    nvme_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
 
     cmd.opc = NVME_ADMIN_CREATE_IO_SQ;
     cmd.prp1 = sq_phys;
@@ -444,7 +437,7 @@ hal_status_t nvme_read(nvme_controller_t *ctrl, uint64_t lba,
         }
 
         nvme_sq_entry_t cmd;
-        nvme_memzero(&cmd, sizeof(cmd));
+        memset(&cmd, 0, sizeof(cmd));
         cmd.opc = NVME_CMD_READ;
         cmd.nsid = 1;
         cmd.prp1 = prp1;
@@ -502,7 +495,7 @@ hal_status_t nvme_write(nvme_controller_t *ctrl, uint64_t lba,
         }
 
         nvme_sq_entry_t cmd;
-        nvme_memzero(&cmd, sizeof(cmd));
+        memset(&cmd, 0, sizeof(cmd));
         cmd.opc = NVME_CMD_WRITE;
         cmd.nsid = 1;
         cmd.prp1 = prp1;

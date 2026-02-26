@@ -8,18 +8,11 @@
  */
 
 #include "dhcp.h"
+#include "checksum.h"
 #include "../hal/hal.h"
 #include "../kernel/driver_loader.h"
-
-/* ── Byte order helpers ── */
-static uint16_t htons(uint16_t v) { return (v >> 8) | (v << 8); }
-static uint32_t htonl(uint32_t v)
-{
-    return ((v & 0xFF) << 24) | ((v & 0xFF00) << 8) |
-           ((v & 0xFF0000) >> 8) | ((v >> 24) & 0xFF);
-}
-static uint16_t ntohs(uint16_t v) { return htons(v); }
-static uint32_t ntohl(uint32_t v) { return htonl(v); }
+#include "../lib/string.h"
+#include "../lib/endian.h"
 
 /* ── DHCP constants ── */
 #define DHCP_OP_REQUEST    1
@@ -97,42 +90,12 @@ typedef struct __attribute__((packed)) {
 static dhcp_lease_t g_lease;
 static uint8_t g_mac[6];
 
-/* ── Checksum ── */
-static uint16_t ip_checksum(const void *data, uint32_t len)
-{
-    const uint16_t *p = (const uint16_t *)data;
-    uint32_t sum = 0;
-    while (len > 1) {
-        sum += *p++;
-        len -= 2;
-    }
-    if (len == 1)
-        sum += *(const uint8_t *)p;
-    while (sum >> 16)
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    return (uint16_t)~sum;
-}
-
-/* ── Simple memset/memcpy ── */
-static void mem_zero(void *p, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)p;
-    while (n--) *d++ = 0;
-}
-
-static void mem_copy(void *dst, const void *src, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    while (n--) *d++ = *s++;
-}
-
 /* ── Build DHCP discover/request ── */
 static uint32_t build_dhcp_packet(dhcp_packet_t *pkt, uint8_t msg_type,
                                    uint32_t xid, uint32_t requested_ip,
                                    uint32_t server_ip)
 {
-    mem_zero(pkt, sizeof(*pkt));
+    memset(pkt, 0, sizeof(*pkt));
 
     pkt->op = DHCP_OP_REQUEST;
     pkt->htype = DHCP_HTYPE_ETH;
@@ -140,7 +103,7 @@ static uint32_t build_dhcp_packet(dhcp_packet_t *pkt, uint8_t msg_type,
     pkt->xid = htonl(xid);
     pkt->flags = htons(0x8000); /* Broadcast flag */
     pkt->cookie = htonl(DHCP_MAGIC_COOKIE);
-    mem_copy(pkt->chaddr, g_mac, 6);
+    memcpy(pkt->chaddr, g_mac, 6);
 
     /* Options */
     uint8_t *opt = pkt->options;
@@ -155,14 +118,14 @@ static uint32_t build_dhcp_packet(dhcp_packet_t *pkt, uint8_t msg_type,
         *opt++ = OPT_REQUESTED_IP;
         *opt++ = 4;
         uint32_t rip = htonl(requested_ip);
-        mem_copy(opt, &rip, 4);
+        memcpy(opt, &rip, 4);
         opt += 4;
 
         /* Option 54: Server identifier */
         *opt++ = OPT_SERVER_ID;
         *opt++ = 4;
         uint32_t sid = htonl(server_ip);
-        mem_copy(opt, &sid, 4);
+        memcpy(opt, &sid, 4);
         opt += 4;
     }
 
@@ -176,7 +139,7 @@ static uint32_t build_dhcp_packet(dhcp_packet_t *pkt, uint8_t msg_type,
     /* Option 12: Hostname */
     *opt++ = OPT_HOSTNAME;
     *opt++ = 7;
-    mem_copy(opt, "aljefra", 7);
+    memcpy(opt, "aljefra", 7);
     opt += 7;
 
     /* End */
@@ -193,13 +156,13 @@ static void send_dhcp(const dhcp_packet_t *pkt, uint32_t pkt_len)
 
     /* Build full Ethernet + IP + UDP frame */
     uint8_t frame[1500];
-    mem_zero(frame, sizeof(frame));
+    memset(frame, 0, sizeof(frame));
 
     net_header_t *hdr = (net_header_t *)frame;
 
     /* Ethernet: broadcast */
     for (int i = 0; i < 6; i++) hdr->eth_dst[i] = 0xFF;
-    mem_copy(hdr->eth_src, g_mac, 6);
+    memcpy(hdr->eth_src, g_mac, 6);
     hdr->eth_type = htons(0x0800); /* IPv4 */
 
     /* IPv4 */
@@ -222,7 +185,7 @@ static void send_dhcp(const dhcp_packet_t *pkt, uint32_t pkt_len)
     hdr->udp_checksum = 0; /* Optional for IPv4 UDP */
 
     /* Copy DHCP payload after headers */
-    mem_copy(frame + sizeof(net_header_t), pkt, pkt_len);
+    memcpy(frame + sizeof(net_header_t), pkt, pkt_len);
 
     uint32_t total = sizeof(net_header_t) + pkt_len;
     if (total < 60) total = 60; /* Minimum Ethernet frame */
@@ -250,35 +213,35 @@ static uint8_t parse_dhcp_options(const dhcp_packet_t *pkt, dhcp_lease_t *lease)
         case OPT_SUBNET_MASK:
             if (len >= 4) {
                 uint32_t v;
-                mem_copy(&v, &opt[i], 4);
+                memcpy(&v, &opt[i], 4);
                 lease->subnet_mask = ntohl(v);
             }
             break;
         case OPT_ROUTER:
             if (len >= 4) {
                 uint32_t v;
-                mem_copy(&v, &opt[i], 4);
+                memcpy(&v, &opt[i], 4);
                 lease->gateway = ntohl(v);
             }
             break;
         case OPT_DNS:
             if (len >= 4) {
                 uint32_t v;
-                mem_copy(&v, &opt[i], 4);
+                memcpy(&v, &opt[i], 4);
                 lease->dns_server = ntohl(v);
             }
             break;
         case OPT_LEASE_TIME:
             if (len >= 4) {
                 uint32_t v;
-                mem_copy(&v, &opt[i], 4);
+                memcpy(&v, &opt[i], 4);
                 lease->lease_time = ntohl(v);
             }
             break;
         case OPT_SERVER_ID:
             if (len >= 4) {
                 uint32_t v;
-                mem_copy(&v, &opt[i], 4);
+                memcpy(&v, &opt[i], 4);
                 lease->server_ip = ntohl(v);
             }
             break;
@@ -322,7 +285,7 @@ static int recv_dhcp(dhcp_packet_t *pkt, uint32_t xid, uint64_t timeout_ms)
         if (payload_len < 240) /* Minimum DHCP */
             continue;
 
-        mem_copy(pkt, frame + payload_off, payload_len);
+        memcpy(pkt, frame + payload_off, payload_len);
 
         /* Verify XID */
         if (ntohl(pkt->xid) != xid)
@@ -352,7 +315,7 @@ hal_status_t dhcp_discover(uint32_t *ip, uint32_t *gateway, uint32_t *dns)
 
     dhcp_packet_t pkt;
     dhcp_lease_t lease;
-    mem_zero(&lease, sizeof(lease));
+    memset(&lease, 0, sizeof(lease));
 
     /* ── Step 1: DHCP Discover ── */
     hal_console_puts("[dhcp] Sending DISCOVER...\n");

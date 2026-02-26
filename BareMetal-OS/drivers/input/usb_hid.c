@@ -4,6 +4,7 @@
  */
 
 #include "usb_hid.h"
+#include "../../lib/string.h"
 
 /* ── USB HID keycode to ASCII mapping (US layout) ── */
 
@@ -61,13 +62,6 @@ static const char hid_keymap_shifted[128] = {
 };
 
 /* ── Helpers ── */
-
-static void hid_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
 
 /* Check if a keycode is in an array of 6 keys */
 static bool hid_key_in_array(uint8_t key, const uint8_t *arr)
@@ -170,7 +164,7 @@ static void hid_process_mouse(usb_hid_dev_t *hid, const uint8_t *report,
 hal_status_t usb_hid_init(usb_hid_dev_t *hid, xhci_controller_t *hc,
                            uint8_t slot_id)
 {
-    hid_memzero(hid, sizeof(*hid));
+    memset(hid, 0, sizeof(*hid));
     hid->hc = hc;
     hid->slot_id = slot_id;
     hid->initialized = false;
@@ -183,7 +177,7 @@ hal_status_t usb_hid_init(usb_hid_dev_t *hid, xhci_controller_t *hc,
 
     /* Get configuration descriptor (first 256 bytes should be enough) */
     uint8_t config_buf[256];
-    hid_memzero(config_buf, sizeof(config_buf));
+    memset(config_buf, 0, sizeof(config_buf));
     st = xhci_get_config_desc(hc, slot_id, config_buf, sizeof(config_buf));
     if (st != HAL_OK)
         return st;

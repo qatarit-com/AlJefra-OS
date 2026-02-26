@@ -12,27 +12,7 @@
 #include "marketplace.h"
 #include "../hal/hal.h"
 #include "../net/tcp.h"
-
-/* ── Simple string helpers ── */
-static uint32_t str_len(const char *s)
-{
-    uint32_t n = 0;
-    while (s[n]) n++;
-    return n;
-}
-
-static void mem_zero(void *p, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)p;
-    while (n--) *d++ = 0;
-}
-
-static void mem_copy(void *dst, const void *src, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    while (n--) *d++ = *s++;
-}
+#include "../lib/string.h"
 
 /* ── Integer to hex string ── */
 static void u16_to_hex(uint16_t v, char *out)
@@ -442,7 +422,7 @@ hal_status_t marketplace_get_driver(uint16_t vendor_id, uint16_t device_id,
     if (!drv_buf)
         return HAL_ERROR;
 
-    mem_copy(drv_buf, body, body_len);
+    memcpy(drv_buf, body, body_len);
     *data = drv_buf;
     *size = body_len;
 
@@ -476,7 +456,7 @@ static int json_find_string(const char *json, uint32_t json_len,
         uint32_t n = 0;
         while (j + n < json_len && json[j + n] != '"' && n < out_max - 1)
             n++;
-        mem_copy(out, &json[j], n);
+        memcpy(out, &json[j], n);
         out[n] = '\0';
         return (int)n;
     }
@@ -665,7 +645,7 @@ hal_status_t marketplace_get_catalog(marketplace_driver_info_t *drivers,
 
         /* Extract fields from this driver object */
         marketplace_driver_info_t *drv = &drivers[n];
-        mem_zero(drv, sizeof(*drv));
+        memset(drv, 0, sizeof(*drv));
 
         json_find_string(obj_start, obj_len, "name", drv->driver_name, sizeof(drv->driver_name));
         json_find_string(obj_start, obj_len, "version", drv->version, sizeof(drv->version));

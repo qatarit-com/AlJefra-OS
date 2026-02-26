@@ -20,6 +20,7 @@
 
 #include "intel_wifi.h"
 #include "../../kernel/driver_loader.h"
+#include "../../lib/string.h"
 
 /* ===================================================================
  * Internal Constants
@@ -36,23 +37,8 @@
 #define IWL_SCD_BC_TBL_SIZE      (IWL_MAX_QUEUES * IWL_TX_QUEUE_SIZE * 2)
 
 /* ===================================================================
- * Helpers (freestanding -- no libc)
+ * Helpers
  * =================================================================== */
-
-static void iwl_memcpy(void *dst, const void *src, uint32_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint32_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
-
-static void iwl_memzero(void *dst, uint32_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    for (uint32_t i = 0; i < len; i++)
-        d[i] = 0;
-}
 
 /* Print 32-bit hex value for debug */
 static void iwl_print_hex32(uint32_t val)
@@ -331,7 +317,7 @@ static hal_status_t iwl_alloc_ict(iwl_dev_t *nic)
     if (!nic->ict_table)
         return HAL_NO_MEMORY;
 
-    iwl_memzero(nic->ict_table, IWL_ICT_SIZE);
+    memset(nic->ict_table, 0, IWL_ICT_SIZE);
     nic->ict_index = 0;
 
     return HAL_OK;
@@ -343,7 +329,7 @@ static hal_status_t iwl_enable_ict(iwl_dev_t *nic)
         return HAL_ERROR;
 
     /* Clear any stale entries */
-    iwl_memzero(nic->ict_table, IWL_ICT_SIZE);
+    memset(nic->ict_table, 0, IWL_ICT_SIZE);
     nic->ict_index = 0;
 
     /* Write ICT table physical address to device.
@@ -379,7 +365,7 @@ static hal_status_t iwl_alloc_cmd_queue(iwl_dev_t *nic)
     nic->cmd_tfd = (iwl_tfd_t *)hal_dma_alloc(ring_size, &nic->cmd_tfd_phys);
     if (!nic->cmd_tfd)
         return HAL_NO_MEMORY;
-    iwl_memzero(nic->cmd_tfd, (uint32_t)ring_size);
+    memset(nic->cmd_tfd, 0, (uint32_t)ring_size);
 
     /* Allocate command data buffers */
     for (uint32_t i = 0; i < IWL_CMD_QUEUE_SIZE; i++) {
@@ -387,7 +373,7 @@ static hal_status_t iwl_alloc_cmd_queue(iwl_dev_t *nic)
                                            &nic->cmd_bufs_phys[i]);
         if (!nic->cmd_bufs[i])
             return HAL_NO_MEMORY;
-        iwl_memzero(nic->cmd_bufs[i], IWL_CMD_BUF_SIZE);
+        memset(nic->cmd_bufs[i], 0, IWL_CMD_BUF_SIZE);
     }
 
     nic->cmd_write = 0;
@@ -404,7 +390,7 @@ static hal_status_t iwl_alloc_tx_queue(iwl_dev_t *nic)
     nic->tx_tfd = (iwl_tfd_t *)hal_dma_alloc(ring_size, &nic->tx_tfd_phys);
     if (!nic->tx_tfd)
         return HAL_NO_MEMORY;
-    iwl_memzero(nic->tx_tfd, (uint32_t)ring_size);
+    memset(nic->tx_tfd, 0, (uint32_t)ring_size);
 
     for (uint32_t i = 0; i < IWL_TX_QUEUE_SIZE; i++) {
         nic->tx_bufs[i] = hal_dma_alloc(WIFI_MAX_FRAME_LEN,
@@ -423,7 +409,7 @@ static hal_status_t iwl_alloc_tx_queue(iwl_dev_t *nic)
                                                     &nic->scd_bc_tbl_phys);
     if (!nic->scd_bc_tbl)
         return HAL_NO_MEMORY;
-    iwl_memzero(nic->scd_bc_tbl, IWL_SCD_BC_TBL_SIZE);
+    memset(nic->scd_bc_tbl, 0, IWL_SCD_BC_TBL_SIZE);
 
     return HAL_OK;
 }
@@ -436,7 +422,7 @@ static hal_status_t iwl_alloc_rx_ring(iwl_dev_t *nic)
     nic->rx_rbd = (iwl_rbd_t *)hal_dma_alloc(ring_size, &nic->rx_rbd_phys);
     if (!nic->rx_rbd)
         return HAL_NO_MEMORY;
-    iwl_memzero(nic->rx_rbd, (uint32_t)ring_size);
+    memset(nic->rx_rbd, 0, (uint32_t)ring_size);
 
     /* RX buffers -- each is 4KB to match IWL_RX_BUF_SIZE */
     for (uint32_t i = 0; i < IWL_RX_RING_SIZE; i++) {
@@ -444,7 +430,7 @@ static hal_status_t iwl_alloc_rx_ring(iwl_dev_t *nic)
                                           &nic->rx_bufs_phys[i]);
         if (!nic->rx_bufs[i])
             return HAL_NO_MEMORY;
-        iwl_memzero(nic->rx_bufs[i], IWL_RX_BUF_SIZE);
+        memset(nic->rx_bufs[i], 0, IWL_RX_BUF_SIZE);
 
         /* Fill RBD with physical address of buffer */
         nic->rx_rbd[i].addr_lo = (uint32_t)(nic->rx_bufs_phys[i] & 0xFFFFFFFF);
@@ -456,7 +442,7 @@ static hal_status_t iwl_alloc_rx_ring(iwl_dev_t *nic)
                                                         &nic->rx_status_phys);
     if (!nic->rx_status)
         return HAL_NO_MEMORY;
-    iwl_memzero(nic->rx_status, sizeof(iwl_rb_status_t));
+    memset(nic->rx_status, 0, sizeof(iwl_rb_status_t));
 
     nic->rx_read = 0;
 
@@ -526,12 +512,12 @@ hal_status_t iwl_send_cmd(iwl_dev_t *nic, uint8_t cmd_id,
 
     /* Copy command data after header */
     if (data && data_len > 0)
-        iwl_memcpy((uint8_t *)nic->cmd_bufs[idx] + sizeof(iwl_host_cmd_hdr_t),
+        memcpy((uint8_t *)nic->cmd_bufs[idx] + sizeof(iwl_host_cmd_hdr_t),
                     data, data_len);
 
     /* Set up TFD to point to this command buffer */
     iwl_tfd_t *tfd = &nic->cmd_tfd[idx];
-    iwl_memzero(tfd, sizeof(iwl_tfd_t));
+    memset(tfd, 0, sizeof(iwl_tfd_t));
     tfd->num_tbs = 1;
     iwl_tfd_set_tb(tfd, 0, nic->cmd_bufs_phys[idx],
                     (uint16_t)(sizeof(iwl_host_cmd_hdr_t) + data_len));
@@ -590,7 +576,7 @@ hal_status_t iwl_wait_response(iwl_dev_t *nic, void *buf,
 
             uint32_t copy = (resp_len < buf_size) ? resp_len : buf_size;
             if (buf && copy > 0)
-                iwl_memcpy(buf, rx_data + 4, copy);
+                memcpy(buf, rx_data + 4, copy);
 
             /* Advance read pointer */
             nic->rx_read = closed;
@@ -834,14 +820,14 @@ hal_status_t iwl_load_firmware(iwl_dev_t *nic, const void *fw_data,
             uint64_t inst_phys = 0;
             void *inst_dma = hal_dma_alloc(inst_len, &inst_phys);
             if (inst_dma) {
-                iwl_memcpy(inst_dma, inst_data, inst_len);
+                memcpy(inst_dma, inst_data, inst_len);
 
                 uint64_t d_phys = 0;
                 void *d_dma = 0;
                 if (data_data && data_len > 0) {
                     d_dma = hal_dma_alloc(data_len, &d_phys);
                     if (d_dma)
-                        iwl_memcpy(d_dma, data_data, data_len);
+                        memcpy(d_dma, data_data, data_len);
                 }
 
                 st = iwl_bsm_load(nic, inst_phys, inst_len,
@@ -949,7 +935,7 @@ static hal_status_t iwl_nvm_read_section(iwl_dev_t *nic, uint8_t section,
     uint16_t resp_len = *(uint16_t *)(resp + 6);
     if (resp_len > 0 && buf) {
         uint32_t copy = (resp_len < *len) ? resp_len : *len;
-        iwl_memcpy(buf, resp + 8, copy);
+        memcpy(buf, resp + 8, copy);
         *len = copy;
     }
 
@@ -965,7 +951,7 @@ hal_status_t iwl_read_mac(iwl_dev_t *nic)
     hal_status_t st = iwl_nvm_read_section(nic, IWL_NVM_SECTION_MAC,
                                              nvm_buf, &nvm_len);
     if (st == HAL_OK && nvm_len >= 6) {
-        iwl_memcpy(nic->mac, nvm_buf, 6);
+        memcpy(nic->mac, nvm_buf, 6);
         return HAL_OK;
     }
 
@@ -973,7 +959,7 @@ hal_status_t iwl_read_mac(iwl_dev_t *nic)
     nvm_len = sizeof(nvm_buf);
     st = iwl_nvm_read_section(nic, IWL_NVM_SECTION_HW, nvm_buf, &nvm_len);
     if (st == HAL_OK && nvm_len >= 6) {
-        iwl_memcpy(nic->mac, nvm_buf, 6);
+        memcpy(nic->mac, nvm_buf, 6);
         return HAL_OK;
     }
 
@@ -1103,7 +1089,7 @@ hal_status_t iwl_tx_raw(iwl_dev_t *nic, const void *frame, uint32_t len)
      * The TX command (iwl_tx_cmd_t) is prepended to the 802.11 frame. */
     uint8_t *tx_buf = (uint8_t *)nic->tx_bufs[idx];
     iwl_tx_cmd_t *tx_cmd = (iwl_tx_cmd_t *)tx_buf;
-    iwl_memzero(tx_cmd, sizeof(iwl_tx_cmd_t));
+    memset(tx_cmd, 0, sizeof(iwl_tx_cmd_t));
 
     tx_cmd->len = (uint16_t)len;
     tx_cmd->tx_flags = IWL_TX_CMD_FLG_ACK;
@@ -1114,13 +1100,13 @@ hal_status_t iwl_tx_raw(iwl_dev_t *nic, const void *frame, uint32_t len)
     tx_cmd->life_time = 0xFFFFFFFF; /* No timeout */
 
     /* Copy frame data after TX command */
-    iwl_memcpy(tx_buf + sizeof(iwl_tx_cmd_t), frame, len);
+    memcpy(tx_buf + sizeof(iwl_tx_cmd_t), frame, len);
 
     uint16_t total_len = (uint16_t)(sizeof(iwl_tx_cmd_t) + len);
 
     /* Set up TFD -- single TB with TX command + frame combined */
     iwl_tfd_t *tfd = &nic->tx_tfd[idx];
-    iwl_memzero(tfd, sizeof(iwl_tfd_t));
+    memset(tfd, 0, sizeof(iwl_tfd_t));
     tfd->num_tbs = 1;
     iwl_tfd_set_tb(tfd, 0, nic->tx_bufs_phys[idx], total_len);
 
@@ -1182,7 +1168,7 @@ hal_status_t iwl_rx_raw(iwl_dev_t *nic, void *buf, uint32_t *len)
             uint32_t frame_len = pkt_len - hdr_skip;
             if (frame_len > WIFI_MAX_FRAME_LEN)
                 frame_len = WIFI_MAX_FRAME_LEN;
-            iwl_memcpy(buf, rx_data + 4 + hdr_skip, frame_len);
+            memcpy(buf, rx_data + 4 + hdr_skip, frame_len);
             *len = frame_len;
         } else {
             *len = 0;
@@ -1229,7 +1215,7 @@ hal_status_t iwl_set_channel(iwl_dev_t *nic, uint8_t channel)
         uint32_t position;      /* Primary channel position */
     } phy_cmd;
 
-    iwl_memzero(&phy_cmd, sizeof(phy_cmd));
+    memset(&phy_cmd, 0, sizeof(phy_cmd));
     phy_cmd.id = 0;
     phy_cmd.action = 1;  /* Modify */
     phy_cmd.channel_num = channel;
@@ -1298,10 +1284,10 @@ static hal_status_t iwl_hw_set_promisc(bool enable)
         uint32_t filter_flags;
     } mac_cmd;
 
-    iwl_memzero(&mac_cmd, sizeof(mac_cmd));
+    memset(&mac_cmd, 0, sizeof(mac_cmd));
     mac_cmd.action = 1;  /* Modify */
     mac_cmd.mac_type = 3; /* Monitor mode */
-    iwl_memcpy(mac_cmd.node_addr, g_iwl_dev->mac, 6);
+    memcpy(mac_cmd.node_addr, g_iwl_dev->mac, 6);
 
     if (enable)
         mac_cmd.filter_flags = 0xFFFFFFFF; /* Accept all */
@@ -1478,7 +1464,7 @@ hal_status_t iwl_init(iwl_dev_t *nic, hal_device_t *dev)
     hal_status_t st;
 
     /* Clear the entire device context */
-    iwl_memzero(nic, sizeof(iwl_dev_t));
+    memset(nic, 0, sizeof(iwl_dev_t));
 
     nic->dev = *dev;
     nic->initialized = false;

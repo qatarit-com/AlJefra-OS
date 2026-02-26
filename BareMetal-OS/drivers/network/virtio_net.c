@@ -5,27 +5,11 @@
  */
 
 #include "virtio_net.h"
+#include "../../lib/string.h"
 
 /* ── Constants ── */
 #define VNET_TIMEOUT_MS   3000
 #define VNET_POLL_US      50
-
-/* ── Helpers ── */
-
-static void vnet_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void vnet_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 /* ── Transport abstraction ── */
 
@@ -102,21 +86,21 @@ static hal_status_t vnet_setup_queue(virtio_net_dev_t *dev, vnet_queue_t *q,
     q->desc = (vnet_desc_t *)hal_dma_alloc(desc_sz, &q->desc_phys);
     if (!q->desc)
         return HAL_NO_MEMORY;
-    vnet_memzero(q->desc, desc_sz);
+    memset(q->desc, 0, desc_sz);
 
     /* Allocate available ring */
     uint64_t avail_sz = 6 + 2 * (uint64_t)qsize;
     q->avail = (vnet_avail_t *)hal_dma_alloc(avail_sz, &q->avail_phys);
     if (!q->avail)
         return HAL_NO_MEMORY;
-    vnet_memzero(q->avail, avail_sz);
+    memset(q->avail, 0, avail_sz);
 
     /* Allocate used ring */
     uint64_t used_sz = 6 + 8 * (uint64_t)qsize;
     q->used = (vnet_used_t *)hal_dma_alloc(used_sz, &q->used_phys);
     if (!q->used)
         return HAL_NO_MEMORY;
-    vnet_memzero(q->used, used_sz);
+    memset(q->used, 0, used_sz);
 
     /* Initialize free list */
     for (uint16_t i = 0; i < qsize - 1; i++) {
@@ -211,7 +195,7 @@ static hal_status_t vnet_populate_rx(virtio_net_dev_t *dev)
         dev->rx_bufs[i] = hal_dma_alloc(VNET_RX_BUF_SIZE, &dev->rx_bufs_phys[i]);
         if (!dev->rx_bufs[i])
             break;
-        vnet_memzero(dev->rx_bufs[i], VNET_RX_BUF_SIZE);
+        memset(dev->rx_bufs[i], 0, VNET_RX_BUF_SIZE);
 
         uint16_t desc_idx = vnet_alloc_desc(q);
         if (desc_idx == 0xFFFF)
@@ -369,7 +353,7 @@ hal_status_t virtio_net_init(virtio_net_dev_t *dev, hal_device_t *hal_dev)
                                          &dev->tx_hdrs_phys[i]);
         if (!dev->tx_hdrs[i])
             return HAL_NO_MEMORY;
-        vnet_memzero(dev->tx_hdrs[i], sizeof(virtio_net_hdr_t));
+        memset(dev->tx_hdrs[i], 0, sizeof(virtio_net_hdr_t));
     }
 
     /* DRIVER_OK */
@@ -431,7 +415,7 @@ hal_status_t virtio_net_init_mmio(virtio_net_dev_t *dev, volatile void *base)
         dev->tx_hdrs[i] = hal_dma_alloc(sizeof(virtio_net_hdr_t),
                                          &dev->tx_hdrs_phys[i]);
         if (!dev->tx_hdrs[i]) return HAL_NO_MEMORY;
-        vnet_memzero(dev->tx_hdrs[i], sizeof(virtio_net_hdr_t));
+        memset(dev->tx_hdrs[i], 0, sizeof(virtio_net_hdr_t));
     }
 
     vnet_set_status(dev, VNET_STATUS_ACK | VNET_STATUS_DRIVER |
@@ -470,12 +454,12 @@ hal_status_t virtio_net_send(virtio_net_dev_t *dev, const void *frame,
         vnet_free_desc(q, d_data);
         return HAL_NO_MEMORY;
     }
-    vnet_memcpy(frame_buf, frame, length);
+    memcpy(frame_buf, frame, length);
 
     /* Prepare virtio_net_hdr (all zeros = no offload) */
     /* Use a pre-allocated header slot based on d_hdr index */
     uint16_t hdr_slot = d_hdr % VNET_TX_QUEUE_SIZE;
-    vnet_memzero(dev->tx_hdrs[hdr_slot], sizeof(virtio_net_hdr_t));
+    memset(dev->tx_hdrs[hdr_slot], 0, sizeof(virtio_net_hdr_t));
 
     /* Descriptor 0: virtio_net_hdr (device reads) */
     q->desc[d_hdr].addr = dev->tx_hdrs_phys[hdr_slot];
@@ -549,13 +533,13 @@ hal_status_t virtio_net_recv(virtio_net_dev_t *dev, void *buf, uint16_t *length)
         /* Find the RX buffer corresponding to this descriptor */
         uint16_t buf_idx = (uint16_t)(desc_idx % VNET_RX_QUEUE_SIZE);
         uint8_t *rx_data = (uint8_t *)dev->rx_bufs[buf_idx] + hdr_size;
-        vnet_memcpy(buf, rx_data, payload_len);
+        memcpy(buf, rx_data, payload_len);
         *length = (uint16_t)payload_len;
     }
 
     /* Re-post the buffer to the RX queue */
     uint16_t buf_idx = (uint16_t)(desc_idx % VNET_RX_QUEUE_SIZE);
-    vnet_memzero(dev->rx_bufs[buf_idx], VNET_RX_BUF_SIZE);
+    memset(dev->rx_bufs[buf_idx], 0, VNET_RX_BUF_SIZE);
 
     q->desc[desc_idx].addr = dev->rx_bufs_phys[buf_idx];
     q->desc[desc_idx].len = VNET_RX_BUF_SIZE;

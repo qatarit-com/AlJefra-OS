@@ -12,28 +12,12 @@
  */
 
 #include "rtl8169.h"
+#include "../../lib/string.h"
 
 /* ── Internal constants ── */
 #define RTL_TIMEOUT_MS      3000
 #define RTL_RESET_TIMEOUT   100   /* ms to wait for soft reset */
 #define RTL_POLL_US         100
-
-/* ── Helpers ── */
-
-static void rtl_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void rtl_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 /* ── MMIO read/write wrappers ── */
 
@@ -119,7 +103,7 @@ static hal_status_t rtl_setup_tx(rtl8169_dev_t *nic)
     nic->tx_ring = (rtl8169_tx_desc_t *)hal_dma_alloc(ring_size, &nic->tx_ring_phys);
     if (!nic->tx_ring)
         return HAL_NO_MEMORY;
-    rtl_memzero(nic->tx_ring, ring_size);
+    memset(nic->tx_ring, 0, ring_size);
 
     /* Allocate TX buffers and initialize descriptors */
     for (uint32_t i = 0; i < RTL_NUM_TX_DESC; i++) {
@@ -154,7 +138,7 @@ static hal_status_t rtl_setup_rx(rtl8169_dev_t *nic)
     nic->rx_ring = (rtl8169_rx_desc_t *)hal_dma_alloc(ring_size, &nic->rx_ring_phys);
     if (!nic->rx_ring)
         return HAL_NO_MEMORY;
-    rtl_memzero(nic->rx_ring, ring_size);
+    memset(nic->rx_ring, 0, ring_size);
 
     /* Allocate RX buffers and initialize descriptors */
     for (uint32_t i = 0; i < RTL_NUM_RX_DESC; i++) {
@@ -289,7 +273,7 @@ hal_status_t rtl8169_send(rtl8169_dev_t *nic, const void *frame, uint16_t length
         return HAL_TIMEOUT;
 
     /* Copy frame data to TX buffer */
-    rtl_memcpy(nic->tx_bufs[idx], frame, length);
+    memcpy(nic->tx_bufs[idx], frame, length);
 
     /* Set up descriptor:
      *   - OWN: hand to NIC
@@ -358,7 +342,7 @@ hal_status_t rtl8169_recv(rtl8169_dev_t *nic, void *buf, uint16_t *length)
             len -= 4;
 
             /* Copy received data */
-            rtl_memcpy(buf, nic->rx_bufs[idx], len);
+            memcpy(buf, nic->rx_bufs[idx], len);
             *length = len;
         }
     }

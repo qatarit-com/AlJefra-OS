@@ -5,6 +5,7 @@
  */
 
 #include "../../hal/hal.h"
+#include "../../lib/string.h"
 
 /* -------------------------------------------------------------------------- */
 /* Internal helpers                                                           */
@@ -53,21 +54,6 @@ static inline void write_cr4(uint64_t val)
     __asm__ volatile ("mov %0, %%cr4" : : "r"(val));
 }
 
-/* Copy n bytes (no libc on bare-metal) */
-static void mem_copy(void *dst, const void *src, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    while (n--) *d++ = *s++;
-}
-
-/* Set n bytes to zero */
-static void mem_zero(void *dst, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    while (n--) *d++ = 0;
-}
-
 /* -------------------------------------------------------------------------- */
 /* HAL CPU API                                                                */
 /* -------------------------------------------------------------------------- */
@@ -89,14 +75,14 @@ hal_status_t hal_cpu_init(void)
     write_cr4(cr4);
 
     /* ---- Populate cached CPU info ---- */
-    mem_zero(&cached_info, sizeof(cached_info));
+    memset(&cached_info, 0, sizeof(cached_info));
 
     /* Vendor string: CPUID leaf 0 */
     cpuid(0, 0, &eax, &ebx, &ecx, &edx);
     /* Vendor string is EBX:EDX:ECX (12 chars) */
-    mem_copy(&cached_info.vendor[0], &ebx, 4);
-    mem_copy(&cached_info.vendor[4], &edx, 4);
-    mem_copy(&cached_info.vendor[8], &ecx, 4);
+    memcpy(&cached_info.vendor[0], &ebx, 4);
+    memcpy(&cached_info.vendor[4], &edx, 4);
+    memcpy(&cached_info.vendor[8], &ecx, 4);
     cached_info.vendor[12] = '\0';
 
     /* Feature flags: CPUID leaf 1 */
@@ -151,7 +137,7 @@ void hal_cpu_get_info(hal_cpu_info_t *info)
     if (!info_cached) {
         hal_cpu_init();
     }
-    mem_copy(info, &cached_info, sizeof(hal_cpu_info_t));
+    memcpy(info, &cached_info, sizeof(hal_cpu_info_t));
 }
 
 uint64_t hal_cpu_id(void)

@@ -18,23 +18,9 @@
 
 #include "touch.h"
 #include "usb_hid.h"   /* USB_CLASS_HID, USB descriptor types */
+#include "../../lib/string.h"
 
 /* ── Internal helpers ── */
-
-static void touch_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void touch_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 /* Integer square root (Newton's method) */
 static uint32_t touch_isqrt(uint32_t n)
@@ -278,7 +264,7 @@ static hal_status_t i2c_hid_read_descriptor(touch_dev_t *dev)
     if (st != HAL_OK)
         return st;
 
-    touch_memcpy(&dev->i2c_hid_desc, buf, sizeof(i2c_hid_desc_t));
+    memcpy(&dev->i2c_hid_desc, buf, sizeof(i2c_hid_desc_t));
 
     /* Validate: descriptor length should be at least 30 bytes */
     if (dev->i2c_hid_desc.wHIDDescLength < 30)
@@ -363,7 +349,7 @@ static hal_status_t touch_parse_report_desc(touch_dev_t *dev,
                                              const uint8_t *desc, uint16_t len)
 {
     touch_report_desc_t *rd = &dev->report_desc;
-    touch_memzero(rd, sizeof(*rd));
+    memset(rd, 0, sizeof(*rd));
 
     /* HID report descriptor parsing state */
     uint16_t usage_page = 0;
@@ -571,7 +557,7 @@ static void touch_process_report(touch_dev_t *dev, const uint8_t *report,
 
     /* Track which contact IDs are still active */
     bool seen_id[TOUCH_MAX_POINTS];
-    touch_memzero(seen_id, sizeof(seen_id));
+    memset(seen_id, 0, sizeof(seen_id));
 
     /* Parse each contact in the report */
     uint16_t contact_bit_base = 0;
@@ -709,7 +695,7 @@ static void touch_update_gestures(touch_dev_t *dev, const touch_event_t *evt)
                 dist < GESTURE_TAP_MAX_DISTANCE) {
                 /* Long press */
                 touch_gesture_t g;
-                touch_memzero(&g, sizeof(g));
+                memset(&g, 0, sizeof(g));
                 g.type = GESTURE_LONG_PRESS;
                 g.center_x = evt->point.x;
                 g.center_y = evt->point.y;
@@ -724,7 +710,7 @@ static void touch_update_gestures(touch_dev_t *dev, const touch_event_t *evt)
                     (now - gs->last_up_time) < GESTURE_DOUBLE_TAP_GAP) {
                     /* Double tap */
                     touch_gesture_t g;
-                    touch_memzero(&g, sizeof(g));
+                    memset(&g, 0, sizeof(g));
                     g.type = GESTURE_DOUBLE_TAP;
                     g.center_x = evt->point.x;
                     g.center_y = evt->point.y;
@@ -744,7 +730,7 @@ static void touch_update_gestures(touch_dev_t *dev, const touch_event_t *evt)
                 int32_t dy = (int32_t)evt->point.y - (int32_t)gs->down_y;
 
                 touch_gesture_t g;
-                touch_memzero(&g, sizeof(g));
+                memset(&g, 0, sizeof(g));
                 g.dx = dx;
                 g.dy = dy;
                 g.center_x = (gs->down_x + evt->point.x) / 2;
@@ -793,7 +779,7 @@ static void touch_update_gestures(touch_dev_t *dev, const touch_event_t *evt)
 
                 if (touch_abs(delta) > GESTURE_PINCH_MIN_DELTA) {
                     touch_gesture_t g;
-                    touch_memzero(&g, sizeof(g));
+                    memset(&g, 0, sizeof(g));
                     g.type = (delta > 0) ? GESTURE_PINCH_OUT : GESTURE_PINCH_IN;
                     g.dx = delta;
                     g.center_x = (p0->x + p1->x) / 2;
@@ -815,7 +801,7 @@ static void touch_update_gestures(touch_dev_t *dev, const touch_event_t *evt)
         (now - gs->last_up_time) >= GESTURE_DOUBLE_TAP_GAP) {
         /* Timeout: emit single tap */
         touch_gesture_t g;
-        touch_memzero(&g, sizeof(g));
+        memset(&g, 0, sizeof(g));
         g.type = GESTURE_TAP;
         g.center_x = gs->down_x;
         g.center_y = gs->down_y;
@@ -937,7 +923,7 @@ hal_status_t touch_init_i2c(touch_dev_t *dev, volatile void *i2c_base,
                              uint8_t i2c_addr,
                              uint16_t screen_w, uint16_t screen_h)
 {
-    touch_memzero(dev, sizeof(*dev));
+    memset(dev, 0, sizeof(*dev));
     dev->transport = TOUCH_TRANSPORT_I2C;
     dev->i2c_base = i2c_base;
     dev->i2c_addr = i2c_addr;
@@ -997,7 +983,7 @@ hal_status_t touch_init_usb(touch_dev_t *dev, xhci_controller_t *hc,
                              uint8_t slot_id,
                              uint16_t screen_w, uint16_t screen_h)
 {
-    touch_memzero(dev, sizeof(*dev));
+    memset(dev, 0, sizeof(*dev));
     dev->transport = TOUCH_TRANSPORT_USB;
     dev->usb_hc = hc;
     dev->usb_slot_id = slot_id;
@@ -1016,7 +1002,7 @@ hal_status_t touch_init_usb(touch_dev_t *dev, xhci_controller_t *hc,
 
     /* Get configuration descriptor */
     uint8_t config_buf[256];
-    touch_memzero(config_buf, sizeof(config_buf));
+    memset(config_buf, 0, sizeof(config_buf));
     st = xhci_get_config_desc(hc, slot_id, config_buf, sizeof(config_buf));
     if (st != HAL_OK) {
         hal_console_puts("[touch] USB config descriptor read failed\n");
@@ -1156,7 +1142,7 @@ hal_status_t touch_poll(touch_dev_t *dev)
         uint64_t now = hal_timer_ms();
         if ((now - dev->gesture.last_up_time) >= GESTURE_DOUBLE_TAP_GAP) {
             touch_gesture_t g;
-            touch_memzero(&g, sizeof(g));
+            memset(&g, 0, sizeof(g));
             g.type = GESTURE_TAP;
             g.center_x = dev->gesture.down_x;
             g.center_y = dev->gesture.down_y;

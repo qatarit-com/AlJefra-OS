@@ -5,25 +5,11 @@
  */
 
 #include "aes_ccmp.h"
+#include "../../lib/string.h"
 
 /* ===================================================================
  * Internal helpers
  * =================================================================== */
-
-static void ccmp_memcpy(void *dst, const void *src, uint32_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint32_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
-
-static void ccmp_memzero(void *dst, uint32_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    for (uint32_t i = 0; i < len; i++)
-        d[i] = 0;
-}
 
 static void ccmp_xor_block(uint8_t *dst, const uint8_t *a, const uint8_t *b,
                             uint32_t len)
@@ -259,7 +245,7 @@ static void ccm_cbc_mac(const aes128_ctx_t *ctx,
 
     /* B0: flags || nonce || message length (2 bytes big-endian) */
     block[0] = CCM_FLAGS_B0;
-    ccmp_memcpy(&block[1], nonce, CCMP_NONCE_LEN);
+    memcpy(&block[1], nonce, CCMP_NONCE_LEN);
     block[14] = (uint8_t)((data_len >> 8) & 0xFF);
     block[15] = (uint8_t)(data_len & 0xFF);
 
@@ -270,13 +256,13 @@ static void ccm_cbc_mac(const aes128_ctx_t *ctx,
      * Format: 2-byte length prefix (big-endian) || AAD || zero-padding to block boundary
      */
     if (aad_len > 0) {
-        ccmp_memzero(block, AES_BLOCK_SIZE);
+        memset(block, 0, AES_BLOCK_SIZE);
         block[0] = (uint8_t)((aad_len >> 8) & 0xFF);
         block[1] = (uint8_t)(aad_len & 0xFF);
 
         /* First block: 2 bytes of length + up to 14 bytes of AAD */
         uint32_t first = (aad_len < 14) ? aad_len : 14;
-        ccmp_memcpy(&block[2], aad, first);
+        memcpy(&block[2], aad, first);
 
         /* XOR and encrypt */
         ccmp_xor_block(block, block, mac, AES_BLOCK_SIZE);
@@ -285,11 +271,11 @@ static void ccm_cbc_mac(const aes128_ctx_t *ctx,
         /* Remaining AAD blocks */
         uint32_t offset = first;
         while (offset < aad_len) {
-            ccmp_memzero(block, AES_BLOCK_SIZE);
+            memset(block, 0, AES_BLOCK_SIZE);
             uint32_t chunk = aad_len - offset;
             if (chunk > AES_BLOCK_SIZE)
                 chunk = AES_BLOCK_SIZE;
-            ccmp_memcpy(block, &aad[offset], chunk);
+            memcpy(block, &aad[offset], chunk);
 
             ccmp_xor_block(block, block, mac, AES_BLOCK_SIZE);
             aes128_encrypt_block(ctx, block, mac);
@@ -301,11 +287,11 @@ static void ccm_cbc_mac(const aes128_ctx_t *ctx,
     /* Process plaintext/data blocks */
     uint32_t offset = 0;
     while (offset < data_len) {
-        ccmp_memzero(block, AES_BLOCK_SIZE);
+        memset(block, 0, AES_BLOCK_SIZE);
         uint32_t chunk = data_len - offset;
         if (chunk > AES_BLOCK_SIZE)
             chunk = AES_BLOCK_SIZE;
-        ccmp_memcpy(block, &data[offset], chunk);
+        memcpy(block, &data[offset], chunk);
 
         ccmp_xor_block(block, block, mac, AES_BLOCK_SIZE);
         aes128_encrypt_block(ctx, block, mac);
@@ -322,7 +308,7 @@ static void ccm_ctr_block(const uint8_t nonce[CCMP_NONCE_LEN],
                             uint8_t block[AES_BLOCK_SIZE])
 {
     block[0] = CCM_FLAGS_CTR;
-    ccmp_memcpy(&block[1], nonce, CCMP_NONCE_LEN);
+    memcpy(&block[1], nonce, CCMP_NONCE_LEN);
     block[14] = (uint8_t)((counter >> 8) & 0xFF);
     block[15] = (uint8_t)(counter & 0xFF);
 }
@@ -432,7 +418,7 @@ void ccmp_build_nonce(uint8_t priority, const uint8_t addr2[6],
 {
     /* Nonce = Priority (1 byte) || A2 (6 bytes) || PN (6 bytes) */
     nonce[0] = priority & 0x0F;
-    ccmp_memcpy(&nonce[1], addr2, 6);
+    memcpy(&nonce[1], addr2, 6);
     /* PN in nonce is MSB-first (PN5..PN0) */
     nonce[7]  = pn[5];
     nonce[8]  = pn[4];
@@ -489,7 +475,7 @@ uint32_t ccmp_build_aad(const uint8_t *hdr, uint32_t hdr_len,
                                      and bits 6-7, clear bits 3-5 (Retry, PwrMgt, MoreData) */
 
     /* Addresses: A1, A2, A3 (18 bytes) */
-    ccmp_memcpy(&aad[2], &hdr[4], 18);  /* A1(6) + A2(6) + A3(6) at hdr offsets 4..21 */
+    memcpy(&aad[2], &hdr[4], 18);  /* A1(6) + A2(6) + A3(6) at hdr offsets 4..21 */
 
     /* Sequence Control (2 bytes) -- mask sequence number, keep fragment */
     aad[20] = hdr[22] & 0x0F;    /* Fragment number only (low nibble) */
@@ -499,7 +485,7 @@ uint32_t ccmp_build_aad(const uint8_t *hdr, uint32_t hdr_len,
 
     /* If 4-address frame (ToDS=1 && FromDS=1), include A4 */
     if ((hdr[1] & 0x03) == 0x03 && hdr_len >= 30) {
-        ccmp_memcpy(&aad[22], &hdr[24], 6);
+        memcpy(&aad[22], &hdr[24], 6);
         aad_len = 28;
     }
 
@@ -607,7 +593,7 @@ hal_status_t ccmp_encrypt_frame(const uint8_t tk[AES_KEY_SIZE],
     uint32_t aad_len = ccmp_build_aad(frame, hdr_len, aad);
 
     /* Copy MAC header to output (with Protected bit set) */
-    ccmp_memcpy(out, frame, hdr_len);
+    memcpy(out, frame, hdr_len);
     out[1] |= 0x40;  /* Set Protected Frame bit */
 
     /* Insert CCMP header after MAC header */
@@ -660,7 +646,7 @@ hal_status_t ccmp_decrypt_frame(const uint8_t tk[AES_KEY_SIZE],
     uint32_t aad_len = ccmp_build_aad(frame, hdr_len, aad);
 
     /* Copy MAC header to output (clear Protected bit) */
-    ccmp_memcpy(out, frame, hdr_len);
+    memcpy(out, frame, hdr_len);
     out[1] &= ~0x40;  /* Clear Protected Frame bit */
 
     /* Decrypt and verify MIC */

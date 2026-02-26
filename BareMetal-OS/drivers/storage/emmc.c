@@ -5,6 +5,7 @@
  */
 
 #include "emmc.h"
+#include "../../lib/string.h"
 
 /* ── Internal constants ── */
 #define EMMC_TIMEOUT_MS       3000
@@ -12,13 +13,6 @@
 #define EMMC_POLL_US          100
 
 /* ── Helpers ── */
-
-static void emmc_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
 
 static inline uint32_t emmc_read32(sdhci_dev_t *dev, uint32_t off)
 {
@@ -243,7 +237,7 @@ static hal_status_t emmc_card_init(sdhci_dev_t *dev)
     hal_status_t st;
     uint32_t resp[4];
 
-    emmc_memzero(&dev->card, sizeof(sd_card_t));
+    memset(&dev->card, 0, sizeof(sd_card_t));
     dev->card.type = SD_CARD_TYPE_NONE;
     dev->card.block_size = 512;
 
@@ -740,7 +734,7 @@ hal_status_t emmc_tune_speed(sdhci_dev_t *dev)
 
     /* Step 1: Try High-Speed mode (SDR25 = 50MHz) via CMD6 */
     uint8_t sw_status[64];
-    emmc_memzero(sw_status, sizeof(sw_status));
+    memset(sw_status, 0, sizeof(sw_status));
 
     /* Check if HS is supported (CMD6 mode=check) */
     hal_status_t st = emmc_switch_func(dev, SD_SWITCH_CHECK,
@@ -764,7 +758,7 @@ hal_status_t emmc_tune_speed(sdhci_dev_t *dev)
     }
 
     /* Set High-Speed mode (CMD6 mode=set) */
-    emmc_memzero(sw_status, sizeof(sw_status));
+    memset(sw_status, 0, sizeof(sw_status));
     st = emmc_switch_func(dev, SD_SWITCH_SET, SD_ACCESS_MODE_HS, sw_status);
     if (st != HAL_OK) {
         hal_console_puts("[emmc] CMD6 switch to HS failed\n");
@@ -803,12 +797,12 @@ hal_status_t emmc_tune_speed(sdhci_dev_t *dev)
 
     /* Try SDR50 if supported */
     if (dev->caps2 & SDHCI_CAP2_SDR50) {
-        emmc_memzero(sw_status, sizeof(sw_status));
+        memset(sw_status, 0, sizeof(sw_status));
         st = emmc_switch_func(dev, SD_SWITCH_CHECK, SD_ACCESS_MODE_SDR50, sw_status);
         if (st == HAL_OK) {
             group1_support = ((uint16_t)sw_status[12] << 8) | sw_status[13];
             if (group1_support & (1u << SD_ACCESS_MODE_SDR50)) {
-                emmc_memzero(sw_status, sizeof(sw_status));
+                memset(sw_status, 0, sizeof(sw_status));
                 st = emmc_switch_func(dev, SD_SWITCH_SET, SD_ACCESS_MODE_SDR50, sw_status);
                 if (st == HAL_OK && (sw_status[16] & 0x0F) == SD_ACCESS_MODE_SDR50) {
                     /* Set UHS mode in host controller */
@@ -832,12 +826,12 @@ hal_status_t emmc_tune_speed(sdhci_dev_t *dev)
 
     /* Try DDR50 if supported */
     if (dev->caps2 & SDHCI_CAP2_DDR50) {
-        emmc_memzero(sw_status, sizeof(sw_status));
+        memset(sw_status, 0, sizeof(sw_status));
         st = emmc_switch_func(dev, SD_SWITCH_CHECK, SD_ACCESS_MODE_DDR50, sw_status);
         if (st == HAL_OK) {
             group1_support = ((uint16_t)sw_status[12] << 8) | sw_status[13];
             if (group1_support & (1u << SD_ACCESS_MODE_DDR50)) {
-                emmc_memzero(sw_status, sizeof(sw_status));
+                memset(sw_status, 0, sizeof(sw_status));
                 st = emmc_switch_func(dev, SD_SWITCH_SET, SD_ACCESS_MODE_DDR50, sw_status);
                 if (st == HAL_OK && (sw_status[16] & 0x0F) == SD_ACCESS_MODE_DDR50) {
                     uint16_t hc2 = emmc_read16(dev, SDHCI_HOST_CONTROL2);

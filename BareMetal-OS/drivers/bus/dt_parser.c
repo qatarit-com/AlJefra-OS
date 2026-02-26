@@ -4,6 +4,7 @@
  */
 
 #include "dt_parser.h"
+#include "../../lib/string.h"
 
 /* ── Big-endian to host conversion ── */
 
@@ -21,22 +22,6 @@ static inline uint64_t be64(const void *p)
 
 /* ── String helpers ── */
 
-static uint32_t dt_strlen(const char *s)
-{
-    uint32_t len = 0;
-    while (s[len]) len++;
-    return len;
-}
-
-static bool dt_streq(const char *a, const char *b)
-{
-    while (*a && *b) {
-        if (*a != *b) return false;
-        a++; b++;
-    }
-    return *a == *b;
-}
-
 /* Compare up to n characters */
 static bool dt_strneq(const char *a, const char *b, uint32_t n)
 {
@@ -51,12 +36,12 @@ static bool dt_strneq(const char *a, const char *b, uint32_t n)
 static bool dt_compat_match(const char *haystack, uint32_t haystack_len,
                              const char *needle)
 {
-    uint32_t needle_len = dt_strlen(needle);
+    uint32_t needle_len = str_len(needle);
     uint32_t pos = 0;
     while (pos < haystack_len) {
         const char *entry = haystack + pos;
-        uint32_t entry_len = dt_strlen(entry);
-        if (entry_len == needle_len && dt_streq(entry, needle))
+        uint32_t entry_len = str_len(entry);
+        if (entry_len == needle_len && str_eq(entry, needle))
             return true;
         pos += entry_len + 1;
     }
@@ -97,7 +82,7 @@ static const char *dt_string(dt_parser_t *dt, uint32_t nameoff)
 static uint32_t dt_skip_name(dt_parser_t *dt, uint32_t offset)
 {
     const char *name = dt_node_name(dt, offset);
-    uint32_t len = dt_strlen(name) + 1;  /* Include NUL */
+    uint32_t len = str_len(name) + 1;  /* Include NUL */
     return dt_align4(offset + len);
 }
 
@@ -283,7 +268,7 @@ hal_status_t dt_find_node(dt_parser_t *dt, const char *path, dt_node_t *node)
         switch (token) {
         case FDT_BEGIN_NODE: {
             const char *name = dt_node_name(dt, offset);
-            uint32_t name_len = dt_strlen(name);
+            uint32_t name_len = str_len(name);
 
             if (depth == match_level && match_level < ncomps) {
                 if (name_len == comp_lens[match_level] &&
@@ -356,7 +341,7 @@ hal_status_t dt_find_property(dt_parser_t *dt, const dt_node_t *node,
 
             if (depth == 0) {
                 const char *name = dt_string(dt, nameoff);
-                if (dt_streq(name, prop_name)) {
+                if (str_eq(name, prop_name)) {
                     prop->name = name;
                     prop->data = dt->struct_block + offset;
                     prop->len = prop_len;

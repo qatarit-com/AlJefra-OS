@@ -22,6 +22,7 @@
 
 #include "../../hal/hal.h"
 #include "../../kernel/driver_loader.h"
+#include "../../lib/string.h"
 #include "wifi_framework.h"
 
 /* ── Broadcom SDIO Constants ── */
@@ -157,34 +158,6 @@ typedef struct {
     hal_device_t    hal_dev;
 } bcm_wifi_dev_t;
 
-/* ── Helpers ── */
-
-static void bcm_memzero(void *p, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)p;
-    while (n--) *d++ = 0;
-}
-
-static void bcm_memcpy(void *dst, const void *src, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    while (n--) *d++ = *s++;
-}
-
-static int bcm_strcmp(const char *a, const char *b)
-{
-    while (*a && *b && *a == *b) { a++; b++; }
-    return *a - *b;
-}
-
-static uint32_t bcm_strlen(const char *s)
-{
-    uint32_t n = 0;
-    while (s[n]) n++;
-    return n;
-}
-
 /* MMIO register access through SDIO controller */
 static inline uint32_t bcm_read32(bcm_wifi_dev_t *dev, uint32_t off)
 {
@@ -311,7 +284,7 @@ static hal_status_t bcm_ioctl(bcm_wifi_dev_t *dev, uint32_t cmd,
         return HAL_ERROR;
 
     uint8_t *buf = (uint8_t *)dev->ctl_buf;
-    bcm_memzero(buf, CDC_HEADER_LEN + data_len);
+    memset(buf, 0, CDC_HEADER_LEN + data_len);
 
     /* Build CDC header (16 bytes) */
     uint32_t *hdr = (uint32_t *)buf;
@@ -323,7 +296,7 @@ static hal_status_t bcm_ioctl(bcm_wifi_dev_t *dev, uint32_t cmd,
 
     /* Copy data payload after header */
     if (data && data_len > 0 && set)
-        bcm_memcpy(buf + CDC_HEADER_LEN, data, data_len);
+        memcpy(buf + CDC_HEADER_LEN, data, data_len);
 
     /* Send via SDIO F2 control pipe */
     uint32_t total = CDC_HEADER_LEN + data_len;
@@ -362,7 +335,7 @@ static hal_status_t bcm_ioctl(bcm_wifi_dev_t *dev, uint32_t cmd,
 
             /* Copy response data back if GET */
             if (data && data_len > 0 && !set)
-                bcm_memcpy(data, buf + CDC_HEADER_LEN, data_len);
+                memcpy(data, buf + CDC_HEADER_LEN, data_len);
 
             return HAL_OK;
         }
@@ -377,18 +350,18 @@ static hal_status_t bcm_ioctl(bcm_wifi_dev_t *dev, uint32_t cmd,
 static hal_status_t bcm_iovar(bcm_wifi_dev_t *dev, const char *name,
                                 bool set, void *data, uint32_t data_len)
 {
-    uint32_t name_len = bcm_strlen(name) + 1;  /* Include null terminator */
+    uint32_t name_len = str_len(name) + 1;  /* Include null terminator */
     uint32_t total = name_len + data_len;
     if (total > 1024)
         return HAL_ERROR;
 
     uint8_t var_buf[1024];
-    bcm_memzero(var_buf, sizeof(var_buf));
+    memset(var_buf, 0, sizeof(var_buf));
 
     /* iovar format: "name\0" + data */
-    bcm_memcpy(var_buf, name, name_len);
+    memcpy(var_buf, name, name_len);
     if (data && data_len > 0)
-        bcm_memcpy(var_buf + name_len, data, data_len);
+        memcpy(var_buf + name_len, data, data_len);
 
     uint32_t cmd = set ? WLC_SET_VAR : WLC_GET_VAR;
     return bcm_ioctl(dev, cmd, set, var_buf, total);
@@ -400,13 +373,13 @@ static hal_status_t bcm_iovar(bcm_wifi_dev_t *dev, const char *name,
 static hal_status_t bcm_get_mac_from_fw(bcm_wifi_dev_t *dev)
 {
     uint8_t mac_buf[6];
-    bcm_memzero(mac_buf, 6);
+    memset(mac_buf, 0, 6);
 
     hal_status_t st = bcm_iovar(dev, "cur_etheraddr", false, mac_buf, 6);
     if (st != HAL_OK)
         return st;
 
-    bcm_memcpy(dev->mac, mac_buf, 6);
+    memcpy(dev->mac, mac_buf, 6);
     hal_console_printf("[bcm_wifi] MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",
                        dev->mac[0], dev->mac[1], dev->mac[2],
                        dev->mac[3], dev->mac[4], dev->mac[5]);
@@ -424,7 +397,7 @@ static hal_status_t bcm_fw_up(bcm_wifi_dev_t *dev)
 
     /* Set country code to "XX" (world-safe) */
     char country[12];
-    bcm_memzero(country, sizeof(country));
+    memset(country, 0, sizeof(country));
     country[0] = 'X'; country[1] = 'X';
     country[4] = 'X'; country[5] = 'X';
     /* Rev = 0 */
@@ -460,7 +433,7 @@ static hal_status_t bcm_hw_tx_raw(const void *frame, uint32_t len)
     tx[2] = 0;                                      /* Flags2 */
     tx[3] = 0;                                      /* Data offset (DWORDs) */
 
-    bcm_memcpy(tx + BDC_HEADER_LEN, frame, len);
+    memcpy(tx + BDC_HEADER_LEN, frame, len);
 
     uint32_t total = BDC_HEADER_LEN + len;
     total = (total + 3) & ~3u;  /* Align to 4 bytes */
@@ -516,7 +489,7 @@ static hal_status_t bcm_hw_rx_raw(void *buf, uint32_t *len)
     if (payload_len > BCM_MAX_FRAME)
         payload_len = BCM_MAX_FRAME;
 
-    bcm_memcpy(buf, rx + payload_off, payload_len);
+    memcpy(buf, rx + payload_off, payload_len);
     *len = payload_len;
 
     return HAL_OK;

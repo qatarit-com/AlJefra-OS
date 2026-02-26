@@ -5,19 +5,11 @@
  */
 
 #include "virtio_blk.h"
+#include "../../lib/string.h"
 
 /* ── Internal constants ── */
 #define VIRTIO_TIMEOUT_MS     3000
 #define VIRTIO_POLL_US        50
-
-/* ── Helpers ── */
-
-static void vblk_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
 
 /* ── MMIO transport helpers ── */
 
@@ -111,21 +103,21 @@ static hal_status_t vblk_setup_vq(virtio_blk_dev_t *dev)
     vq->desc = (virtq_desc_t *)hal_dma_alloc(desc_size, &vq->desc_phys);
     if (!vq->desc)
         return HAL_NO_MEMORY;
-    vblk_memzero(vq->desc, desc_size);
+    memset(vq->desc, 0, desc_size);
 
     /* Allocate available ring: 6 + 2*qsize bytes (with padding to align) */
     uint64_t avail_size = 6 + 2 * (uint64_t)qsize;
     vq->avail = (virtq_avail_t *)hal_dma_alloc(avail_size, &vq->avail_phys);
     if (!vq->avail)
         return HAL_NO_MEMORY;
-    vblk_memzero(vq->avail, avail_size);
+    memset(vq->avail, 0, avail_size);
 
     /* Allocate used ring: 6 + 8*qsize bytes */
     uint64_t used_size = 6 + 8 * (uint64_t)qsize;
     vq->used = (virtq_used_t *)hal_dma_alloc(used_size, &vq->used_phys);
     if (!vq->used)
         return HAL_NO_MEMORY;
-    vblk_memzero(vq->used, used_size);
+    memset(vq->used, 0, used_size);
 
     /* Initialize free descriptor chain */
     for (uint16_t i = 0; i < qsize - 1; i++) {

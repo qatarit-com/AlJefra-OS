@@ -17,6 +17,7 @@
  */
 
 #include "ufs.h"
+#include "../../lib/string.h"
 
 /* ── Internal helpers ── */
 
@@ -24,21 +25,6 @@
 #define UFS_POLL_US        100
 #define UFS_LINK_TIMEOUT   3000
 #define UFS_MAX_DATA_BUF   65536  /* 64KB data buffer */
-
-static void ufs_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void ufs_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 /* Byte-swap helpers for big-endian UFS protocol fields */
 static inline uint16_t ufs_be16(uint16_t v)
@@ -254,14 +240,14 @@ static hal_status_t ufs_setup_transfer_list(ufs_controller_t *ctrl)
     ctrl->utrl = (ufs_utrd_t *)hal_dma_alloc(utrl_size, &ctrl->utrl_phys);
     if (!ctrl->utrl)
         return HAL_NO_MEMORY;
-    ufs_memzero(ctrl->utrl, utrl_size);
+    memset(ctrl->utrl, 0, utrl_size);
 
     /* Allocate UCD array (one per slot, 128-byte aligned) */
     uint64_t ucds_size = (uint64_t)ctrl->nutrs * sizeof(ufs_ucd_t);
     ctrl->ucds = (ufs_ucd_t *)hal_dma_alloc(ucds_size, &ctrl->ucds_phys);
     if (!ctrl->ucds)
         return HAL_NO_MEMORY;
-    ufs_memzero(ctrl->ucds, ucds_size);
+    memset(ctrl->ucds, 0, ucds_size);
 
     /* Write UTRL base address */
     ufs_wreg32(ctrl, UFSHCI_UTRLBA, (uint32_t)(ctrl->utrl_phys & 0xFFFFFFFF));
@@ -290,7 +276,7 @@ static hal_status_t ufs_setup_tm_list(ufs_controller_t *ctrl)
     ctrl->utmrl = (ufs_utmrd_t *)hal_dma_alloc(utmrl_size, &ctrl->utmrl_phys);
     if (!ctrl->utmrl)
         return HAL_NO_MEMORY;
-    ufs_memzero(ctrl->utmrl, utmrl_size);
+    memset(ctrl->utmrl, 0, utmrl_size);
 
     /* Write UTMRL base address */
     ufs_wreg32(ctrl, UFSHCI_UTMRLBA, (uint32_t)(ctrl->utmrl_phys & 0xFFFFFFFF));
@@ -332,8 +318,8 @@ static hal_status_t ufs_scsi_cmd(ufs_controller_t *ctrl, uint8_t slot,
     ufs_utrd_t *utrd = &ctrl->utrl[slot];
     ufs_ucd_t  *ucd  = &ctrl->ucds[slot];
 
-    ufs_memzero(utrd, sizeof(*utrd));
-    ufs_memzero(ucd, sizeof(*ucd));
+    memset(utrd, 0, sizeof(*utrd));
+    memset(ucd, 0, sizeof(*ucd));
 
     uint8_t tag = ufs_next_tag(ctrl);
 
@@ -459,8 +445,8 @@ static hal_status_t ufs_send_nop_out(ufs_controller_t *ctrl)
     ufs_utrd_t *utrd = &ctrl->utrl[slot];
     ufs_ucd_t  *ucd  = &ctrl->ucds[slot];
 
-    ufs_memzero(utrd, sizeof(*utrd));
-    ufs_memzero(ucd, sizeof(*ucd));
+    memset(utrd, 0, sizeof(*utrd));
+    memset(ucd, 0, sizeof(*ucd));
 
     uint8_t tag = ufs_next_tag(ctrl);
 
@@ -523,8 +509,8 @@ static hal_status_t ufs_query_request(ufs_controller_t *ctrl,
     ufs_utrd_t *utrd = &ctrl->utrl[slot];
     ufs_ucd_t  *ucd  = &ctrl->ucds[slot];
 
-    ufs_memzero(utrd, sizeof(*utrd));
-    ufs_memzero(ucd, sizeof(*ucd));
+    memset(utrd, 0, sizeof(*utrd));
+    memset(ucd, 0, sizeof(*ucd));
 
     uint8_t tag = ufs_next_tag(ctrl);
 
@@ -610,7 +596,7 @@ static hal_status_t ufs_query_request(ufs_controller_t *ctrl,
 
                 /* The data is in the response area after the header */
                 uint8_t *data_ptr = (uint8_t *)rsp + 32;
-                ufs_memcpy(buf, data_ptr, resp_data_len);
+                memcpy(buf, data_ptr, resp_data_len);
             }
 
             /* Read attribute value from response */
@@ -671,7 +657,7 @@ static hal_status_t ufs_read_device_desc(ufs_controller_t *ctrl)
     hal_console_puts("[ufs] Reading device descriptor...\n");
 
     uint8_t buf[96];
-    ufs_memzero(buf, sizeof(buf));
+    memset(buf, 0, sizeof(buf));
 
     hal_status_t st = ufs_query_request(ctrl, UPIU_QUERY_OP_READ_DESC,
                                           UFS_DESC_IDN_DEVICE,
@@ -682,7 +668,7 @@ static hal_status_t ufs_read_device_desc(ufs_controller_t *ctrl)
     }
 
     /* Copy into controller state */
-    ufs_memcpy(&ctrl->dev_desc, buf, sizeof(ctrl->dev_desc));
+    memcpy(&ctrl->dev_desc, buf, sizeof(ctrl->dev_desc));
     ctrl->num_luns = ctrl->dev_desc.bNumberLU;
     ctrl->spec_version = ufs_be16(ctrl->dev_desc.wSpecVersion);
 
@@ -702,7 +688,7 @@ static hal_status_t ufs_read_capacity(ufs_controller_t *ctrl)
 
     /* READ CAPACITY(10) CDB */
     uint8_t cdb[16];
-    ufs_memzero(cdb, sizeof(cdb));
+    memset(cdb, 0, sizeof(cdb));
     cdb[0] = SCSI_OP_READ_CAPACITY_10;
 
     /* Response is 8 bytes: 4 bytes LBA + 4 bytes block size */
@@ -728,7 +714,7 @@ static hal_status_t ufs_read_capacity(ufs_controller_t *ctrl)
 
     if (last_lba == 0xFFFFFFFF) {
         /* Need READ CAPACITY(16) for >2TB */
-        ufs_memzero(cdb, sizeof(cdb));
+        memset(cdb, 0, sizeof(cdb));
         cdb[0] = SCSI_OP_READ_CAPACITY_16;
         cdb[1] = 0x10;  /* Service action = READ CAPACITY(16) */
         cdb[13] = 32;   /* Allocation length */
@@ -775,7 +761,7 @@ static hal_status_t ufs_read_capacity(ufs_controller_t *ctrl)
 static hal_status_t ufs_test_unit_ready(ufs_controller_t *ctrl, uint8_t lun)
 {
     uint8_t cdb[16];
-    ufs_memzero(cdb, sizeof(cdb));
+    memset(cdb, 0, sizeof(cdb));
     cdb[0] = SCSI_OP_TEST_UNIT_READY;
 
     return ufs_scsi_cmd(ctrl, 0, lun, cdb,
@@ -1006,7 +992,7 @@ hal_status_t ufs_read(ufs_controller_t *ctrl, uint64_t lba,
 
         /* Build SCSI READ(10) CDB */
         uint8_t cdb[16];
-        ufs_memzero(cdb, sizeof(cdb));
+        memset(cdb, 0, sizeof(cdb));
         cdb[0] = SCSI_OP_READ_10;
         /* LBA (big-endian, bytes 2-5) */
         cdb[2] = (uint8_t)((cur_lba >> 24) & 0xFF);
@@ -1062,7 +1048,7 @@ hal_status_t ufs_write(ufs_controller_t *ctrl, uint64_t lba,
 
         /* Build SCSI WRITE(10) CDB */
         uint8_t cdb[16];
-        ufs_memzero(cdb, sizeof(cdb));
+        memset(cdb, 0, sizeof(cdb));
         cdb[0] = SCSI_OP_WRITE_10;
         cdb[2] = (uint8_t)((cur_lba >> 24) & 0xFF);
         cdb[3] = (uint8_t)((cur_lba >> 16) & 0xFF);
@@ -1125,7 +1111,7 @@ hal_status_t ufs_shutdown(ufs_controller_t *ctrl)
 
     /* Sync cache on LUN 0 */
     uint8_t cdb[16];
-    ufs_memzero(cdb, sizeof(cdb));
+    memset(cdb, 0, sizeof(cdb));
     cdb[0] = SCSI_OP_SYNCHRONIZE_CACHE;
     ufs_scsi_cmd(ctrl, 0, 0, cdb, UTP_NO_DATA_TRANSFER, 0, 0);
 
@@ -1188,7 +1174,7 @@ static int64_t ufs_drv_read(void *buf, uint64_t lba, uint32_t count)
 
         /* Copy to caller's buffer */
         uint8_t *dst = (uint8_t *)buf + offset;
-        ufs_memcpy(dst, g_ufs_ctrl.data_buf, xfer_bytes);
+        memcpy(dst, g_ufs_ctrl.data_buf, xfer_bytes);
 
         remaining -= chunk;
         cur_lba += chunk;
@@ -1217,7 +1203,7 @@ static int64_t ufs_drv_write(const void *buf, uint64_t lba, uint32_t count)
 
         /* Copy to DMA-capable bounce buffer */
         const uint8_t *src = (const uint8_t *)buf + offset;
-        ufs_memcpy(g_ufs_ctrl.data_buf, src, xfer_bytes);
+        memcpy(g_ufs_ctrl.data_buf, src, xfer_bytes);
 
         hal_status_t st = ufs_write(&g_ufs_ctrl, cur_lba, chunk,
                                       g_ufs_ctrl.data_buf,

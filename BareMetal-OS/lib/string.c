@@ -3,8 +3,7 @@
  * GCC may emit implicit calls to these even with -ffreestanding.
  */
 
-#include <stdint.h>
-#include <stddef.h>
+#include "string.h"
 
 void *memcpy(void *dst, const void *src, size_t n)
 {
@@ -50,4 +49,29 @@ int memcmp(const void *a, const void *b, size_t n)
         pb++;
     }
     return 0;
+}
+
+int str_eq(const char *a, const char *b)
+{
+    while (*a && *b) {
+        if (*a != *b) return 0;
+        a++; b++;
+    }
+    return *a == *b;
+}
+
+uint32_t str_len(const char *s)
+{
+    uint32_t n = 0;
+    while (s[n]) n++;
+    return n;
+}
+
+void str_copy(char *dst, const char *src, uint32_t max)
+{
+    uint32_t i;
+    for (i = 0; i + 1 < max && src[i]; i++)
+        dst[i] = src[i];
+    if (max > 0)
+        dst[i] = '\0';
 }

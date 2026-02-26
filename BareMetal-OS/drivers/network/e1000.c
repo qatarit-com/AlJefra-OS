@@ -4,6 +4,7 @@
  */
 
 #include "e1000.h"
+#include "../../lib/string.h"
 
 /* ── Internal constants ── */
 #define E1000_TIMEOUT_MS    3000
@@ -11,21 +12,6 @@
 #define E1000_TX_BUF_SIZE   2048
 
 /* ── Helpers ── */
-
-static void e1000_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void e1000_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 static inline uint32_t e1000_read(e1000_dev_t *nic, uint32_t off)
 {
@@ -98,7 +84,7 @@ static hal_status_t e1000_setup_tx(e1000_dev_t *nic)
     nic->tx_ring = (e1000_tx_desc_t *)hal_dma_alloc(ring_size, &nic->tx_ring_phys);
     if (!nic->tx_ring)
         return HAL_NO_MEMORY;
-    e1000_memzero(nic->tx_ring, ring_size);
+    memset(nic->tx_ring, 0, ring_size);
 
     /* Allocate TX buffers */
     for (uint32_t i = 0; i < E1000_NUM_TX_DESC; i++) {
@@ -144,7 +130,7 @@ static hal_status_t e1000_setup_rx(e1000_dev_t *nic)
     nic->rx_ring = (e1000_rx_desc_t *)hal_dma_alloc(ring_size, &nic->rx_ring_phys);
     if (!nic->rx_ring)
         return HAL_NO_MEMORY;
-    e1000_memzero(nic->rx_ring, ring_size);
+    memset(nic->rx_ring, 0, ring_size);
 
     /* Allocate RX buffers */
     for (uint32_t i = 0; i < E1000_NUM_RX_DESC; i++) {
@@ -282,7 +268,7 @@ hal_status_t e1000_send(e1000_dev_t *nic, const void *frame, uint16_t length)
         return HAL_TIMEOUT;
 
     /* Copy frame data to TX buffer */
-    e1000_memcpy(nic->tx_bufs[idx], frame, length);
+    memcpy(nic->tx_bufs[idx], frame, length);
 
     /* Set up descriptor */
     desc->addr = nic->tx_bufs_phys[idx];
@@ -330,7 +316,7 @@ hal_status_t e1000_recv(e1000_dev_t *nic, void *buf, uint16_t *length)
     /* Copy received data */
     uint16_t len = desc->length;
     if (len > E1000_RX_BUF_SIZE) len = E1000_RX_BUF_SIZE;
-    e1000_memcpy(buf, nic->rx_bufs[idx], len);
+    memcpy(buf, nic->rx_bufs[idx], len);
     *length = len;
 
     /* Reset descriptor */

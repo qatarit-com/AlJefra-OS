@@ -12,6 +12,7 @@
 #include "driver_loader.h"
 #include "../hal/hal.h"
 #include "../store/verify.h"
+#include "../lib/string.h"
 
 /* Network/marketplace modules (from net/ and ai/) */
 extern hal_status_t dhcp_discover(uint32_t *ip, uint32_t *gateway, uint32_t *dns);
@@ -33,15 +34,6 @@ static const uint8_t ALJEFRA_STORE_PUBKEY[32] = {0};
 static bootstrap_state_t g_state = BOOTSTRAP_INIT;
 
 /* ── Helpers ── */
-
-static int str_eq(const char *a, const char *b)
-{
-    while (*a && *b) {
-        if (*a != *b) return 0;
-        a++; b++;
-    }
-    return *a == *b;
-}
 
 /* Check if a device already has a loaded driver */
 static int device_has_driver(hal_device_t *dev)

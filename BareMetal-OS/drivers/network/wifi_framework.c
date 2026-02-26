@@ -7,43 +7,11 @@
  */
 
 #include "wifi_framework.h"
+#include "../../lib/string.h"
 
 /* ===================================================================
  * Internal helpers
  * =================================================================== */
-
-static void wf_memcpy(void *dst, const void *src, uint32_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint32_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
-
-static void wf_memzero(void *dst, uint32_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    for (uint32_t i = 0; i < len; i++)
-        d[i] = 0;
-}
-
-static int wf_memcmp(const void *a, const void *b, uint32_t len)
-{
-    const uint8_t *pa = (const uint8_t *)a;
-    const uint8_t *pb = (const uint8_t *)b;
-    for (uint32_t i = 0; i < len; i++) {
-        if (pa[i] != pb[i])
-            return (int)pa[i] - (int)pb[i];
-    }
-    return 0;
-}
-
-static uint32_t wf_strlen(const char *s)
-{
-    uint32_t len = 0;
-    while (s[len]) len++;
-    return len;
-}
 
 /* Big-endian read/write helpers */
 static inline uint16_t wf_be16(const uint8_t *p)
@@ -179,7 +147,7 @@ static void sha1_update(sha1_ctx_t *ctx, const uint8_t *data, uint32_t len)
     while (len > 0) {
         uint32_t space = SHA1_BLOCK_SIZE - ctx->buf_len;
         uint32_t copy = (len < space) ? len : space;
-        wf_memcpy(&ctx->buf[ctx->buf_len], data, copy);
+        memcpy(&ctx->buf[ctx->buf_len], data, copy);
         ctx->buf_len += copy;
         data += copy;
         len -= copy;
@@ -241,8 +209,8 @@ void wifi_hmac_sha1(const uint8_t *key, uint32_t key_len,
     }
 
     /* Inner: SHA1(K ^ ipad || data) */
-    wf_memzero(k_pad, SHA1_BLOCK_SIZE);
-    wf_memcpy(k_pad, key, key_len);
+    memset(k_pad, 0, SHA1_BLOCK_SIZE);
+    memcpy(k_pad, key, key_len);
     for (uint32_t i = 0; i < SHA1_BLOCK_SIZE; i++)
         k_pad[i] ^= 0x36;
 
@@ -252,8 +220,8 @@ void wifi_hmac_sha1(const uint8_t *key, uint32_t key_len,
     sha1_final(&ctx, out);
 
     /* Outer: SHA1(K ^ opad || inner_hash) */
-    wf_memzero(k_pad, SHA1_BLOCK_SIZE);
-    wf_memcpy(k_pad, key, key_len);
+    memset(k_pad, 0, SHA1_BLOCK_SIZE);
+    memcpy(k_pad, key, key_len);
     for (uint32_t i = 0; i < SHA1_BLOCK_SIZE; i++)
         k_pad[i] ^= 0x5C;
 
@@ -278,14 +246,14 @@ static void pbkdf2_sha1_f(const uint8_t *password, uint32_t pw_len,
     if (salt_len > 120) salt_len = 120;  /* Safety */
 
     /* U1 = HMAC-SHA1(password, salt || INT(block_num)) */
-    wf_memcpy(salt_block, salt, salt_len);
+    memcpy(salt_block, salt, salt_len);
     salt_block[salt_len]     = (uint8_t)((block_num >> 24) & 0xFF);
     salt_block[salt_len + 1] = (uint8_t)((block_num >> 16) & 0xFF);
     salt_block[salt_len + 2] = (uint8_t)((block_num >> 8) & 0xFF);
     salt_block[salt_len + 3] = (uint8_t)(block_num & 0xFF);
 
     wifi_hmac_sha1(password, pw_len, salt_block, salt_len + 4, u);
-    wf_memcpy(output, u, SHA1_DIGEST_SIZE);
+    memcpy(output, u, SHA1_DIGEST_SIZE);
 
     /* U2..Uc */
     for (uint32_t i = 1; i < iterations; i++) {
@@ -298,7 +266,7 @@ static void pbkdf2_sha1_f(const uint8_t *password, uint32_t pw_len,
 void wifi_derive_pmk(const char *passphrase, const uint8_t *ssid,
                       uint32_t ssid_len, uint8_t pmk[PMK_LEN])
 {
-    uint32_t pw_len = wf_strlen(passphrase);
+    uint32_t pw_len = str_len(passphrase);
 
     /* PBKDF2-SHA1 with 4096 iterations, 2 blocks (32 bytes)
      * Block 1 gives bytes 0-19, block 2 gives bytes 20-39.
@@ -310,7 +278,7 @@ void wifi_derive_pmk(const char *passphrase, const uint8_t *ssid,
     pbkdf2_sha1_f((const uint8_t *)passphrase, pw_len,
                    ssid, ssid_len, 4096, 2, block2);
     /* Copy only the 12 bytes we need from block 2 */
-    wf_memcpy(&pmk[SHA1_DIGEST_SIZE], block2, PMK_LEN - SHA1_DIGEST_SIZE);
+    memcpy(&pmk[SHA1_DIGEST_SIZE], block2, PMK_LEN - SHA1_DIGEST_SIZE);
 }
 
 /* ===================================================================
@@ -330,16 +298,16 @@ static void wf_prf(const uint8_t *key, uint32_t key_len,
      *   where counter = 0, 1, 2, ...
      */
     uint8_t buf[256];
-    uint32_t label_len = wf_strlen(label);
+    uint32_t label_len = str_len(label);
     uint32_t msg_len = label_len + 1 + data_len + 1;
 
     if (msg_len > sizeof(buf))
         return;
 
     /* Build: label || 0x00 || data || counter */
-    wf_memcpy(buf, label, label_len);
+    memcpy(buf, label, label_len);
     buf[label_len] = 0x00;
-    wf_memcpy(&buf[label_len + 1], data, data_len);
+    memcpy(&buf[label_len + 1], data, data_len);
 
     uint32_t offset = 0;
     uint8_t counter = 0;
@@ -353,7 +321,7 @@ static void wf_prf(const uint8_t *key, uint32_t key_len,
         uint32_t copy = output_len - offset;
         if (copy > SHA1_DIGEST_SIZE)
             copy = SHA1_DIGEST_SIZE;
-        wf_memcpy(&output[offset], hmac_out, copy);
+        memcpy(&output[offset], hmac_out, copy);
 
         offset += copy;
         counter++;
@@ -374,21 +342,21 @@ void wifi_derive_ptk(const uint8_t pmk[PMK_LEN],
     uint8_t data[76]; /* 6 + 6 + 32 + 32 = 76 */
 
     /* Sort addresses: min first */
-    if (wf_memcmp(aa, spa, 6) < 0) {
-        wf_memcpy(&data[0], aa, 6);
-        wf_memcpy(&data[6], spa, 6);
+    if (memcmp(aa, spa, 6) < 0) {
+        memcpy(&data[0], aa, 6);
+        memcpy(&data[6], spa, 6);
     } else {
-        wf_memcpy(&data[0], spa, 6);
-        wf_memcpy(&data[6], aa, 6);
+        memcpy(&data[0], spa, 6);
+        memcpy(&data[6], aa, 6);
     }
 
     /* Sort nonces: min first */
-    if (wf_memcmp(anonce, snonce, NONCE_LEN) < 0) {
-        wf_memcpy(&data[12], anonce, NONCE_LEN);
-        wf_memcpy(&data[44], snonce, NONCE_LEN);
+    if (memcmp(anonce, snonce, NONCE_LEN) < 0) {
+        memcpy(&data[12], anonce, NONCE_LEN);
+        memcpy(&data[44], snonce, NONCE_LEN);
     } else {
-        wf_memcpy(&data[12], snonce, NONCE_LEN);
-        wf_memcpy(&data[44], anonce, NONCE_LEN);
+        memcpy(&data[12], snonce, NONCE_LEN);
+        memcpy(&data[44], anonce, NONCE_LEN);
     }
 
     wf_prf(pmk, PMK_LEN, "Pairwise key expansion", data, 76, ptk, PTK_LEN);
@@ -415,7 +383,7 @@ static void wf_parse_ies(const uint8_t *ies, uint32_t len, wifi_bss_t *bss)
         switch (ie_id) {
         case WIFI_IE_SSID:
             if (ie_len <= WIFI_MAX_SSID_LEN) {
-                wf_memcpy(bss->ssid, ie_data, ie_len);
+                memcpy(bss->ssid, ie_data, ie_len);
                 bss->ssid[ie_len] = '\0';
                 bss->ssid_len = ie_len;
             }
@@ -465,7 +433,7 @@ static void wf_parse_beacon(wifi_ctx_t *ctx, const uint8_t *frame,
 
     /* Check if we already have this BSS */
     for (uint32_t i = 0; i < ctx->scan_count; i++) {
-        if (wf_memcmp(ctx->scan_results[i].bssid, hdr->addr2, 6) == 0)
+        if (memcmp(ctx->scan_results[i].bssid, hdr->addr2, 6) == 0)
             return; /* Already recorded */
     }
 
@@ -473,9 +441,9 @@ static void wf_parse_beacon(wifi_ctx_t *ctx, const uint8_t *frame,
         return;
 
     wifi_bss_t *bss = &ctx->scan_results[ctx->scan_count];
-    wf_memzero(bss, sizeof(wifi_bss_t));
+    memset(bss, 0, sizeof(wifi_bss_t));
 
-    wf_memcpy(bss->bssid, hdr->addr2, 6);
+    memcpy(bss->bssid, hdr->addr2, 6);
     bss->beacon_interval = fixed->beacon_interval;
     bss->capability = fixed->capability;
 
@@ -500,20 +468,20 @@ uint32_t wifi_build_probe_req(wifi_ctx_t *ctx, const char *ssid,
     wifi_mac_hdr_t *hdr = (wifi_mac_hdr_t *)out;
     hdr->frame_control = wf_fc(WIFI_TYPE_MGMT, WIFI_MGMT_PROBE_REQ, 0);
     hdr->duration = 0;
-    wf_memcpy(hdr->addr1, broadcast_addr, 6);  /* DA = broadcast */
+    memcpy(hdr->addr1, broadcast_addr, 6);  /* DA = broadcast */
     ctx->hw->get_mac(hdr->addr2);               /* SA = our MAC */
-    wf_memcpy(hdr->addr3, broadcast_addr, 6);  /* BSSID = broadcast */
+    memcpy(hdr->addr3, broadcast_addr, 6);  /* BSSID = broadcast */
     hdr->seq_ctrl = (uint16_t)(ctx->tx_seq++ << 4);
     offset = sizeof(wifi_mac_hdr_t);
 
     /* SSID IE */
     out[offset++] = WIFI_IE_SSID;
     if (ssid) {
-        uint8_t ssid_len = (uint8_t)wf_strlen(ssid);
+        uint8_t ssid_len = (uint8_t)str_len(ssid);
         if (ssid_len > WIFI_MAX_SSID_LEN)
             ssid_len = WIFI_MAX_SSID_LEN;
         out[offset++] = ssid_len;
-        wf_memcpy(&out[offset], ssid, ssid_len);
+        memcpy(&out[offset], ssid, ssid_len);
         offset += ssid_len;
     } else {
         out[offset++] = 0; /* Wildcard SSID */
@@ -542,9 +510,9 @@ uint32_t wifi_build_auth(wifi_ctx_t *ctx, uint8_t *out)
     wifi_mac_hdr_t *hdr = (wifi_mac_hdr_t *)out;
     hdr->frame_control = wf_fc(WIFI_TYPE_MGMT, WIFI_MGMT_AUTH, 0);
     hdr->duration = 0;
-    wf_memcpy(hdr->addr1, ctx->bss.bssid, 6);  /* DA = AP */
+    memcpy(hdr->addr1, ctx->bss.bssid, 6);  /* DA = AP */
     ctx->hw->get_mac(hdr->addr2);                /* SA = us */
-    wf_memcpy(hdr->addr3, ctx->bss.bssid, 6);  /* BSSID */
+    memcpy(hdr->addr3, ctx->bss.bssid, 6);  /* BSSID */
     hdr->seq_ctrl = (uint16_t)(ctx->tx_seq++ << 4);
     offset = sizeof(wifi_mac_hdr_t);
 
@@ -566,9 +534,9 @@ uint32_t wifi_build_assoc_req(wifi_ctx_t *ctx, uint8_t *out)
     wifi_mac_hdr_t *hdr = (wifi_mac_hdr_t *)out;
     hdr->frame_control = wf_fc(WIFI_TYPE_MGMT, WIFI_MGMT_ASSOC_REQ, 0);
     hdr->duration = 0;
-    wf_memcpy(hdr->addr1, ctx->bss.bssid, 6);
+    memcpy(hdr->addr1, ctx->bss.bssid, 6);
     ctx->hw->get_mac(hdr->addr2);
-    wf_memcpy(hdr->addr3, ctx->bss.bssid, 6);
+    memcpy(hdr->addr3, ctx->bss.bssid, 6);
     hdr->seq_ctrl = (uint16_t)(ctx->tx_seq++ << 4);
     offset = sizeof(wifi_mac_hdr_t);
 
@@ -581,7 +549,7 @@ uint32_t wifi_build_assoc_req(wifi_ctx_t *ctx, uint8_t *out)
     /* SSID IE */
     out[offset++] = WIFI_IE_SSID;
     out[offset++] = ctx->bss.ssid_len;
-    wf_memcpy(&out[offset], ctx->bss.ssid, ctx->bss.ssid_len);
+    memcpy(&out[offset], ctx->bss.ssid, ctx->bss.ssid_len);
     offset += ctx->bss.ssid_len;
 
     /* Supported Rates IE */
@@ -623,9 +591,9 @@ uint32_t wifi_build_deauth(wifi_ctx_t *ctx, uint16_t reason, uint8_t *out)
     wifi_mac_hdr_t *hdr = (wifi_mac_hdr_t *)out;
     hdr->frame_control = wf_fc(WIFI_TYPE_MGMT, WIFI_MGMT_DEAUTH, 0);
     hdr->duration = 0;
-    wf_memcpy(hdr->addr1, ctx->bss.bssid, 6);
+    memcpy(hdr->addr1, ctx->bss.bssid, 6);
     ctx->hw->get_mac(hdr->addr2);
-    wf_memcpy(hdr->addr3, ctx->bss.bssid, 6);
+    memcpy(hdr->addr3, ctx->bss.bssid, 6);
     hdr->seq_ctrl = (uint16_t)(ctx->tx_seq++ << 4);
     offset = sizeof(wifi_mac_hdr_t);
 
@@ -651,9 +619,9 @@ static uint32_t wf_wrap_eapol(wifi_ctx_t *ctx,
     wifi_mac_hdr_t *hdr = (wifi_mac_hdr_t *)out;
     hdr->frame_control = wf_fc(WIFI_TYPE_DATA, WIFI_DATA_DATA, WIFI_FC_TODS);
     hdr->duration = 0;
-    wf_memcpy(hdr->addr1, ctx->bss.bssid, 6);   /* BSSID (receiver = AP) */
+    memcpy(hdr->addr1, ctx->bss.bssid, 6);   /* BSSID (receiver = AP) */
     ctx->hw->get_mac(hdr->addr2);                 /* SA (transmitter) */
-    wf_memcpy(hdr->addr3, ctx->bss.bssid, 6);   /* DA (AP) */
+    memcpy(hdr->addr3, ctx->bss.bssid, 6);   /* DA (AP) */
     hdr->seq_ctrl = (uint16_t)(ctx->tx_seq++ << 4);
     offset = sizeof(wifi_mac_hdr_t);
 
@@ -667,7 +635,7 @@ static uint32_t wf_wrap_eapol(wifi_ctx_t *ctx,
     offset += sizeof(wifi_llc_snap_t);
 
     /* EAPOL data */
-    wf_memcpy(&out[offset], eapol_data, eapol_len);
+    memcpy(&out[offset], eapol_data, eapol_len);
     offset += eapol_len;
 
     return offset;
@@ -692,7 +660,7 @@ static void wf_generate_snonce(wifi_ctx_t *ctx)
     sha1_final(&sha, digest);
 
     /* First 20 bytes of SNonce */
-    wf_memcpy(ctx->snonce, digest, SHA1_DIGEST_SIZE);
+    memcpy(ctx->snonce, digest, SHA1_DIGEST_SIZE);
 
     /* Generate remaining 12 bytes */
     ns = hal_timer_ns();
@@ -700,7 +668,7 @@ static void wf_generate_snonce(wifi_ctx_t *ctx)
     sha1_update(&sha, digest, SHA1_DIGEST_SIZE);
     sha1_update(&sha, (const uint8_t *)&ns, sizeof(ns));
     sha1_final(&sha, digest);
-    wf_memcpy(&ctx->snonce[SHA1_DIGEST_SIZE], digest, NONCE_LEN - SHA1_DIGEST_SIZE);
+    memcpy(&ctx->snonce[SHA1_DIGEST_SIZE], digest, NONCE_LEN - SHA1_DIGEST_SIZE);
 }
 
 uint32_t wifi_build_eapol_msg2(wifi_ctx_t *ctx, uint8_t *out)
@@ -716,7 +684,7 @@ uint32_t wifi_build_eapol_msg2(wifi_ctx_t *ctx, uint8_t *out)
 
     /* EAPOL-Key */
     eapol_key_t *key = (eapol_key_t *)(eapol_buf + offset);
-    wf_memzero(key, sizeof(eapol_key_t));
+    memset(key, 0, sizeof(eapol_key_t));
     key->descriptor_type = EAPOL_KEY_DESC_RSN;
 
     /* Key Info: Pairwise + MIC + RSN Key Descriptor version 2 (AES-based) */
@@ -725,10 +693,10 @@ uint32_t wifi_build_eapol_msg2(wifi_ctx_t *ctx, uint8_t *out)
     wf_put_be16((uint8_t *)&key->key_length, 16); /* CCMP key = 16 bytes */
 
     /* Replay counter from AP's message 1 */
-    wf_memcpy(key->replay_counter, ctx->replay_counter, 8);
+    memcpy(key->replay_counter, ctx->replay_counter, 8);
 
     /* Our SNonce */
-    wf_memcpy(key->key_nonce, ctx->snonce, NONCE_LEN);
+    memcpy(key->key_nonce, ctx->snonce, NONCE_LEN);
 
     /* RSN IE as key data */
     uint8_t rsn_ie[24];
@@ -754,7 +722,7 @@ uint32_t wifi_build_eapol_msg2(wifi_ctx_t *ctx, uint8_t *out)
     offset += sizeof(eapol_key_t);
 
     /* Append RSN IE as key data */
-    wf_memcpy(&eapol_buf[offset], rsn_ie, rsn_len);
+    memcpy(&eapol_buf[offset], rsn_ie, rsn_len);
     offset += rsn_len;
 
     /* Derive PTK so we can compute MIC */
@@ -762,12 +730,12 @@ uint32_t wifi_build_eapol_msg2(wifi_ctx_t *ctx, uint8_t *out)
                      ctx->bss.bssid, ctx->our_mac, ctx->ptk);
 
     /* Compute MIC over the entire EAPOL frame (with MIC field zeroed) */
-    wf_memzero(key->key_mic, 16);
+    memset(key->key_mic, 0, 16);
 
     uint8_t mic[SHA1_DIGEST_SIZE];
     wifi_hmac_sha1(&ctx->ptk[PTK_KCK_OFFSET], KCK_LEN,
                     eapol_buf, offset, mic);
-    wf_memcpy(key->key_mic, mic, 16);
+    memcpy(key->key_mic, mic, 16);
 
     /* Wrap in 802.11 data frame */
     return wf_wrap_eapol(ctx, eapol_buf, offset, out);
@@ -786,7 +754,7 @@ uint32_t wifi_build_eapol_msg4(wifi_ctx_t *ctx, uint8_t *out)
 
     /* EAPOL-Key (no key data in msg 4) */
     eapol_key_t *key = (eapol_key_t *)(eapol_buf + offset);
-    wf_memzero(key, sizeof(eapol_key_t));
+    memset(key, 0, sizeof(eapol_key_t));
     key->descriptor_type = EAPOL_KEY_DESC_RSN;
 
     uint16_t key_info = EAPOL_KEY_INFO_PAIRWISE | EAPOL_KEY_INFO_MIC |
@@ -794,7 +762,7 @@ uint32_t wifi_build_eapol_msg4(wifi_ctx_t *ctx, uint8_t *out)
     wf_put_be16((uint8_t *)&key->key_info, key_info);
     wf_put_be16((uint8_t *)&key->key_length, 16);
 
-    wf_memcpy(key->replay_counter, ctx->replay_counter, 8);
+    memcpy(key->replay_counter, ctx->replay_counter, 8);
     wf_put_be16((uint8_t *)&key->key_data_length, 0);
 
     uint32_t key_body_len = sizeof(eapol_key_t);
@@ -803,11 +771,11 @@ uint32_t wifi_build_eapol_msg4(wifi_ctx_t *ctx, uint8_t *out)
     offset += sizeof(eapol_key_t);
 
     /* Compute MIC */
-    wf_memzero(key->key_mic, 16);
+    memset(key->key_mic, 0, 16);
     uint8_t mic[SHA1_DIGEST_SIZE];
     wifi_hmac_sha1(&ctx->ptk[PTK_KCK_OFFSET], KCK_LEN,
                     eapol_buf, offset, mic);
-    wf_memcpy(key->key_mic, mic, 16);
+    memcpy(key->key_mic, mic, 16);
 
     return wf_wrap_eapol(ctx, eapol_buf, offset, out);
 }
@@ -864,8 +832,8 @@ uint32_t wifi_80211_to_ether(const uint8_t *wifi_frame, uint32_t wifi_len,
         return 0;
 
     /* Build Ethernet header */
-    wf_memcpy(ether_frame, da, 6);        /* DA */
-    wf_memcpy(ether_frame + 6, sa, 6);    /* SA */
+    memcpy(ether_frame, da, 6);        /* DA */
+    memcpy(ether_frame + 6, sa, 6);    /* SA */
     /* EtherType from SNAP (already big-endian) */
     ether_frame[12] = (uint8_t)(snap->ether_type >> 8);
     ether_frame[13] = (uint8_t)(snap->ether_type & 0xFF);
@@ -876,7 +844,7 @@ uint32_t wifi_80211_to_ether(const uint8_t *wifi_frame, uint32_t wifi_len,
 
     /* If CCMP MIC was present, it was already stripped during decryption */
 
-    wf_memcpy(ether_frame + ETHER_HDR_LEN, wifi_frame + payload_offset,
+    memcpy(ether_frame + ETHER_HDR_LEN, wifi_frame + payload_offset,
                payload_len);
 
     return ETHER_HDR_LEN + payload_len;
@@ -899,9 +867,9 @@ uint32_t wifi_ether_to_80211(wifi_ctx_t *ctx,
     wifi_mac_hdr_t *hdr = (wifi_mac_hdr_t *)wifi_frame;
     hdr->frame_control = wf_fc(WIFI_TYPE_DATA, WIFI_DATA_DATA, WIFI_FC_TODS);
     hdr->duration = 0;
-    wf_memcpy(hdr->addr1, ctx->bss.bssid, 6);  /* BSSID (AP) */
-    wf_memcpy(hdr->addr2, sa, 6);               /* SA (us) */
-    wf_memcpy(hdr->addr3, da, 6);               /* DA (destination) */
+    memcpy(hdr->addr1, ctx->bss.bssid, 6);  /* BSSID (AP) */
+    memcpy(hdr->addr2, sa, 6);               /* SA (us) */
+    memcpy(hdr->addr3, da, 6);               /* DA (destination) */
     hdr->seq_ctrl = (uint16_t)(ctx->tx_seq++ << 4);
     offset = sizeof(wifi_mac_hdr_t);
 
@@ -916,7 +884,7 @@ uint32_t wifi_ether_to_80211(wifi_ctx_t *ctx,
 
     /* Payload (skip Ethernet header) */
     uint32_t payload_len = ether_len - ETHER_HDR_LEN;
-    wf_memcpy(wifi_frame + offset, ether_frame + ETHER_HDR_LEN, payload_len);
+    memcpy(wifi_frame + offset, ether_frame + ETHER_HDR_LEN, payload_len);
     offset += payload_len;
 
     return offset;
@@ -950,8 +918,8 @@ static hal_status_t wf_process_eapol(wifi_ctx_t *ctx,
         /* AP sends ANonce */
         hal_console_puts("[WiFi] 4-way handshake: received msg 1\n");
 
-        wf_memcpy(ctx->anonce, key->key_nonce, NONCE_LEN);
-        wf_memcpy(ctx->replay_counter, key->replay_counter, 8);
+        memcpy(ctx->anonce, key->key_nonce, NONCE_LEN);
+        memcpy(ctx->replay_counter, key->replay_counter, 8);
 
         /* Generate our SNonce */
         wf_generate_snonce(ctx);
@@ -970,23 +938,23 @@ static hal_status_t wf_process_eapol(wifi_ctx_t *ctx,
         /* ---- Message 3 of 4 ---- */
         hal_console_puts("[WiFi] 4-way handshake: received msg 3\n");
 
-        wf_memcpy(ctx->replay_counter, key->replay_counter, 8);
+        memcpy(ctx->replay_counter, key->replay_counter, 8);
 
         /* Verify MIC using KCK from PTK */
         uint8_t saved_mic[16];
-        wf_memcpy(saved_mic, key->key_mic, 16);
+        memcpy(saved_mic, key->key_mic, 16);
 
         /* Zero MIC field for verification */
         uint8_t *frame_copy = ctx->frame_buf;
-        wf_memcpy(frame_copy, data, len);
+        memcpy(frame_copy, data, len);
         eapol_key_t *key_copy = (eapol_key_t *)(frame_copy + sizeof(eapol_hdr_t));
-        wf_memzero(key_copy->key_mic, 16);
+        memset(key_copy->key_mic, 0, 16);
 
         uint8_t computed_mic[SHA1_DIGEST_SIZE];
         wifi_hmac_sha1(&ctx->ptk[PTK_KCK_OFFSET], KCK_LEN,
                         frame_copy, len, computed_mic);
 
-        if (wf_memcmp(saved_mic, computed_mic, 16) != 0) {
+        if (memcmp(saved_mic, computed_mic, 16) != 0) {
             hal_console_puts("[WiFi] msg3 MIC verification failed!\n");
             return HAL_ERROR;
         }
@@ -1133,7 +1101,7 @@ hal_status_t wifi_process_frame(wifi_ctx_t *ctx, const void *frame,
 
 hal_status_t wifi_init(wifi_ctx_t *ctx, const wifi_hw_ops_t *hw)
 {
-    wf_memzero(ctx, sizeof(wifi_ctx_t));
+    memset(ctx, 0, sizeof(wifi_ctx_t));
     ctx->hw = hw;
     ctx->state = WIFI_STATE_IDLE;
     hw->get_mac(ctx->our_mac);
@@ -1188,7 +1156,7 @@ uint32_t wifi_scan(wifi_ctx_t *ctx, const uint8_t *channels,
 hal_status_t wifi_connect(wifi_ctx_t *ctx, const char *ssid,
                            const char *passphrase)
 {
-    uint32_t ssid_len = wf_strlen(ssid);
+    uint32_t ssid_len = str_len(ssid);
 
     /* Step 0: Derive PMK from passphrase */
     hal_console_puts("[WiFi] Deriving PMK (PBKDF2-SHA1, 4096 iterations)...\n");
@@ -1198,7 +1166,7 @@ hal_status_t wifi_connect(wifi_ctx_t *ctx, const char *ssid,
     wifi_bss_t *target = NULL;
     for (uint32_t i = 0; i < ctx->scan_count; i++) {
         if (ctx->scan_results[i].ssid_len == ssid_len &&
-            wf_memcmp(ctx->scan_results[i].ssid, ssid, ssid_len) == 0) {
+            memcmp(ctx->scan_results[i].ssid, ssid, ssid_len) == 0) {
             target = &ctx->scan_results[i];
             break;
         }
@@ -1209,7 +1177,7 @@ hal_status_t wifi_connect(wifi_ctx_t *ctx, const char *ssid,
         wifi_scan(ctx, NULL, 0, 150);
         for (uint32_t i = 0; i < ctx->scan_count; i++) {
             if (ctx->scan_results[i].ssid_len == ssid_len &&
-                wf_memcmp(ctx->scan_results[i].ssid, ssid, ssid_len) == 0) {
+                memcmp(ctx->scan_results[i].ssid, ssid, ssid_len) == 0) {
                 target = &ctx->scan_results[i];
                 break;
             }
@@ -1222,7 +1190,7 @@ hal_status_t wifi_connect(wifi_ctx_t *ctx, const char *ssid,
     }
 
     /* Copy BSS info */
-    wf_memcpy(&ctx->bss, target, sizeof(wifi_bss_t));
+    memcpy(&ctx->bss, target, sizeof(wifi_bss_t));
 
     /* Set channel */
     ctx->hw->set_channel(ctx->bss.channel);
@@ -1282,10 +1250,10 @@ hal_status_t wifi_disconnect(wifi_ctx_t *ctx)
     ctx->state = WIFI_STATE_IDLE;
     ctx->ptk_installed = false;
     ctx->gtk_installed = false;
-    wf_memzero(ctx->ptk, PTK_LEN);
-    wf_memzero(ctx->gtk, GTK_LEN);
-    wf_memzero(ctx->tx_pn, CCMP_PN_LEN);
-    wf_memzero(ctx->rx_pn, CCMP_PN_LEN);
+    memset(ctx->ptk, 0, PTK_LEN);
+    memset(ctx->gtk, 0, GTK_LEN);
+    memset(ctx->tx_pn, 0, CCMP_PN_LEN);
+    memset(ctx->rx_pn, 0, CCMP_PN_LEN);
 
     hal_console_puts("[WiFi] Disconnected\n");
     return HAL_OK;
@@ -1372,7 +1340,7 @@ hal_status_t wifi_recv(wifi_ctx_t *ctx, void *buf, uint32_t *len)
         if (wf_cmp_pn(pn, ctx->rx_pn) <= 0) {
             return HAL_ERROR; /* Replay detected */
         }
-        wf_memcpy(ctx->rx_pn, pn, CCMP_PN_LEN);
+        memcpy(ctx->rx_pn, pn, CCMP_PN_LEN);
 
         data_frame = decrypted;
         data_len = dec_len;

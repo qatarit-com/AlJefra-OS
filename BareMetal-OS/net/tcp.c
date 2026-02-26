@@ -14,43 +14,11 @@
  */
 
 #include "tcp.h"
+#include "checksum.h"
 #include "../hal/hal.h"
 #include "../kernel/driver_loader.h"
-
-/* ── Byte order helpers ── */
-static uint16_t htons(uint16_t v) { return (v >> 8) | (v << 8); }
-static uint32_t htonl(uint32_t v)
-{
-    return ((v & 0xFF) << 24) | ((v & 0xFF00) << 8) |
-           ((v & 0xFF0000) >> 8) | ((v >> 24) & 0xFF);
-}
-static uint16_t ntohs(uint16_t v) { return htons(v); }
-static uint32_t ntohl(uint32_t v) { return htonl(v); }
-
-/* ── Memory helpers ── */
-static void mem_zero(void *p, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)p;
-    while (n--) *d++ = 0;
-}
-
-static void mem_copy(void *dst, const void *src, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    while (n--) *d++ = *s++;
-}
-
-static int mem_cmp(const void *a, const void *b, uint64_t n)
-{
-    const uint8_t *pa = (const uint8_t *)a;
-    const uint8_t *pb = (const uint8_t *)b;
-    while (n--) {
-        if (*pa != *pb) return *pa - *pb;
-        pa++; pb++;
-    }
-    return 0;
-}
+#include "../lib/string.h"
+#include "../lib/endian.h"
 
 /* ── TCP flags ── */
 #define TCP_FIN  0x01
@@ -127,22 +95,6 @@ static uint32_t g_netmask;
 static uint8_t  g_local_mac[6];
 static uint16_t g_ip_id = 1;
 
-/* ── Checksum ── */
-static uint16_t ip_checksum(const void *data, uint32_t len)
-{
-    const uint16_t *p = (const uint16_t *)data;
-    uint32_t sum = 0;
-    while (len > 1) {
-        sum += *p++;
-        len -= 2;
-    }
-    if (len == 1)
-        sum += *(const uint8_t *)p;
-    while (sum >> 16)
-        sum = (sum & 0xFFFF) + (sum >> 16);
-    return (uint16_t)~sum;
-}
-
 /* TCP pseudo-header checksum */
 static uint16_t tcp_checksum(uint32_t src_ip, uint32_t dst_ip,
                               const void *tcp_hdr, uint32_t tcp_len)
@@ -180,13 +132,13 @@ static void send_tcp_frame(tcp_conn_t *conn, uint8_t flags,
     if (!net || !net->net_tx) return;
 
     uint8_t frame[1514]; /* Max Ethernet frame */
-    mem_zero(frame, sizeof(frame));
+    memset(frame, 0, sizeof(frame));
 
     tcp_frame_t *f = (tcp_frame_t *)frame;
 
     /* Ethernet */
-    mem_copy(f->eth_dst, conn->remote_mac, 6);
-    mem_copy(f->eth_src, conn->local_mac, 6);
+    memcpy(f->eth_dst, conn->remote_mac, 6);
+    memcpy(f->eth_src, conn->local_mac, 6);
     f->eth_type = htons(ETHERTYPE_IPV4);
 
     /* IPv4 */
@@ -215,7 +167,7 @@ static void send_tcp_frame(tcp_conn_t *conn, uint8_t flags,
 
     /* Copy payload after TCP header */
     if (data && data_len > 0)
-        mem_copy(frame + TCP_FRAME_HDR, data, data_len);
+        memcpy(frame + TCP_FRAME_HDR, data, data_len);
 
     /* TCP checksum (over pseudo-header + TCP header + data) */
     f->tcp_checksum = 0;
@@ -296,7 +248,7 @@ static int32_t recv_tcp_frame(tcp_conn_t *conn, uint8_t *out_flags,
 
         if (payload && payload_len > 0) {
             uint32_t copy_len = payload_len < max_payload ? payload_len : max_payload;
-            mem_copy(payload, frame + hdr_total, copy_len);
+            memcpy(payload, frame + hdr_total, copy_len);
             payload_len = copy_len;
         }
 
@@ -318,11 +270,11 @@ static hal_status_t arp_resolve(uint32_t target_ip, uint8_t *target_mac)
 
     /* Build ARP request */
     arp_frame_t arp;
-    mem_zero(&arp, sizeof(arp));
+    memset(&arp, 0, sizeof(arp));
 
     /* Ethernet: broadcast */
     for (int i = 0; i < 6; i++) arp.eth_dst[i] = 0xFF;
-    mem_copy(arp.eth_src, g_local_mac, 6);
+    memcpy(arp.eth_src, g_local_mac, 6);
     arp.eth_type = htons(ETHERTYPE_ARP);
 
     /* ARP */
@@ -331,9 +283,9 @@ static hal_status_t arp_resolve(uint32_t target_ip, uint8_t *target_mac)
     arp.hw_len = 6;
     arp.proto_len = 4;
     arp.opcode = htons(ARP_OP_REQUEST);
-    mem_copy(arp.sender_mac, g_local_mac, 6);
+    memcpy(arp.sender_mac, g_local_mac, 6);
     arp.sender_ip = htonl(g_local_ip);
-    mem_zero(arp.target_mac, 6);
+    memset(arp.target_mac, 0, 6);
     arp.target_ip = htonl(target_ip);
 
     /* Send ARP request (try up to 3 times) */
@@ -365,7 +317,7 @@ static hal_status_t arp_resolve(uint32_t target_ip, uint8_t *target_mac)
                 continue;
 
             /* Got it! */
-            mem_copy(target_mac, reply->sender_mac, 6);
+            memcpy(target_mac, reply->sender_mac, 6);
             hal_console_printf("[tcp] ARP: resolved to %02x:%02x:%02x:%02x:%02x:%02x\n",
                                target_mac[0], target_mac[1], target_mac[2],
                                target_mac[3], target_mac[4], target_mac[5]);
@@ -401,7 +353,7 @@ void tcp_init(uint32_t local_ip, uint32_t gateway, uint32_t netmask)
 
 hal_status_t tcp_connect(tcp_conn_t *conn, uint32_t remote_ip, uint16_t remote_port)
 {
-    mem_zero(conn, sizeof(*conn));
+    memset(conn, 0, sizeof(*conn));
     conn->local_ip = g_local_ip;
     conn->remote_ip = remote_ip;
     conn->remote_port = remote_port;
@@ -410,7 +362,7 @@ hal_status_t tcp_connect(tcp_conn_t *conn, uint32_t remote_ip, uint16_t remote_p
     conn->ack_num = 0;
     conn->remote_mss = TCP_TX_MSS;
     conn->rx_len = 0;
-    mem_copy(conn->local_mac, g_local_mac, 6);
+    memcpy(conn->local_mac, g_local_mac, 6);
 
     hal_console_printf("[tcp] Connecting to %u.%u.%u.%u:%u\n",
                        (remote_ip >> 24) & 0xFF, (remote_ip >> 16) & 0xFF,
@@ -541,7 +493,7 @@ int32_t tcp_recv(tcp_conn_t *conn, void *buf, uint32_t max_len, uint32_t timeout
                 uint32_t copy = (uint32_t)plen;
                 if (total + copy > max_len)
                     copy = max_len - total;
-                mem_copy(out + total, tmp, copy);
+                memcpy(out + total, tmp, copy);
                 total += copy;
             }
             break;
@@ -555,7 +507,7 @@ int32_t tcp_recv(tcp_conn_t *conn, void *buf, uint32_t max_len, uint32_t timeout
             uint32_t copy = (uint32_t)plen;
             if (total + copy > max_len)
                 copy = max_len - total;
-            mem_copy(out + total, tmp, copy);
+            memcpy(out + total, tmp, copy);
             total += copy;
             got_data = 1;
 

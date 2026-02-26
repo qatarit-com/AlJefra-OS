@@ -4,6 +4,7 @@
  */
 
 #include "xhci.h"
+#include "../../lib/string.h"
 
 /* ── Constants ── */
 #define XHCI_TIMEOUT_MS    5000
@@ -11,21 +12,6 @@
 #define XHCI_CONTEXT_SIZE  32     /* 32 bytes per context (no 64-byte contexts) */
 
 /* ── Helpers ── */
-
-static void xhci_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void xhci_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 static inline uint32_t xhci_cap_read32(xhci_controller_t *hc, uint32_t off)
 {
@@ -239,7 +225,7 @@ static hal_status_t xhci_do_control(xhci_controller_t *hc, uint8_t slot_id,
 
     /* Build Setup TRB */
     xhci_trb_t setup;
-    xhci_memzero(&setup, sizeof(setup));
+    memset(&setup, 0, sizeof(setup));
     /* Setup stage data: bmRequestType | bRequest<<8 | wValue<<16 */
     setup.param = (uint64_t)bmRequestType |
                   ((uint64_t)bRequest << 8) |
@@ -263,7 +249,7 @@ static hal_status_t xhci_do_control(xhci_controller_t *hc, uint8_t slot_id,
     /* Data TRB (if wLength > 0) */
     if (wLength > 0 && data_phys) {
         xhci_trb_t data_trb;
-        xhci_memzero(&data_trb, sizeof(data_trb));
+        memset(&data_trb, 0, sizeof(data_trb));
         data_trb.param = data_phys;
         data_trb.status = wLength;
         data_trb.control = XHCI_TRB_TYPE(XHCI_TRB_DATA);
@@ -277,7 +263,7 @@ static hal_status_t xhci_do_control(xhci_controller_t *hc, uint8_t slot_id,
 
     /* Status TRB */
     xhci_trb_t status_trb;
-    xhci_memzero(&status_trb, sizeof(status_trb));
+    memset(&status_trb, 0, sizeof(status_trb));
     status_trb.control = XHCI_TRB_TYPE(XHCI_TRB_STATUS) | XHCI_TRB_IOC;
     /* Direction is opposite of data stage */
     if (wLength == 0 || !(bmRequestType & 0x80))
@@ -321,7 +307,7 @@ static hal_status_t xhci_setup_scratchpad(xhci_controller_t *hc)
     hc->scratchpad_array = (uint64_t *)hal_dma_alloc(array_size, &hc->scratchpad_phys);
     if (!hc->scratchpad_array)
         return HAL_NO_MEMORY;
-    xhci_memzero(hc->scratchpad_array, array_size);
+    memset(hc->scratchpad_array, 0, array_size);
 
     /* Allocate individual scratchpad pages */
     for (uint32_t i = 0; i < max_sp; i++) {
@@ -329,7 +315,7 @@ static hal_status_t xhci_setup_scratchpad(xhci_controller_t *hc)
         void *page = hal_dma_alloc(hc->page_size, &page_phys);
         if (!page)
             return HAL_NO_MEMORY;
-        xhci_memzero(page, hc->page_size);
+        memset(page, 0, hc->page_size);
         hc->scratchpad_array[i] = page_phys;
     }
 
@@ -417,7 +403,7 @@ hal_status_t xhci_init(xhci_controller_t *hc, hal_device_t *dev)
     hc->dcbaa = (uint64_t *)hal_dma_alloc(dcbaa_size, &hc->dcbaa_phys);
     if (!hc->dcbaa)
         return HAL_NO_MEMORY;
-    xhci_memzero(hc->dcbaa, dcbaa_size);
+    memset(hc->dcbaa, 0, dcbaa_size);
     xhci_op_write64(hc, XHCI_OP_DCBAAP, hc->dcbaa_phys);
 
     /* ── Setup scratchpad buffers ── */
@@ -430,7 +416,7 @@ hal_status_t xhci_init(xhci_controller_t *hc, hal_device_t *dev)
     hc->cmd_ring = (xhci_trb_t *)hal_dma_alloc(cmd_ring_size, &hc->cmd_ring_phys);
     if (!hc->cmd_ring)
         return HAL_NO_MEMORY;
-    xhci_memzero(hc->cmd_ring, cmd_ring_size);
+    memset(hc->cmd_ring, 0, cmd_ring_size);
     hc->cmd_enqueue = 0;
     hc->cmd_cycle = 1;
 
@@ -442,7 +428,7 @@ hal_status_t xhci_init(xhci_controller_t *hc, hal_device_t *dev)
     hc->evt_ring = (xhci_trb_t *)hal_dma_alloc(evt_ring_size, &hc->evt_ring_phys);
     if (!hc->evt_ring)
         return HAL_NO_MEMORY;
-    xhci_memzero(hc->evt_ring, evt_ring_size);
+    memset(hc->evt_ring, 0, evt_ring_size);
     hc->evt_dequeue = 0;
     hc->evt_cycle = 1;
 
@@ -523,7 +509,7 @@ uint8_t xhci_port_reset(xhci_controller_t *hc, uint8_t port)
 
     /* Enable Slot command */
     xhci_trb_t cmd, result;
-    xhci_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
     cmd.control = XHCI_TRB_TYPE(XHCI_TRB_ENABLE_SLOT);
 
     if (xhci_send_command(hc, &cmd, &result) != HAL_OK)
@@ -556,7 +542,7 @@ uint8_t xhci_port_reset(xhci_controller_t *hc, uint8_t port)
         slot->active = false;
         return 0;
     }
-    xhci_memzero(slot->ep0_ring, ring_sz);
+    memset(slot->ep0_ring, 0, ring_sz);
     slot->ep0_enqueue = 0;
     slot->ep0_cycle = 1;
 
@@ -576,7 +562,7 @@ hal_status_t xhci_address_device(xhci_controller_t *hc, uint8_t slot_id)
     uint8_t *ictx = (uint8_t *)hal_dma_alloc(4096, &ictx_phys);
     if (!ictx)
         return HAL_NO_MEMORY;
-    xhci_memzero(ictx, 4096);
+    memset(ictx, 0, 4096);
 
     /* Input Control Context at offset 0 */
     xhci_input_ctrl_ctx_t *icctx = (xhci_input_ctrl_ctx_t *)ictx;
@@ -603,14 +589,14 @@ hal_status_t xhci_address_device(xhci_controller_t *hc, uint8_t slot_id)
         hal_dma_free(ictx, 4096);
         return HAL_NO_MEMORY;
     }
-    xhci_memzero(octx, 4096);
+    memset(octx, 0, 4096);
 
     /* Set DCBAA entry */
     hc->dcbaa[slot_id] = octx_phys;
 
     /* Send Address Device command */
     xhci_trb_t cmd, result;
-    xhci_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
     cmd.param = ictx_phys;
     cmd.control = XHCI_TRB_TYPE(XHCI_TRB_ADDRESS_DEVICE) |
                   ((uint32_t)slot_id << 24);
@@ -629,7 +615,7 @@ hal_status_t xhci_get_device_desc(xhci_controller_t *hc, uint8_t slot_id,
     void *buf = hal_dma_alloc(sizeof(usb_device_desc_t), &buf_phys);
     if (!buf)
         return HAL_NO_MEMORY;
-    xhci_memzero(buf, sizeof(usb_device_desc_t));
+    memset(buf, 0, sizeof(usb_device_desc_t));
 
     hal_status_t st = xhci_do_control(hc, slot_id,
         0x80,                  /* Device-to-host, Standard, Device */
@@ -640,7 +626,7 @@ hal_status_t xhci_get_device_desc(xhci_controller_t *hc, uint8_t slot_id,
         buf, buf_phys);
 
     if (st == HAL_OK) {
-        xhci_memcpy(desc, buf, sizeof(usb_device_desc_t));
+        memcpy(desc, buf, sizeof(usb_device_desc_t));
         hc->slots[slot_id - 1].dev_desc = *desc;
         /* Update max packet size from descriptor */
         if (desc->bMaxPacketSize0 > 0)
@@ -658,7 +644,7 @@ hal_status_t xhci_get_config_desc(xhci_controller_t *hc, uint8_t slot_id,
     void *dma_buf = hal_dma_alloc(buf_len, &dma_phys);
     if (!dma_buf)
         return HAL_NO_MEMORY;
-    xhci_memzero(dma_buf, buf_len);
+    memset(dma_buf, 0, buf_len);
 
     hal_status_t st = xhci_do_control(hc, slot_id,
         0x80,
@@ -669,7 +655,7 @@ hal_status_t xhci_get_config_desc(xhci_controller_t *hc, uint8_t slot_id,
         dma_buf, dma_phys);
 
     if (st == HAL_OK)
-        xhci_memcpy(buf, dma_buf, buf_len);
+        memcpy(buf, dma_buf, buf_len);
 
     hal_dma_free(dma_buf, buf_len);
     return st;
@@ -701,9 +687,9 @@ hal_status_t xhci_control_transfer(xhci_controller_t *hc, uint8_t slot_id,
 
     /* If OUT transfer, copy data to DMA buffer */
     if (!(bmRequestType & 0x80) && data)
-        xhci_memcpy(dma_buf, data, wLength);
+        memcpy(dma_buf, data, wLength);
     else
-        xhci_memzero(dma_buf, wLength);
+        memset(dma_buf, 0, wLength);
 
     hal_status_t st = xhci_do_control(hc, slot_id, bmRequestType, bRequest,
                                        wValue, wIndex, wLength,
@@ -711,7 +697,7 @@ hal_status_t xhci_control_transfer(xhci_controller_t *hc, uint8_t slot_id,
 
     /* If IN transfer, copy data back */
     if (st == HAL_OK && (bmRequestType & 0x80) && data)
-        xhci_memcpy(data, dma_buf, wLength);
+        memcpy(data, dma_buf, wLength);
 
     hal_dma_free(dma_buf, wLength);
     return st;
@@ -737,7 +723,7 @@ hal_status_t xhci_configure_interrupt_ep(xhci_controller_t *hc, uint8_t slot_id,
     slot->int_ring = (xhci_trb_t *)hal_dma_alloc(ring_sz, &slot->int_ring_phys);
     if (!slot->int_ring)
         return HAL_NO_MEMORY;
-    xhci_memzero(slot->int_ring, ring_sz);
+    memset(slot->int_ring, 0, ring_sz);
     slot->int_enqueue = 0;
     slot->int_cycle = 1;
 
@@ -746,7 +732,7 @@ hal_status_t xhci_configure_interrupt_ep(xhci_controller_t *hc, uint8_t slot_id,
     uint8_t *ictx = (uint8_t *)hal_dma_alloc(4096, &ictx_phys);
     if (!ictx)
         return HAL_NO_MEMORY;
-    xhci_memzero(ictx, 4096);
+    memset(ictx, 0, 4096);
 
     xhci_input_ctrl_ctx_t *icctx = (xhci_input_ctrl_ctx_t *)ictx;
     icctx->add_flags = (1u << 0) | (1u << dci);  /* Slot Ctx + EP Ctx */
@@ -767,7 +753,7 @@ hal_status_t xhci_configure_interrupt_ep(xhci_controller_t *hc, uint8_t slot_id,
 
     /* Configure Endpoint command */
     xhci_trb_t cmd, result;
-    xhci_memzero(&cmd, sizeof(cmd));
+    memset(&cmd, 0, sizeof(cmd));
     cmd.param = ictx_phys;
     cmd.control = XHCI_TRB_TYPE(XHCI_TRB_CONFIG_EP) |
                   ((uint32_t)slot_id << 24);
@@ -828,10 +814,10 @@ hal_status_t xhci_poll_interrupt(xhci_controller_t *hc, uint8_t slot_id,
     void *recv_buf = hal_dma_alloc(64, &recv_phys);
     if (!recv_buf)
         return HAL_NO_MEMORY;
-    xhci_memzero(recv_buf, 64);
+    memset(recv_buf, 0, 64);
 
     xhci_trb_t normal;
-    xhci_memzero(&normal, sizeof(normal));
+    memset(&normal, 0, sizeof(normal));
     normal.param = recv_phys;
     normal.status = 64;  /* Transfer length */
     normal.control = XHCI_TRB_TYPE(XHCI_TRB_NORMAL) | XHCI_TRB_IOC;
@@ -858,7 +844,7 @@ hal_status_t xhci_poll_interrupt(xhci_controller_t *hc, uint8_t slot_id,
 
     if (cc == XHCI_CC_SUCCESS || cc == XHCI_CC_SHORT_PKT) {
         if (actual > 0 && buf)
-            xhci_memcpy(buf, recv_buf, actual);
+            memcpy(buf, recv_buf, actual);
         if (length)
             *length = actual;
         hal_dma_free(recv_buf, 64);

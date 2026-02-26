@@ -9,24 +9,7 @@
 #include "driver_loader.h"
 #include "../hal/hal.h"
 #include "../store/verify.h"
-
-/* ── String helpers (no libc) ── */
-static int str_eq(const char *a, const char *b)
-{
-    while (*a && *b) {
-        if (*a != *b) return 0;
-        a++; b++;
-    }
-    return *a == *b;
-}
-
-static void *memcpy_simple(void *dst, const void *src, uint64_t n)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    while (n--) *d++ = *s++;
-    return dst;
-}
+#include "../lib/string.h"
 
 /* ── Built-in driver registry ── */
 
@@ -137,7 +120,7 @@ hal_status_t driver_load_runtime(const void *ajdrv_data, uint64_t size, hal_devi
     }
 
     /* Copy code to executable memory */
-    memcpy_simple(code_buf, (const uint8_t *)ajdrv_data + hdr->code_offset, hdr->code_size);
+    memcpy(code_buf, (const uint8_t *)ajdrv_data + hdr->code_offset, hdr->code_size);
 
     /* Build kernel API vtable for runtime drivers */
     static const kernel_api_t kapi = {

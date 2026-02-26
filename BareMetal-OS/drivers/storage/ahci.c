@@ -5,6 +5,7 @@
  */
 
 #include "ahci.h"
+#include "../../lib/string.h"
 
 /* ── Internal constants ── */
 #define AHCI_TIMEOUT_MS       5000
@@ -14,21 +15,6 @@
 #define AHCI_PRDT_MAX_BYTES   (4 * 1024 * 1024)  /* 4MB per PRDT entry */
 
 /* ── Helpers ── */
-
-static void ahci_memzero(void *dst, uint64_t len)
-{
-    uint8_t *p = (uint8_t *)dst;
-    for (uint64_t i = 0; i < len; i++)
-        p[i] = 0;
-}
-
-static void ahci_memcpy(void *dst, const void *src, uint64_t len)
-{
-    uint8_t *d = (uint8_t *)dst;
-    const uint8_t *s = (const uint8_t *)src;
-    for (uint64_t i = 0; i < len; i++)
-        d[i] = s[i];
-}
 
 /* Read a port register */
 static inline uint32_t ahci_port_read(ahci_port_t *p, uint32_t off)
@@ -188,13 +174,13 @@ static hal_status_t ahci_port_init(ahci_hba_t *hba, uint32_t port_num)
     p->cmd_list = (ahci_cmd_header_t *)hal_dma_alloc(1024, &p->cmd_list_phys);
     if (!p->cmd_list)
         return HAL_NO_MEMORY;
-    ahci_memzero(p->cmd_list, 1024);
+    memset(p->cmd_list, 0, 1024);
 
     /* Allocate FIS Receive area (256 bytes) */
     p->fis_recv = (ahci_fis_recv_t *)hal_dma_alloc(256, &p->fis_recv_phys);
     if (!p->fis_recv)
         return HAL_NO_MEMORY;
-    ahci_memzero(p->fis_recv, 256);
+    memset(p->fis_recv, 0, 256);
 
     /* Allocate Command Tables (one per slot we actually use) */
     for (uint32_t i = 0; i < hba->cmd_slots; i++) {
@@ -202,7 +188,7 @@ static hal_status_t ahci_port_init(ahci_hba_t *hba, uint32_t port_num)
             AHCI_CMD_TABLE_SIZE, &p->cmd_table_phys[i]);
         if (!p->cmd_tables[i])
             return HAL_NO_MEMORY;
-        ahci_memzero(p->cmd_tables[i], AHCI_CMD_TABLE_SIZE);
+        memset(p->cmd_tables[i], 0, AHCI_CMD_TABLE_SIZE);
 
         /* Point command header to command table */
         p->cmd_list[i].ctba  = (uint32_t)(p->cmd_table_phys[i] & 0xFFFFFFFF);
@@ -244,7 +230,7 @@ static hal_status_t ahci_identify(ahci_hba_t *hba, uint32_t port_num)
     void *id_buf = hal_dma_alloc(512, &id_phys);
     if (!id_buf)
         return HAL_NO_MEMORY;
-    ahci_memzero(id_buf, 512);
+    memset(id_buf, 0, 512);
 
     /* Set up command header */
     ahci_cmd_header_t *hdr = &p->cmd_list[slot];
@@ -255,7 +241,7 @@ static hal_status_t ahci_identify(ahci_hba_t *hba, uint32_t port_num)
 
     /* Set up command table */
     ahci_cmd_table_t *tbl = p->cmd_tables[slot];
-    ahci_memzero(tbl, AHCI_CMD_TABLE_SIZE);
+    memset(tbl, 0, AHCI_CMD_TABLE_SIZE);
 
     /* Build Register H2D FIS */
     ahci_fis_reg_h2d_t *fis = (ahci_fis_reg_h2d_t *)tbl->cfis;
@@ -352,7 +338,7 @@ static hal_status_t ahci_ata_dma(ahci_hba_t *hba, uint32_t port_num,
 
         /* Build command table */
         ahci_cmd_table_t *tbl = p->cmd_tables[slot];
-        ahci_memzero(tbl, AHCI_CMD_TABLE_SIZE);
+        memset(tbl, 0, AHCI_CMD_TABLE_SIZE);
 
         /* Register H2D FIS */
         ahci_fis_reg_h2d_t *fis = (ahci_fis_reg_h2d_t *)tbl->cfis;

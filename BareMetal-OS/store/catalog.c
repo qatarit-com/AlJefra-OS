@@ -7,18 +7,10 @@
 
 #include "catalog.h"
 #include "../hal/hal.h"
+#include "../lib/string.h"
 
 static catalog_entry_t g_catalog[CATALOG_MAX_ENTRIES];
 static uint32_t g_count;
-
-static int str_eq(const char *a, const char *b)
-{
-    while (*a && *b) {
-        if (*a != *b) return 0;
-        a++; b++;
-    }
-    return *a == *b;
-}
 
 void catalog_init(void)
 {
