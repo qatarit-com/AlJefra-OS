@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AlJefra OS - Boot on any device. AI downloads the rest. Universal exokernel OS for x86-64, ARM64, and RISC-V.">
-    <meta name="keywords" content="OS, exokernel, universal boot, AI, drivers, marketplace, barebone">
-    <title>AlJefra OS - Universal Boot OS</title>
+    <meta name="description" content="AlJefra OS - The first Qatari operating system. Boot on any device. AI downloads the rest. Universal exokernel for x86-64, ARM64, and RISC-V.">
+    <meta name="keywords" content="AlJefra OS, Qatar, Qatari OS, exokernel, universal boot, AI, drivers, marketplace, Qatar IT">
+    <title>AlJefra OS - The First Qatari Operating System</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
 <body>
     <!-- Navigation Bar -->
-    <nav class="navbar">
-        <div class="container">
-            <div class="nav-brand">
-                <a href="index.html">AlJefra OS</a>
-            </div>
+    <nav>
+        <div class="nav-inner">
+            <div class="logo">AlJefra OS</div>
             <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
                 <li><a href="docs.html">Docs</a></li>
                 <li><a href="architecture.html">Architecture</a></li>
                 <li><a href="marketplace.html">Marketplace</a></li>
@@ -26,86 +25,211 @@
 
     <!-- Hero Section -->
     <section class="hero">
-        <div class="container">
-            <div class="hero-content">
-                <div class="version-badge">v1.0</div>
-                <h1>AlJefra OS</h1>
-                <p class="hero-tagline">Boot on any device. AI downloads the rest.</p>
-                <div class="hero-cta">
-                    <a href="download.html" class="btn btn-primary">Download</a>
-                    <a href="docs.html" class="btn btn-secondary">Documentation</a>
-                </div>
-            </div>
+        <div class="version-badge">v1.0 — The First Qatari OS</div>
+        <h1>AlJefra OS</h1>
+        <p class="tagline">Boot on any device. AI downloads the rest.</p>
+        <p style="color: var(--accent-green); font-size: 1.1rem; margin-top: 0.5rem; font-family: var(--font-mono);">Built in Qatar. Built for the world.</p>
+        <div class="cta-buttons">
+            <a href="download.html" class="btn btn-primary">Download</a>
+            <a href="docs.html" class="btn btn-secondary">Documentation</a>
         </div>
     </section>
 
     <!-- Stats Bar -->
-    <section class="stats">
-        <div class="container">
-            <div class="stat-item">
-                <div class="stat-number">3</div>
-                <div class="stat-label">Architectures</div>
+    <div class="stats">
+        <div class="stat">
+            <div class="number">3</div>
+            <div class="label">Architectures</div>
+        </div>
+        <div class="stat">
+            <div class="number">22+</div>
+            <div class="label">Drivers</div>
+        </div>
+        <div class="stat">
+            <div class="number">33,000+</div>
+            <div class="label">Lines of Code</div>
+        </div>
+        <div class="stat">
+            <div class="number">125+</div>
+            <div class="label">Files</div>
+        </div>
+    </div>
+
+    <!-- Why AlJefra OS is Unique -->
+    <section class="features" style="margin-top: 2rem;">
+        <h2>Why AlJefra OS is Unique</h2>
+        <p style="text-align: center; color: var(--text-secondary); max-width: 800px; margin: -1.5rem auto 2.5rem; font-size: 1.05rem;">No other operating system combines AI-native design, self-evolution, and universal hardware support from a single assembly-based kernel. Here is what sets AlJefra OS apart from every other OS in the world.</p>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon">🇶🇦</div>
+                <h3>First Qatari OS</h3>
+                <p>AlJefra OS is the first operating system designed and built in Qatar. A milestone for Qatari technology and a statement that world-class systems software can come from the Gulf region.</p>
             </div>
-            <div class="stat-item">
-                <div class="stat-number">14</div>
-                <div class="stat-label">Drivers</div>
+            <div class="feature-card">
+                <div class="icon">🧠</div>
+                <h3>AI-Native from Day One</h3>
+                <p>The only OS where AI is embedded at the kernel level. On boot, it scans hardware via PCI, connects to the internet over TLS, and asks an AI agent to find and install the right drivers — all autonomously, with zero human input.</p>
             </div>
-            <div class="stat-item">
-                <div class="stat-number">20,400+</div>
-                <div class="stat-label">Lines of Code</div>
+            <div class="feature-card">
+                <div class="icon">🧬</div>
+                <h3>Self-Evolving Kernel</h3>
+                <p>No other OS evolves its own kernel. AlJefra OS uses dual evolution: AI-directed source optimization (200+ safe transforms across 11 generations) and GPU-accelerated genetic algorithms that mutate and test kernel binaries at machine speed.</p>
             </div>
-            <div class="stat-item">
-                <div class="stat-number">97</div>
-                <div class="stat-label">Files</div>
+            <div class="feature-card">
+                <div class="icon">🌍</div>
+                <h3>3 Architectures from Assembly</h3>
+                <p>Born from a pure x86-64 assembly kernel, AlJefra OS now boots on x86-64, ARM64, and RISC-V through a 9-header HAL abstraction. No other assembly-born OS supports three CPU architectures.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🛒</div>
+                <h3>Driver Marketplace with Crypto Verification</h3>
+                <p>The first OS with an app-store model for drivers. The .ajdrv package format uses Ed25519 digital signatures (1,550 lines of pure C cryptography) for tamper-proof driver distribution.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🤖</div>
+                <h3>Built-in AI Agent</h3>
+                <p>A full TCP/IP + TLS + HTTPS stack built into the kernel enables direct communication with Claude AI. The OS can diagnose issues, recommend optimizations, and configure itself — no external tools needed.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⚡</div>
+                <h3>GPU Compute from Assembly</h3>
+                <p>A 951-line NVIDIA RTX 5090 driver with VRAM management, command queues, and compute dispatch. The most advanced GPU support in any hobby OS, enabling neural network inference directly from the kernel.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🔒</div>
+                <h3>OTA Updates with Signed Packages</h3>
+                <p>Secure over-the-air kernel updates with CRC32 verification and staged installation. The marketplace checks for updates, downloads signed packages, and safely applies them — keeping every device current.</p>
             </div>
         </div>
     </section>
 
-    <!-- Features Section -->
+    <!-- Comparison Table -->
+    <section class="arch-section" style="max-width: 1100px;">
+        <h2>How We Compare</h2>
+        <div style="overflow-x: auto;">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Feature</th>
+                        <th>AlJefra OS</th>
+                        <th>BareMetal OS</th>
+                        <th>Redox OS</th>
+                        <th>SerenityOS</th>
+                        <th>TempleOS</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>AI Integration</td>
+                        <td style="color: var(--accent-green);">Built-in (kernel-level)</td>
+                        <td>None</td>
+                        <td>None</td>
+                        <td>None</td>
+                        <td>None</td>
+                    </tr>
+                    <tr>
+                        <td>Self-Evolving Kernel</td>
+                        <td style="color: var(--accent-green);">Yes (AI + GPU)</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>Architectures</td>
+                        <td style="color: var(--accent-green);">3 (x86-64, ARM64, RISC-V)</td>
+                        <td>1</td>
+                        <td>2-3</td>
+                        <td>1-2</td>
+                        <td>1</td>
+                    </tr>
+                    <tr>
+                        <td>Driver Marketplace</td>
+                        <td style="color: var(--accent-green);">Yes (Ed25519 signed)</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>GPU Compute</td>
+                        <td style="color: var(--accent-green);">RTX 5090 driver</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>Partial</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>Full Network Stack</td>
+                        <td style="color: var(--accent-green);">TCP/IP + TLS + AI</td>
+                        <td>Raw packets</td>
+                        <td>Yes</td>
+                        <td>Yes</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>OTA Updates</td>
+                        <td style="color: var(--accent-green);">Yes (signed)</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>No</td>
+                        <td>No</td>
+                    </tr>
+                    <tr>
+                        <td>Kernel Size</td>
+                        <td>20 KB (ASM core)</td>
+                        <td>16 KB</td>
+                        <td>~16k lines</td>
+                        <td>~100k lines</td>
+                        <td>~22k lines</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </section>
+
+    <!-- Core Features -->
     <section class="features">
-        <div class="container">
-            <h2>Core Features</h2>
-            <div class="features-grid">
-                <div class="feature-card">
-                    <div class="feature-icon">🌍</div>
-                    <h3>Universal Boot</h3>
-                    <p>Boots on x86-64, ARM64, and RISC-V with the same kernel design. One codebase for every architecture.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🤖</div>
-                    <h3>AI Bootstrap</h3>
-                    <p>Detects hardware at boot and automatically downloads the right drivers from AlJefra Store. True plug-and-play for every device.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🛒</div>
-                    <h3>Driver Marketplace</h3>
-                    <p>Ed25519-signed .ajdrv packages. Verified and secure drivers available on-demand. Community and official drivers in one store.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🏗️</div>
-                    <h3>Hardware Abstraction</h3>
-                    <p>Clean HAL (Hardware Abstraction Layer) separates architecture-specific code from portable drivers. Portable C drivers run on all platforms.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">🌐</div>
-                    <h3>Full Network Stack</h3>
-                    <p>TCP/IP, DHCP, TLS, HTTP, and DNS — all built-in and self-contained. Connect to the internet from day one.</p>
-                </div>
-                <div class="feature-card">
-                    <div class="feature-icon">⚡</div>
-                    <h3>GPU Acceleration</h3>
-                    <p>NVIDIA driver support with genetic algorithm evolution framework. Optimize kernel performance with continuous GPU-powered experiments.</p>
-                </div>
+        <h2>Core Features</h2>
+        <div class="features-grid">
+            <div class="feature-card">
+                <div class="icon">🌍</div>
+                <h3>Universal Boot</h3>
+                <p>Boots on x86-64, ARM64, and RISC-V with the same kernel design. One codebase for every architecture.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🤖</div>
+                <h3>AI Bootstrap</h3>
+                <p>Detects hardware at boot and automatically downloads the right drivers from AlJefra Store. True plug-and-play for every device.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🛒</div>
+                <h3>Driver Marketplace</h3>
+                <p>Ed25519-signed .ajdrv packages. Verified and secure drivers available on-demand. Community and official drivers in one store.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🏗️</div>
+                <h3>Hardware Abstraction</h3>
+                <p>Clean HAL separates architecture-specific code from portable drivers. Write once in C, run on all platforms.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">🌐</div>
+                <h3>Full Network Stack</h3>
+                <p>TCP/IP, DHCP, TLS, HTTP, and DNS — all built-in. Connect to the internet and AI services from day one.</p>
+            </div>
+            <div class="feature-card">
+                <div class="icon">⚡</div>
+                <h3>Self-Evolving Kernel</h3>
+                <p>AI-directed source optimization and GPU-accelerated genetic algorithms continuously improve the kernel. 200+ optimizations applied across 11 generations.</p>
             </div>
         </div>
     </section>
 
     <!-- Architecture Section -->
     <section class="arch-section">
-        <div class="container">
-            <h2>Architecture Overview</h2>
-            <div class="arch-diagram">
-                <pre>┌─────────────────────────────────────────┐
+        <h2>Architecture Overview</h2>
+        <div class="arch-diagram">
+            <pre>┌─────────────────────────────────────────┐
 │       Applications / AI Agent           │
 ├─────────────────────────────────────────┤
 │      Kernel Core (C, portable)          │
@@ -116,19 +240,17 @@
 │  x86-64    │  AArch64   │   RISC-V 64   │
 │ APIC/HPET  │ GIC/Timer  │ PLIC/SBI      │
 └────────────┴────────────┴───────────────┘</pre>
-            </div>
-            <div class="arch-description">
-                <h3>Layered Design</h3>
-                <p>AlJefra OS uses a clean layered architecture: Applications sit on top of a portable kernel core, which communicates with hardware through a unified HAL. Each architecture (x86-64, AArch64, RISC-V) implements the HAL independently, while all drivers are written in portable C.</p>
-            </div>
+        </div>
+        <div style="margin-top: 1.5rem;">
+            <h3 style="font-family: var(--font-mono); font-size: 1.3rem; color: var(--accent-blue); margin-bottom: 0.75rem;">Layered Design</h3>
+            <p style="color: var(--text-secondary);">AlJefra OS uses a clean layered architecture: Applications sit on top of a portable kernel core, which communicates with hardware through a unified HAL. Each architecture (x86-64, AArch64, RISC-V) implements the HAL independently, while all drivers are written in portable C.</p>
         </div>
     </section>
 
     <!-- Footer -->
-    <footer class="footer">
-        <div class="container">
-            <p>&copy; 2026 AlJefra OS v1.0 | MIT License | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
-        </div>
+    <footer>
+        <p>&copy; 2026 AlJefra OS v1.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> — <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>
 </html>
