@@ -35,13 +35,13 @@ No other OS integrates AI at the kernel bootstrap level. AlJefra OS boots, scans
 While Redox and Managarm support multiple architectures, AlJefra OS achieved this from a pure x86-64 assembly kernel via a 9-header HAL abstraction layer with 11 files per architecture. BareMetal OS (upstream) remains x86-64 only.
 
 ### Driver Marketplace with Cryptographic Verification
-The .ajdrv runtime driver format with Ed25519 signature verification (1,550 lines pure C: SHA-512 + GF(2^255-19)) and Flask REST API marketplace (9 endpoints) is unique. No other hobby OS has an app-store model for drivers.
+The .ajdrv runtime driver format with Ed25519 signature verification (1,550 lines pure C: SHA-512 + GF(2^255-19)) and Flask REST API marketplace (9 endpoints) is unique. No other independent OS has an app-store model for drivers.
 
 ### Binary Evolution Framework
 The dual evolution system -- AI-directed source optimization and GPU-accelerated genetic algorithm (4,032 lines C, 6 mutation types, ~32 substitution patterns) -- has no parallel. No other OS evolves its own kernel.
 
 ### GPU Compute Driver in Assembly
-The 951-line NVIDIA RTX 5090 driver with VRAM management, command queues, and compute dispatch goes beyond any hobby OS GPU support.
+The 951-line NVIDIA RTX 5090 driver with VRAM management, command queues, and compute dispatch goes beyond any independent OS GPU support.
 
 ## 3. Comparison to Upstream BareMetal OS
 
@@ -111,6 +111,6 @@ AlJefra OS occupies a unique niche as the world's first **AI-native, self-evolvi
 2. **Driver marketplace** with cryptographic verification -- unique
 3. **Multi-arch from ASM kernel** -- rare combination
 4. **Self-evolving kernel** via binary + source optimization -- unprecedented
-5. **GPU compute from assembly** -- most advanced in hobby OS space
+5. **GPU compute from assembly** -- most advanced in independent OS space
 
 The project demonstrates that an assembly-based kernel can be extended with modern AI capabilities while maintaining the performance characteristics that make bare-metal programming valuable.
