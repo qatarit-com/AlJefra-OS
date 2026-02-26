@@ -3,7 +3,7 @@
 > **Goal**: Boot on any device — x86-64, ARM64, RISC-V — with a minimum kernel
 > that gets network connectivity, then uses AI to download everything else.
 
-**Last updated**: 2026-02-26
+**Last updated**: 2026-02-26 (all QEMU verification complete)
 
 ---
 
@@ -82,9 +82,11 @@
 ### 0.8 Integration Testing
 - [x] x86-64 boots standalone on QEMU via multiboot1 (no BareMetal dependency)
 - [x] HAL init: Console + CPU (Westmere) + MMU (255MB from multiboot mmap) + Timer (RDTSC+PIT) + PCIe + SMP
-- [x] PCI scan finds 8 devices: e1000, NVMe, xHCI, AHCI, host bridge, ISA bridge, SMBus
-- [x] All 3 drivers load: e1000 + NVMe (read/write PASSED) + xHCI (USB keyboard on slot 1)
+- [x] PCI scan finds 8 devices: e1000/VirtIO-Net, NVMe/VirtIO-Blk, xHCI, AHCI, host bridge, ISA bridge, SMBus
+- [x] All 3 drivers load: VirtIO-Net + NVMe (read/write PASSED) + xHCI (USB keyboard detected on slot 1, speed=3)
 - [x] VirtIO modern (1.0+): VirtIO-Net (0x1041) + VirtIO-Blk (0x1042) load, DHCP + storage test PASS
+- [x] NVMe driver: QEMU NVMe device (serial=ALJEFRA001), admin+IO queues, Storage READ/WRITE test PASSED
+- [x] USB keyboard: QEMU xHCI + usb-kbd, Port 5 connected, slot 1 assigned, boot protocol HID
 - [x] DHCP obtains IP 10.0.2.15, TCP connects to marketplace, downloads .ajdrv
 - [x] Full boot-to-ready sequence completes in <8 seconds on QEMU
 - [ ] Physical x86-64 machine boots (Intel NUC or similar)
@@ -156,10 +158,12 @@
 - [x] **Compiles clean**: 35 objects → 73KB binary, 0 errors
 
 ### 2.2 QEMU Testing
-- [x] ARM64 QEMU `virt` machine boots to UART output (Cortex-A72)
-- [x] `_start` → hal_init → kernel_main runs successfully
-- [x] Bus scan discovers 4 devices (PCIe + DT)
-- [x] TCP/IP + marketplace client runs on ARM64 QEMU (DHCP → ARP → TCP → HTTP POST → Flask server)
+- [x] ARM64 QEMU `virt` machine boots to UART output (Cortex-A72, PL011 UART at 0x09000000)
+- [x] `_start` → EL2→EL1 drop → hal_init → kernel_main runs successfully
+- [x] HAL: CPU (Cortex-A72 r0p3), GIC (288 IRQs), Timer (62.5MHz), MMU (256MB), Bus (5 devices), SMP (1 core)
+- [x] Bus scan discovers 5 devices (PCIe), VirtIO-Net + VirtIO-Blk loaded
+- [x] TCP/IP + marketplace client runs on ARM64 QEMU (DHCP 10.0.2.15 → ARP → TCP → HTTP POST 200 → driver queries → OTA check)
+- [x] Full boot cycle: "AlJefra OS ready." (DHCP + marketplace + driver download attempts + OTA update check)
 
 ### 2.3 Physical Hardware
 - [ ] Raspberry Pi 5 boots from SD card
@@ -186,9 +190,11 @@
 - [x] **Compiles clean**: 42 objects → 117KB binary, 0 errors
 
 ### 3.2 QEMU Testing
-- [x] RISC-V QEMU `virt` machine boots to UART output (OpenSBI + Sv39)
-- [x] Bus scan discovers 12 devices (1 PCIe + 11 DT)
-- [x] TCP/IP + AI agent runs on RISC-V QEMU (DHCP → ARP → TCP → HTTP POST → marketplace → .ajdrv download)
+- [x] RISC-V QEMU `virt` machine boots to UART output (OpenSBI v1.7 → S-mode, RV64GC, Sv39 MMU)
+- [x] HAL: CPU (RV64GC), PLIC (1024 IRQs), Timer (10MHz SBI), MMU Sv39 (256MB), Bus (14 devices), SMP (1 hart)
+- [x] Bus scan discovers 14 devices (3 PCIe + 11 DT), VirtIO-Net + VirtIO-Blk loaded
+- [x] TCP/IP + AI agent runs on RISC-V QEMU (DHCP 10.0.2.15 → ARP → TCP → HTTP POST 200 → driver queries → OTA check)
+- [x] Full boot cycle: "AlJefra OS ready." (DHCP + marketplace + 12 driver download attempts + OTA update check)
 
 ### 3.3 Physical Hardware
 - [ ] VisionFive 2 boots from SD card
@@ -241,11 +247,18 @@
 
 | Architecture | Binary Size | Objects | Status |
 |:------------|:-----------|:--------|:-------|
-| **x86-64**  | 139 KB     | 44      | Boots standalone, e1000/NVMe/VirtIO + marketplace + .ajdrv runtime load |
-| **ARM64**   | 149 KB     | 42      | Builds clean, boots on QEMU, NVMe + xHCI + marketplace HTTP |
-| **RISC-V**  | 125 KB     | 42      | Builds clean, boots on QEMU, NVMe + xHCI + .ajdrv download |
+| **x86-64**  | 145 KB     | 44      | Boots standalone, NVMe R/W + USB kbd + VirtIO + marketplace + .ajdrv runtime load |
+| **ARM64**   | 153 KB     | 42      | Boots on QEMU Cortex-A72, VirtIO + DHCP + marketplace + OTA check |
+| **RISC-V**  | 129 KB     | 42      | Boots on QEMU rv64, OpenSBI + VirtIO + DHCP + marketplace + OTA check |
 
 **Total**: ~120 source files, ~32,000 lines of C/ASM/Python/docs
+
+### Shared Libraries (deduplication)
+| Header | Functions | Replaces |
+|:-------|:----------|:---------|
+| `lib/string.h` | memcpy, memset, memcmp, memmove, str_eq, str_len, str_copy | 35+ local copies across 23 files |
+| `lib/endian.h` | htons, htonl, ntohs, ntohl | 2 local copies in tcp.c + dhcp.c |
+| `net/checksum.h` | ip_checksum (RFC 1071) | 2 local copies in tcp.c + dhcp.c |
 
 ```
 make ARCH=x86_64     # Build for x86-64 (default)
