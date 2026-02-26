@@ -105,9 +105,7 @@ net_e1000_init:
 	; Enable Bus Master + Memory Space in PCI Command register
 	mov dl, 0x01			; Status/Command register
 	call os_bus_read
-	bts eax, 2			; Enable Bus Master
-	bts eax, 1			; Enable Memory Space
-	bts eax, 10			; Disable legacy interrupts
+	or eax, (1 << 2) | (1 << 1) | (1 << 10)	; EVOLVED Gen-11: batch all bits (was 3 bts)
 	call os_bus_write
 
 	; Reset the device
@@ -224,7 +222,9 @@ net_e1000_init_clear_mta:
 	mov rdi, [r8 + nt_rx_desc]
 	mov rbx, [os_PacketBase]
 	xor ecx, ecx
+	align 16			; EVOLVED Gen-11: descriptor population loop alignment
 net_e1000_init_pop_rx:
+	prefetchnta [rdi + 128]		; EVOLVED Gen-11: prefetch next descriptors
 	mov rax, rbx			; Buffer address
 	stosq				; Descriptor bytes 0-7: Buffer Address
 	xor eax, eax

@@ -17,6 +17,7 @@ init_sys:
 	mov esi, 0x100000 + KERNELSIZE	; Payload starts right after the kernel
 	mov edi, 0x1E0000
 	mov ecx, 2048
+	cld				; EVOLVED Gen-11: explicit CLD before rep (DF may be stale)
 	rep movsq			; Copy 16384 bytes
 
 init_sys_done:

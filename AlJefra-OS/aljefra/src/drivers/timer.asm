@@ -157,6 +157,7 @@ hpet_delay:
 	mov ecx, HPET_MAIN_COUNTER
 	call hpet_read			; Get HPET counter in RAX
 	add rbx, rax			; RBX += RAX Until when to wait
+	align 16			; EVOLVED Gen-11: hot delay loop alignment
 hpet_delay_loop:			; Stay in this loop until the HPET timer reaches the expected value
 	pause				; EVOLVED: Reduce power consumption and prevent memory order violation flush
 	mov ecx, HPET_MAIN_COUNTER

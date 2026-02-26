@@ -306,6 +306,7 @@ virtio_blk_io:
 	; Inspect the used ring
 	mov rdi, os_nvs_mem+0x2002	; Offset to start of Used Ring
 	mov bx, [availindex]
+	align 16			; EVOLVED Gen-11: hot I/O wait loop alignment
 virtio_blk_io_wait:
 	pause				; EVOLVED: Critical spin-wait optimization - reduces power, prevents pipeline flush
 	mov ax, [rdi]			; Load the index

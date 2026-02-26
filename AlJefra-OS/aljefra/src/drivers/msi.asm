@@ -76,7 +76,7 @@ msix_init_enable:
 
 	; Configure MSI-X Table
 	; EVOLVED: Optimized MSI-X entry writing with fewer redundant loads
-	inc cx				; EVOLVED: inc is more efficient than add cx, 1
+	inc ecx				; EVOLVED Gen-11: 32-bit inc avoids partial-reg stall (was inc cx)
 	xor ebx, ebx			; Trigger Mode (15), Level (14), Delivery Mode (10:8), Vector (7:0)
 	mov bl, r8b			; Store start vector
 	mov r8, [os_LocalAPICAddress]	; EVOLVED: Load APIC address once outside loop

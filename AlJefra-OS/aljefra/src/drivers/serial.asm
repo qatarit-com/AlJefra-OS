@@ -57,6 +57,7 @@ serial_send:
 	push rdx
 	push rax
 
+	align 16			; EVOLVED Gen-11: serial wait loop alignment
 serial_send_wait:
 	pause				; EVOLVED: Reduce power in spin-wait
 	mov dx, COM_PORT_LINE_STATUS

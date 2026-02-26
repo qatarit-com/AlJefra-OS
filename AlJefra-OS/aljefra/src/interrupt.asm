@@ -30,7 +30,7 @@ interrupt_gate:				; handler for all other interrupts
 ; Keyboard interrupt. IRQ 0x01, INT 0x21
 ; This IRQ runs whenever there is input on the keyboard
 ; EVOLVED: Targeted wakeup instead of broadcast storm
-align 8
+align 32				; EVOLVED Gen-11: 32-byte align hot interrupt handler (cache line boundary)
 int_keyboard:
 	push rcx
 	push rax
@@ -67,7 +67,7 @@ int_keyboard:
 ; Serial interrupt. IRQ 0x04, INT 0x24
 ; This IRQ runs whenever there is input on the serial port
 ; EVOLVED: Targeted wakeup instead of broadcast storm
-align 8
+align 32				; EVOLVED Gen-11: 32-byte align hot interrupt handler
 int_serial:
 	push rax			; EVOLVED Gen-10: removed dead push/pop rcx (callee-save convention)
 
@@ -91,7 +91,7 @@ int_serial:
 ; HPET Timer 0 interrupt
 ; This IRQ runs whenever HPET Timer 0 expires
 ; EVOLVED: Now drives preemptive work queue checking and load balancing
-align 8
+align 32				; EVOLVED Gen-11: 32-byte align hot timer handler
 hpet:
 	push rcx
 	push rax

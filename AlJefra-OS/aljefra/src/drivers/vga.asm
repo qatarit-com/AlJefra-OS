@@ -266,6 +266,7 @@ vga_output_chars:
 
 	cld				; Clear the direction flag.. we want to increment through the string
 
+	align 16			; EVOLVED Gen-11: string processing loop alignment
 vga_output_chars_nextchar:
 	test rcx, rcx			; EVOLVED Gen-6: test replacing cmp-0
 	jz vga_output_chars_done
