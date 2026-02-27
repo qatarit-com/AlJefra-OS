@@ -30,21 +30,70 @@
         <p>Get started with AlJefra OS. Choose a pre-built image or build from source.</p>
     </section>
 
-    <!-- Download Box -->
+    <!-- Download Boxes -->
     <section class="section">
-        <div class="download-box">
-            <h3>USB Boot Image (ISO)</h3>
+        <div class="download-box" style="margin-bottom: 2rem;">
+            <h3>USB Boot Package (ZIP)</h3>
             <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                Ready-to-boot x86-64 hybrid image. Write to USB with <code>dd</code> or your favorite USB writer.
+                Complete package with bootable ISO, Mac flash script, and instructions. Unzip, run the script, boot.
             </p>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                <strong>Size:</strong> 9.2 MB | <strong>Format:</strong> ISO 9660 Hybrid | <strong>Architecture:</strong> x86-64
+                <strong>Size:</strong> 3.2 MB | <strong>Contains:</strong> ISO + flash_usb.sh + README | <strong>Architecture:</strong> x86-64
             </p>
-            <a href="#" class="btn btn-primary">Download aljefra-os-v1.0.iso</a>
+            <a href="aljefra-os-v1.0-usb.zip" class="btn btn-primary" download>Download aljefra-os-v1.0-usb.zip</a>
             <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-                MD5: e3b0c44298fc1c149afbf4c8996fb924 | Updated 2026-02-26
+                MD5: a4b2bc4b65fd0b77b1a25566db1ccd85 | Updated 2026-02-27
             </p>
         </div>
+
+        <div class="download-box">
+            <h3>Bootable ISO (standalone)</h3>
+            <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                GRUB2 bootable ISO image. Write to USB with <code>dd</code>, Balena Etcher, or boot directly in QEMU.
+            </p>
+            <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                <strong>Size:</strong> 11.5 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS) | <strong>Architecture:</strong> x86-64
+            </p>
+            <a href="aljefra_os_v1.0.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.iso</a>
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
+                MD5: ef07dd7c9e0158e66a10de04f87510e6 | Updated 2026-02-27
+            </p>
+        </div>
+    </section>
+
+    <!-- Flash Instructions -->
+    <section class="section">
+        <h2>Flash to USB (macOS)</h2>
+        <p>The easiest way to get AlJefra OS running on real hardware.</p>
+
+        <h3>Option A: Automated Script (recommended)</h3>
+        <pre><code>unzip aljefra-os-v1.0-usb.zip
+chmod +x flash_usb.sh
+sudo ./flash_usb.sh</code></pre>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem; margin-bottom: 1.5rem;">
+            The script auto-detects your USB drive, asks for confirmation, and flashes.
+        </p>
+
+        <h3>Option B: Manual (macOS)</h3>
+        <pre><code># Find your USB disk (e.g. /dev/disk2)
+diskutil list
+
+# Unmount it
+diskutil unmountDisk /dev/diskN
+
+# Flash (use rdiskN for speed)
+sudo dd if=aljefra_os_v1.0.iso of=/dev/rdiskN bs=4m
+
+# Eject
+diskutil eject /dev/diskN</code></pre>
+
+        <h3>Option C: Manual (Linux)</h3>
+        <pre><code># Find your USB (e.g. /dev/sdb)
+lsblk
+
+# Flash
+sudo dd if=aljefra_os_v1.0.iso of=/dev/sdX bs=4M status=progress
+sync</code></pre>
     </section>
 
     <!-- Build from Source -->
@@ -61,16 +110,13 @@
         </ul>
 
         <h3>Clone and Build</h3>
-        <pre><code>git clone https://github.com/AlJefra/aljefra-os.git
-cd aljefra-os
+        <pre><code>git clone https://github.com/qatarit-com/AlJefra-OS.git
+cd AlJefra-OS
 
-# Build for all architectures
-make all-arch
-
-# Or build for a specific architecture
-make ARCH=x86_64
-make ARCH=aarch64
-make ARCH=riscv64</code></pre>
+# Build for a specific architecture
+make ARCH=x86_64     # 214 KB kernel
+make ARCH=aarch64    # 217 KB kernel
+make ARCH=riscv64    # 185 KB kernel</code></pre>
 
         <p style="margin-top: 1.5rem; color: var(--text-secondary);">
             Kernels will be built to <code>build/[arch]/bin/kernel_[arch].bin</code>. For detailed build instructions, see the <a href="docs/developer-guide.html">Developer Guide</a>.
@@ -82,23 +128,35 @@ make ARCH=riscv64</code></pre>
         <h2>QEMU Quick Start</h2>
         <p>Test AlJefra OS in the QEMU emulator before deploying to real hardware.</p>
 
-        <h3>x86-64 (Intel/AMD)</h3>
-        <pre><code>qemu-system-x86_64 -machine q35 -cpu Westmere -m 256 -smp 1 \
-  -kernel build/x86_64/bin/kernel_x86_64.bin \
-  -nographic</code></pre>
+        <h3>x86-64 (Intel/AMD) &mdash; using the ISO</h3>
+        <pre><code>qemu-system-x86_64 -m 256 \
+  -cdrom aljefra_os_v1.0.iso -boot d \
+  -serial mon:stdio -display none \
+  -device e1000,netdev=n0 -netdev user,id=n0</code></pre>
+
+        <h3>x86-64 &mdash; from source build</h3>
+        <pre><code># Build a GRUB ISO first:
+mkdir -p /tmp/iso/boot/grub
+cp build/x86_64/bin/kernel_x86_64.bin /tmp/iso/boot/aljefra.bin
+echo 'set timeout=0; menuentry "AlJefra OS" { multiboot /boot/aljefra.bin; boot; }' \
+  > /tmp/iso/boot/grub/grub.cfg
+grub-mkrescue -o aljefra.iso /tmp/iso
+
+# Boot it:
+qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
+  -serial mon:stdio -display none \
+  -device e1000,netdev=n0 -netdev user,id=n0</code></pre>
 
         <h3>ARM64 (AArch64)</h3>
-        <pre><code>qemu-system-aarch64 -M virt -cpu cortex-a72 -m 256 \
-  -nographic \
+        <pre><code>qemu-system-aarch64 -M virt -cpu cortex-a72 -m 256 -nographic \
   -kernel build/aarch64/bin/kernel_aarch64.bin</code></pre>
 
         <h3>RISC-V 64-bit</h3>
-        <pre><code>qemu-system-riscv64 -M virt -m 256 \
-  -nographic \
+        <pre><code>qemu-system-riscv64 -M virt -m 256 -nographic \
   -kernel build/riscv64/bin/kernel_riscv64.bin</code></pre>
 
         <p style="margin-top: 1.5rem; color: var(--text-secondary);">
-            The <code>-nographic</code> flag disables the graphical interface and uses serial console output. Press <code>Ctrl+a x</code> to exit QEMU.
+            Press <code>Ctrl+a x</code> to exit QEMU. The x86-64 kernel outputs to serial (COM1 115200 8N1). ARM64 and RISC-V output to UART.
         </p>
     </section>
 
@@ -139,7 +197,7 @@ make ARCH=riscv64</code></pre>
         </table>
 
         <p style="margin-top: 1.5rem; color: var(--text-secondary);">
-            AlJefra OS is designed for minimal footprint. The x86-64 ASM kernel is just 20 KB. The full HAL kernels are 145 KB (x86-64), 153 KB (ARM64), and 129 KB (RISC-V).
+            AlJefra OS is designed for minimal footprint. The full HAL kernels with GUI, AI chat, and 22+ drivers are just 214 KB (x86-64), 217 KB (ARM64), and 185 KB (RISC-V).
         </p>
     </section>
 
