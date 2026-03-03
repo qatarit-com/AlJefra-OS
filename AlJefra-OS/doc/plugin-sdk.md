@@ -37,7 +37,7 @@ An `.ajdrv` file is a self-contained driver package with this layout:
 ```
 Offset    Size      Field
 ------    ----      -----
-0x00      4         Magic: "AJDR" (0x52444A41)
+0x00      4         Magic: "AJDV" (0x56444A41)
 0x04      2         Format version (currently 1)
 0x06      2         Architecture (0 = x86_64, 1 = aarch64, 2 = riscv64)
 0x08      2         Vendor ID (PCI vendor or 0xFFFF for non-PCI)

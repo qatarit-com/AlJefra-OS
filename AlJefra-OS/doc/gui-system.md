@@ -4,7 +4,7 @@
 
 The AlJefra OS desktop environment is a downloadable `.ajdrv` plugin, not a built-in kernel component. At boot time, if a display adapter is detected via PCIe enumeration or EFI GOP, the AI bootstrap offers to download and install the GUI plugin from the marketplace. This keeps the kernel minimal while providing a full graphical experience when display hardware is available.
 
-The GUI system totals 2,712 lines across its core modules and provides a complete desktop shell with a widget toolkit, window management, and integrated AI chat interface.
+The GUI system totals 3,286 lines across its core modules and provides a complete desktop shell with a widget toolkit, window management, and integrated AI chat interface.
 
 ## Core Graphics Layer
 

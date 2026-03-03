@@ -4,7 +4,7 @@
 
 AlJefra OS includes a full TCP/IP network stack built directly into the kernel. Networking is not optional -- it is fundamental to the OS's operation. The AI bootstrap system requires HTTPS connectivity to download drivers from the marketplace, the AI chat engine uses HTTPS to communicate with LLM backends, and OTA updates are delivered over the network.
 
-The network stack (TCP/IP, UDP, ARP, DHCP, DNS, HTTP) is implemented from scratch (~5,165 lines of original code). TLS 1.3 is provided by the vendored BearSSL library (101,889 lines of third-party code).
+The network stack (TCP/IP, UDP, ARP, DHCP, DNS, HTTP) is implemented from scratch (~5,165 lines of original code). TLS 1.2 is provided by the vendored BearSSL library (101,889 lines of third-party code).
 
 ## Protocol Layers
 
@@ -15,7 +15,7 @@ The network stack (TCP/IP, UDP, ARP, DHCP, DNS, HTTP) is implemented from scratc
 +---------------------------------------------------------------+
 |  HTTP/1.1          | Request/response, chunked encoding        |
 +---------------------------------------------------------------+
-|  TLS 1.3           | BearSSL library, certificate validation   |
+|  TLS 1.2           | BearSSL library, certificate validation   |
 +---------------------------------------------------------------+
 |  TCP                | Reliable streams, flow control            |
 +--------------------+------------------------------------------+
@@ -194,13 +194,13 @@ If a DHCP phase times out, the client retries with exponential backoff:
 - Maximum retries: 5 per phase
 - If all retries fail, the network subsystem reports failure to the AI bootstrap
 
-## TLS 1.3
+## TLS 1.2
 
 **Library**: BearSSL (`programs/netstack/bearssl/`)
 
 TLS provides encrypted and authenticated communication for all marketplace and API traffic:
 
-- **Protocol version**: TLS 1.3 (with TLS 1.2 fallback for compatibility)
+- **Protocol version**: TLS 1.2 (maximum supported by BearSSL; TLS 1.0 and 1.1 disabled)
 - **Cipher suites**: AES-128-GCM, AES-256-GCM, ChaCha20-Poly1305
 - **Key exchange**: X25519 ECDHE
 - **Certificate validation**: X.509 certificate chain verification against embedded root CAs

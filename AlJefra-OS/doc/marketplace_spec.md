@@ -18,7 +18,7 @@ enforced on all driver packages.
 | Entry point    | `server/app.py`                            |
 | Production URL | `https://store.aljefra.com`                |
 | Local dev URL  | `http://localhost:8081`                     |
-| Transport      | HTTPS (TLS 1.3 via BearSSL in production)  |
+| Transport      | HTTPS (TLS 1.2 via BearSSL in production)  |
 | Auth model     | Ed25519 public-key signatures on packages  |
 | Content types  | `application/json` (metadata), `application/octet-stream` (packages) |
 
@@ -520,7 +520,7 @@ The AlJefra OS kernel integrates with the marketplace through the following work
 
 1. **Boot**: The kernel enumerates PCI devices and builds a hardware manifest.
 2. **Connect**: If a network driver is available (seed drivers), the kernel connects to
-   `store.aljefra.com` over TLS 1.3.
+   `store.aljefra.com` over TLS 1.2.
 3. **Submit manifest**: The kernel sends `POST /v1/manifest` with the detected hardware.
 4. **Download**: Critical and recommended drivers are downloaded via
    `GET /v1/drivers/{vendor}/{device}/{arch}`.

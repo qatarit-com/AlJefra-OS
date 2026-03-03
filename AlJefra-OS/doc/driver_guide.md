@@ -496,44 +496,45 @@ AlJefra OS ships with 22+ built-in drivers. Use these as reference implementatio
 | NVMe | `drivers/storage/nvme.c` | Various | Various | NVM Express SSD controller |
 | AHCI | `drivers/storage/ahci.c` | `0x8086` | Various | SATA/AHCI controller |
 | VirtIO-blk | `drivers/storage/virtio_blk.c` | `0x1AF4` | `0x1001` | VirtIO block device |
-| IDE/ATA | `drivers/storage/ide.c` | N/A | N/A | Legacy IDE controller (port I/O) |
-| Floppy | `drivers/storage/floppy.c` | N/A | N/A | Legacy floppy controller |
+| eMMC | `drivers/storage/emmc.c` | N/A | N/A | eMMC storage controller |
+| UFS | `drivers/storage/ufs.c` | N/A | N/A | Universal Flash Storage |
 
 ### Network Drivers
 
 | Driver | File | Vendor ID | Device ID | Description |
 |--------|------|-----------|-----------|-------------|
-| e1000 | `drivers/net/e1000.c` | `0x8086` | `0x100E` | Intel Gigabit Ethernet |
-| e1000e | `drivers/net/e1000e.c` | `0x8086` | `0x10D3` | Intel Gigabit Ethernet (newer) |
-| VirtIO-net | `drivers/net/virtio_net.c` | `0x1AF4` | `0x1000` | VirtIO network device |
-| RTL8139 | `drivers/net/rtl8139.c` | `0x10EC` | `0x8139` | Realtek 100 Mbps Ethernet |
-| RTL8169 | `drivers/net/rtl8169.c` | `0x10EC` | `0x8169` | Realtek Gigabit Ethernet |
+| e1000 | `drivers/network/e1000.c` | `0x8086` | `0x100E` | Intel Gigabit Ethernet |
+| VirtIO-net | `drivers/network/virtio_net.c` | `0x1AF4` | `0x1000` | VirtIO network device |
+| RTL8169 | `drivers/network/rtl8169.c` | `0x10EC` | `0x8169` | Realtek Gigabit Ethernet |
+| Intel WiFi | `drivers/network/intel_wifi.c` | `0x8086` | Various | Intel Wireless-AC/AX |
+| BCM WiFi | `drivers/network/bcm_wifi.c` | `0x14E4` | Various | Broadcom BCM43xx WiFi |
+| WiFi Framework | `drivers/network/wifi_framework.c` | N/A | N/A | Common WiFi interface layer |
+| AES-CCMP | `drivers/network/aes_ccmp.c` | N/A | N/A | WPA2 encryption support |
 
-### GPU / Display Drivers
+### Display / Output Drivers
 
 | Driver | File | Vendor ID | Device ID | Description |
 |--------|------|-----------|-----------|-------------|
-| VirtIO-GPU | `drivers/gpu/virtio_gpu.c` | `0x1AF4` | `0x1050` | VirtIO GPU device |
-| Bochs VBE | `drivers/gpu/bochs_vbe.c` | `0x1234` | `0x1111` | Bochs/QEMU VGA extensions |
-| VESA FB | `drivers/gpu/vesa_fb.c` | N/A | N/A | VESA framebuffer (generic) |
-| VGA Text | `drivers/gpu/vga_text.c` | N/A | N/A | VGA text mode (x86-64 only) |
+| QEMU VGA (Bochs VBE) | `drivers/runtime/qemu_vga.c` | `0x1234` | `0x1111` | Bochs/QEMU VBE framebuffer |
+| Linear Framebuffer | `drivers/display/lfb.c` | N/A | N/A | Generic linear framebuffer |
+| Serial Console | `drivers/display/serial_console.c` | N/A | N/A | UART serial console output |
 
 ### Input Drivers
 
 | Driver | File | Vendor ID | Device ID | Description |
 |--------|------|-----------|-----------|-------------|
-| PS/2 Keyboard | `drivers/input/ps2_kbd.c` | N/A | N/A | PS/2 keyboard controller |
-| PS/2 Mouse | `drivers/input/ps2_mouse.c` | N/A | N/A | PS/2 mouse controller |
+| PS/2 | `drivers/input/ps2.c` | N/A | N/A | PS/2 keyboard and mouse controller |
 | USB HID | `drivers/input/usb_hid.c` | Various | Various | USB keyboard and mouse |
+| xHCI | `drivers/input/xhci.c` | Various | Various | USB 3.0 host controller |
+| Touchscreen | `drivers/input/touch.c` | N/A | N/A | Touchscreen input support |
 
 ### Bus Drivers
 
 | Driver | File | Vendor ID | Device ID | Description |
 |--------|------|-----------|-----------|-------------|
-| PCI | `drivers/bus/pci.c` | N/A | N/A | PCI bus enumeration |
-| xHCI | `drivers/bus/xhci.c` | Various | Various | USB 3.0 host controller |
-| EHCI | `drivers/bus/ehci.c` | Various | Various | USB 2.0 host controller |
-| UHCI | `drivers/bus/uhci.c` | `0x8086` | Various | USB 1.x host controller |
+| PCIe | `drivers/bus/pcie.c` | N/A | N/A | PCI Express bus enumeration |
+| Device Tree Parser | `drivers/bus/dt_parser.c` | N/A | N/A | FDT/DTB parsing for ARM/RISC-V |
+| ACPI Lite | `drivers/bus/acpi_lite.c` | N/A | N/A | ACPI table parsing (lite subset) |
 
 ---
 

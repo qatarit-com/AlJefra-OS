@@ -7,7 +7,7 @@ code signing, hardware-enforced memory protection, secure network transport, and
 recovery mechanisms. Every driver loaded into the kernel must pass Ed25519 signature
 verification against a trust chain rooted in a key embedded at compile time. Memory
 isolation prevents code injection and privilege escalation. All external communication
-uses TLS 1.3.
+uses TLS 1.2.
 
 ---
 
@@ -292,15 +292,15 @@ klog(KLOG_ERROR, "Ed25519 signature verification failed for driver '%s'\n",
 
 ## Network Security
 
-### TLS 1.3 via BearSSL
+### TLS 1.2 via BearSSL
 
 All network communication between the AlJefra OS kernel and the marketplace server is
-encrypted using TLS 1.3. The TLS implementation is provided by BearSSL, a small,
+encrypted using TLS 1.2. The TLS implementation is provided by BearSSL, a small,
 portable, and audited TLS library suitable for embedded and OS-level use.
 
 Key properties:
 
-- **TLS 1.3 only**: Older protocol versions (TLS 1.2 and below) are not supported to
+- **TLS 1.2**: The maximum protocol version supported by BearSSL. Older versions (TLS 1.0, 1.1) are disabled to
   reduce attack surface.
 - **Cipher suites**: AES-256-GCM with SHA-384, ChaCha20-Poly1305 with SHA-256.
 - **Certificate pinning**: The marketplace server's TLS certificate is pinned in the
@@ -312,7 +312,7 @@ Key properties:
 
 ```
 1. TCP connection to store.aljefra.com:443
-2. TLS 1.3 handshake (BearSSL client)
+2. TLS 1.2 handshake (BearSSL client)
 3. Verify server certificate against pinned CA
 4. Send/receive application data (JSON API, .ajdrv downloads)
 5. TLS close_notify
@@ -413,7 +413,7 @@ all broadcast/multicast frames use the GTK.
 | Trust anchor           | Root key in kernel binary          | include/ed25519_key.h   |
 | Code execution         | NX pages, SMEP                     | kernel/memprotect.c     |
 | Data isolation         | WP pages, SMAP, guard pages        | kernel/memprotect.c     |
-| Network transport      | TLS 1.3 (BearSSL)                 | net/tls.c               |
+| Network transport      | TLS 1.2 (BearSSL)                 | net/tls.c               |
 | OTA integrity          | CRC32 + Ed25519                    | kernel/ota.c            |
 | Crash diagnostics      | Panic handler + ring buffer        | kernel/panic.c, klog.c  |
 | WiFi encryption        | AES-CCMP (WPA2)                   | drivers/network/aes_ccmp.c |

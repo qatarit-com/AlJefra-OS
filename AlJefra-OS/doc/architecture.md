@@ -350,9 +350,9 @@ If the network is unavailable, the system continues with built-in drivers only a
 
 | Metric | Value |
 |--------|-------|
-| Total lines of code | 163,507 |
-| Source files | 120+ |
-| Portable drivers | 22+ |
+| Original lines of code | 67,295 (plus 101,889 vendored BearSSL) |
+| Source files | 241 (excluding BearSSL) |
+| Portable drivers | 22 |
 | Supported architectures | 3 (x86-64, ARM64, RISC-V 64) |
 | HAL header files | 9 |
 | Network protocols | 7 (Ethernet, ARP, IPv4, UDP, TCP, DHCP, DNS) |

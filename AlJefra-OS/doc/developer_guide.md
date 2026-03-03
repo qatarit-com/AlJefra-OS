@@ -65,12 +65,12 @@ brew install nasm qemu python3
 
 | Tool                       | Minimum Version | Check Command                        |
 |----------------------------|----------------|--------------------------------------|
-| GCC (native)               | 10.0           | `gcc --version`                      |
-| NASM                       | 2.15           | `nasm --version`                     |
-| Make                       | 4.0            | `make --version`                     |
-| aarch64-linux-gnu-gcc      | 10.0           | `aarch64-linux-gnu-gcc --version`    |
-| riscv64-linux-gnu-gcc      | 10.0           | `riscv64-linux-gnu-gcc --version`    |
-| QEMU                       | 6.0            | `qemu-system-x86_64 --version`      |
+| GCC (native)               | 12+            | `gcc --version`                      |
+| NASM                       | 2.15+          | `nasm --version`                     |
+| Make                       | 4.3+           | `make --version`                     |
+| aarch64-linux-gnu-gcc      | 12+            | `aarch64-linux-gnu-gcc --version`    |
+| riscv64-linux-gnu-gcc      | 12+            | `riscv64-linux-gnu-gcc --version`    |
+| QEMU                       | 7.0+           | `qemu-system-x86_64 --version`      |
 | Python                     | 3.8            | `python3 --version`                  |
 | Flask                      | 2.0            | `python3 -c "import flask; print(flask.__version__)"` |
 
@@ -159,7 +159,7 @@ AlJefra-OS/
 +-- tools/                      # Build and packaging tools
 |   +-- ajdrv_builder.py        # .ajdrv package builder
 +-- net/                        # Network stack
-|   +-- tls.c                   # TLS 1.3 (BearSSL integration)
+|   +-- tls.c                   # TLS 1.2 (BearSSL integration)
 +-- doc/                        # Documentation
 |   +-- developer_guide.md      # This file
 |   +-- porting_guide.md        # How to port to a new architecture
