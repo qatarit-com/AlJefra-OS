@@ -12,7 +12,7 @@
   <a href="https://github.com/qatarit-com/AlJefra-OS/actions"><img src="https://img.shields.io/github/actions/workflow/status/qatarit-com/AlJefra-OS/build.yml?branch=main&label=build" alt="Build Status"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
   <a href="#supported-architectures"><img src="https://img.shields.io/badge/arch-x86--64%20%7C%20ARM64%20%7C%20RISC--V%2064-green.svg" alt="Architectures"></a>
-  <a href="#"><img src="https://img.shields.io/badge/lines%20of%20code-163%2C507-orange.svg" alt="Lines of Code"></a>
+  <a href="#"><img src="https://img.shields.io/badge/lines%20of%20code-67%2C295-orange.svg" alt="Lines of Code"></a>
   <a href="#"><img src="https://img.shields.io/badge/drivers-22%2B-purple.svg" alt="Drivers"></a>
   <a href="https://os.aljefra.com"><img src="https://img.shields.io/badge/website-os.aljefra.com-blue" alt="Website"></a>
 </p>
@@ -23,22 +23,23 @@
 
 ## Overview
 
-AlJefra OS v1.0 is a ground-up operating system written in **163,507 lines of C and Assembly**. It boots with a minimal kernel on any supported architecture, then uses an onboard AI agent to detect hardware, connect to the AlJefra Driver Marketplace, and automatically download, install, and configure every driver the machine needs -- all without human intervention.
+AlJefra OS v1.0 is a ground-up operating system written in **67,295 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, then uses an onboard AI agent to detect hardware, connect to the AlJefra Driver Marketplace, and automatically download, install, and configure every driver the machine needs -- all without human intervention.
 
-The result is a single boot image that adapts itself to any hardware it encounters.
+A single portable codebase compiles for all three supported architectures.
 
 ## Key Features
 
-- **Universal Boot** -- One kernel image boots on x86-64, ARM64, and RISC-V 64 hardware.
+- **Universal Boot** -- One codebase compiles for x86-64, ARM64, and RISC-V 64, producing architecture-specific kernel ELFs.
 - **AI Bootstrap** -- An embedded AI agent scans hardware at boot, builds a manifest, and fetches matching drivers from the cloud.
 - **Driver Marketplace** -- Over-the-air driver store where vendors publish signed `.ajdrv` packages that the OS downloads at runtime.
 - **Hardware Abstraction Layer (HAL)** -- A clean, portable HAL lets every driver and kernel subsystem compile once and run on all three architectures.
-- **22+ Portable Drivers** -- Storage (NVMe, AHCI, VirtIO-blk), networking (e1000, VirtIO-net, RTL8139), GPU (VirtIO-GPU, Bochs VBE), input (PS/2, USB HID), and more.
-- **Full Network Stack** -- Ethernet, ARP, IPv4, UDP, DHCP, DNS, and TCP -- enough to reach the internet at boot.
+- **22 Portable Drivers** -- Storage (NVMe, AHCI, VirtIO-blk), networking (e1000, VirtIO-net, RTL8169), display (Bochs VBE, serial console), input (PS/2, USB HID), and more.
+- **Full Network Stack** -- Ethernet, ARP, IPv4, UDP, DHCP, DNS, and TCP. TLS 1.3 provided by vendored BearSSL library.
 - **GPU & GUI Desktop** -- Framebuffer-based GPU engine, window manager, desktop shell, and graphical applications.
-- **Self-Evolving Kernel** -- The kernel can hot-load new drivers and subsystems after boot without a restart.
+- **Hot-Load Drivers** -- The kernel can load new `.ajdrv` driver packages at runtime without a restart.
+- **Self-Evolving Kernel** -- AI-directed source optimization and GPU-accelerated genetic algorithms for kernel improvement (52 optimizations across 10 generations).
 - **BMFS Filesystem** -- BareMetal File System support for persistent storage.
-- **AI Chat Interface** -- Built-in conversational AI accessible from the desktop.
+- **AI Chat Interface** -- Built-in NLP chat engine with pattern-matching for English and Arabic, mapping natural language to 20 system actions. External LLM backends supported when online.
 - **Bilingual Interface** -- Full Arabic and English language support throughout the UI.
 
 ## Architecture
@@ -103,19 +104,19 @@ cd AlJefra-OS
 **x86-64:**
 
 ```bash
-make ARCH=x86_64          # produces build/aljefra-x86_64.img
+make ARCH=x86_64          # produces build/x86_64/kernel.elf
 ```
 
 **ARM64:**
 
 ```bash
-make ARCH=aarch64         # produces build/aljefra-aarch64.img
+make ARCH=aarch64         # produces build/aarch64/kernel.elf
 ```
 
 **RISC-V 64:**
 
 ```bash
-make ARCH=riscv64         # produces build/aljefra-riscv64.img
+make ARCH=riscv64         # produces build/riscv64/kernel.elf
 ```
 
 **All architectures:**
@@ -130,7 +131,7 @@ make all                  # builds all three images
 
 ```bash
 qemu-system-x86_64 \
-  -drive file=build/aljefra-x86_64.img,format=raw \
+  -drive file=build/x86_64/kernel.elf,format=raw \
   -m 256M \
   -smp 2 \
   -device e1000,netdev=net0 \
@@ -144,7 +145,7 @@ qemu-system-x86_64 \
 qemu-system-aarch64 \
   -M virt \
   -cpu cortex-a72 \
-  -drive file=build/aljefra-aarch64.img,format=raw \
+  -drive file=build/aarch64/kernel.elf,format=raw \
   -m 256M \
   -smp 2 \
   -device virtio-net-device,netdev=net0 \
@@ -157,7 +158,7 @@ qemu-system-aarch64 \
 ```bash
 qemu-system-riscv64 \
   -M virt \
-  -drive file=build/aljefra-riscv64.img,format=raw \
+  -drive file=build/riscv64/kernel.elf,format=raw \
   -m 256M \
   -smp 2 \
   -device virtio-net-device,netdev=net0 \
@@ -171,7 +172,7 @@ Download the latest pre-built image from **[os.aljefra.com](https://os.aljefra.c
 
 ```bash
 # Linux / macOS
-sudo dd if=aljefra-x86_64.img of=/dev/sdX bs=4M status=progress
+sudo dd if=aljefra_os_v1.0.iso of=/dev/sdX bs=4M status=progress
 sync
 ```
 
@@ -205,8 +206,8 @@ AlJefra-OS/
 |   +-- syscall.c             System call interface
 |-- drivers/                  Portable device drivers (22+)
 |   |-- storage/              NVMe, AHCI, VirtIO-blk, ...
-|   |-- net/                  e1000, VirtIO-net, RTL8139, ...
-|   |-- gpu/                  VirtIO-GPU, Bochs VBE, ...
+|   |-- network/              e1000, VirtIO-net, RTL8169, WiFi, ...
+|   |-- display/              Bochs VBE (QEMU VGA), Serial Console
 |   |-- input/                PS/2 keyboard/mouse, USB HID
 |   +-- bus/                  PCI, USB host controllers
 |-- net/                      Network stack
@@ -287,7 +288,7 @@ AlJefra-OS/
 
 | Resource | Minimum | Recommended |
 |----------|---------|-------------|
-| RAM | 64 MB | 256 MB |
+| RAM | 256 MB | 512 MB |
 | Storage | 16 MB | 128 MB |
 | CPU Cores | 1 | 2+ |
 | Network | Ethernet (for AI bootstrap) | Gigabit Ethernet |

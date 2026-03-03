@@ -116,11 +116,10 @@ static uint16_t nvme_submit_cmd(nvme_queue_t *q, nvme_sq_entry_t *cmd)
     uint16_t cid = q->cid_counter++;
     cmd->cid = cid;
 
-    /* Copy command into SQ slot */
-    volatile nvme_sq_entry_t *slot = &q->sq[q->sq_tail];
-    const uint32_t *src = (const uint32_t *)cmd;
-    volatile uint32_t *dst = (volatile uint32_t *)slot;
-    for (int i = 0; i < 16; i++)
+    /* Copy command into SQ slot (byte-wise to avoid packed alignment issues) */
+    volatile uint8_t *dst = (volatile uint8_t *)&q->sq[q->sq_tail];
+    const uint8_t *src = (const uint8_t *)cmd;
+    for (unsigned i = 0; i < sizeof(nvme_sq_entry_t); i++)
         dst[i] = src[i];
 
     /* Advance tail with wrap */

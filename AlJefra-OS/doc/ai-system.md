@@ -8,7 +8,7 @@ The AI system consists of three major components: the AI Chat Engine for interac
 
 ## AI Chat Engine
 
-**Source**: `kernel/ai_chat.c` (2,081 lines)
+**Source**: `kernel/ai_chat.c` (1,815 lines)
 
 ### Architecture
 
@@ -30,7 +30,7 @@ Executor            -- Calls the appropriate kernel subsystem
 Response Builder    -- Formats output for the user (English or Arabic)
 ```
 
-Each stage is modular. The NLP parser can be bypassed entirely when an LLM backend is available, allowing the LLM to handle intent classification directly. When offline, the local pattern matcher handles the most common operations without any network dependency.
+Each stage is modular. The current implementation uses a local pattern-matching NLP engine for all command processing. The architecture supports future integration with external LLM backends when online, but the v1.0 release operates entirely offline via pattern matching. When offline, the local pattern matcher handles the most common operations without any network dependency.
 
 ### Local NLP
 
@@ -186,25 +186,25 @@ The user does not need to know what hardware they have, what drivers are require
 
 ## LLM Backends
 
-### Online Backends
+### Online Backends (Planned)
 
-When internet connectivity is available, the chat engine can use full LLM capabilities:
+The architecture is designed to support external LLM backends when internet connectivity is available. These are not yet implemented in v1.0:
 
-| Backend | Endpoint | Purpose |
-|---------|----------|---------|
-| AlJefra AI Cloud | `api.aljefra.com` | Primary backend, optimized for OS operations |
-| Claude API | `api.anthropic.com` | Fallback backend for advanced reasoning |
+| Backend | Endpoint | Purpose | Status |
+|---------|----------|---------|--------|
+| AlJefra AI Cloud | `api.aljefra.com` | Primary backend, optimized for OS operations | Planned |
+| Claude API | `api.anthropic.com` | Fallback backend for advanced reasoning | Planned |
 
-Online backends receive the full conversation history, hardware context, and system state. They return structured action descriptions that the action resolver can execute directly.
+When implemented, online backends would receive the full conversation history, hardware context, and system state, returning structured action descriptions that the action resolver can execute directly.
 
-### Offline Backend
+### Current Backend (v1.0)
 
-A Small Language Model (~50MB) is embedded in the OS image for offline operation:
+The v1.0 release uses a fully local NLP pattern matcher:
 
-- Handles basic command classification without internet access
+- Handles command classification without internet access using 69 hand-crafted patterns (37 English, 32 Arabic)
 - Supports the 20 core action types
-- Limited to pattern-matched responses (no free-form generation)
-- Falls back gracefully when the local NLP parser can handle the request
+- Pattern-matched responses (no free-form generation)
+- Zero external dependencies — runs entirely on the CPU with static buffers
 
 ### AI Router
 

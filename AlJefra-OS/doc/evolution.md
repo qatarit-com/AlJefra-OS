@@ -75,8 +75,8 @@ The AI applies several classes of transformations:
 |--------|-------|
 | Speed per component | Minutes |
 | Improvement per component | 10-80% |
-| Total optimizations applied | 200+ across 25 kernel files |
-| Generations completed | 11 |
+| Total optimizations applied | 52 across kernel files |
+| Generations completed | 10 |
 
 ### Launch
 
@@ -92,20 +92,20 @@ The script guides the operator through component selection and runs the full evo
 
 ### Method
 
-An NVIDIA RTX 5090 GPU generates millions of binary mutations per second, testing each mutated function against a fitness model. A genetic algorithm selects the fittest mutations, crossbreeds them, and evolves the population over many generations. The result is machine-discovered instruction sequences that are faster than the original hand-written assembly.
+An NVIDIA GPU (RTX 5090 targeted) generates millions of binary mutations per second, testing each mutated function against a fitness model. A genetic algorithm selects the fittest mutations, crossbreeds them, and evolves the population over many generations. The result is machine-discovered instruction sequences that are faster than the original hand-written assembly.
 
 ### Hardware Requirements
 
 | Resource | Specification |
 |----------|--------------|
-| GPU | NVIDIA RTX 5090 |
-| Streaming Multiprocessors | 170 SMs |
-| VRAM | 32 GB |
-| Parallel threads | 65,536 |
+| GPU | NVIDIA CUDA-capable GPU (developed on RTX 5090) |
+| Streaming Multiprocessors | Varies by GPU model |
+| VRAM | 8+ GB recommended |
+| Parallel threads | Varies by GPU model |
 
 ### Source Code
 
-The binary evolution system consists of 5,776 lines of C and 4 CUDA kernels:
+The binary evolution system consists of C source and CUDA kernels:
 
 | Component | Description |
 |-----------|-------------|

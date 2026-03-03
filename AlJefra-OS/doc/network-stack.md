@@ -4,7 +4,7 @@
 
 AlJefra OS includes a full TCP/IP network stack built directly into the kernel. Networking is not optional -- it is fundamental to the OS's operation. The AI bootstrap system requires HTTPS connectivity to download drivers from the marketplace, the AI chat engine uses HTTPS to communicate with LLM backends, and OTA updates are delivered over the network.
 
-The stack is implemented from scratch with no external dependencies except BearSSL for TLS 1.3 cryptography.
+The network stack (TCP/IP, UDP, ARP, DHCP, DNS, HTTP) is implemented from scratch (~5,165 lines of original code). TLS 1.3 is provided by the vendored BearSSL library (101,889 lines of third-party code).
 
 ## Protocol Layers
 
