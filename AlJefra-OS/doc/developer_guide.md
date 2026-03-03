@@ -1,68 +1,86 @@
-# AlJefra OS — Developer Onboarding Guide
+# AlJefra OS Developer Guide
 
-## Quick Start
+## Overview
 
-### Prerequisites
+AlJefra OS is a lightweight, multi-architecture operating system kernel supporting
+x86-64, ARM64, and RISC-V 64. This guide covers everything needed to set up a
+development environment, build the kernel, run it under emulation, and contribute code.
+
+---
+
+## Prerequisites
+
+### Required Packages
+
+Install the following tools on a Debian/Ubuntu-based system:
 
 ```bash
-# Debian/Ubuntu
-sudo apt install build-essential gcc-aarch64-linux-gnu gcc-riscv64-linux-gnu \
-                 nasm qemu-system-x86 qemu-system-arm qemu-system-misc
+# Native build tools
+sudo apt update
+sudo apt install -y \
+    build-essential \
+    nasm \
+    gcc \
+    make \
+    python3 \
+    python3-pip \
+    python3-venv \
+    git
+
+# Cross-compilation toolchains
+sudo apt install -y \
+    gcc-aarch64-linux-gnu \
+    binutils-aarch64-linux-gnu \
+    gcc-riscv64-linux-gnu \
+    binutils-riscv64-linux-gnu
+
+# QEMU emulators
+sudo apt install -y \
+    qemu-system-x86 \
+    qemu-system-arm \
+    qemu-system-misc    # Includes qemu-system-riscv64
+
+# Python packages (for marketplace server)
+pip3 install flask
 ```
 
-### Build
+### Fedora/RHEL
 
 ```bash
+sudo dnf install -y \
+    @development-tools nasm gcc make python3 python3-pip git \
+    gcc-aarch64-linux-gnu binutils-aarch64-linux-gnu \
+    gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu \
+    qemu-system-x86 qemu-system-aarch64 qemu-system-riscv
+```
+
+### macOS (via Homebrew)
+
+```bash
+brew install nasm qemu python3
+# Cross toolchains via crosstool-ng or Docker
+```
+
+### Minimum Versions
+
+| Tool                       | Minimum Version | Check Command                        |
+|----------------------------|----------------|--------------------------------------|
+| GCC (native)               | 10.0           | `gcc --version`                      |
+| NASM                       | 2.15           | `nasm --version`                     |
+| Make                       | 4.0            | `make --version`                     |
+| aarch64-linux-gnu-gcc      | 10.0           | `aarch64-linux-gnu-gcc --version`    |
+| riscv64-linux-gnu-gcc      | 10.0           | `riscv64-linux-gnu-gcc --version`    |
+| QEMU                       | 6.0            | `qemu-system-x86_64 --version`      |
+| Python                     | 3.8            | `python3 --version`                  |
+| Flask                      | 2.0            | `python3 -c "import flask; print(flask.__version__)"` |
+
+---
+
+## Getting the Source
+
+```bash
+git clone https://github.com/qatarit-com/AlJefra-OS.git
 cd AlJefra-OS
-
-# Build for a single architecture (default: x86-64)
-make                       # x86-64
-make ARCH=aarch64          # ARM64
-make ARCH=riscv64          # RISC-V 64
-
-# Build all architectures
-make all-arch
-
-# Clean
-make clean
-```
-
-Output binaries go to `build/<arch>/bin/kernel_<arch>.bin`.
-
-### Run in QEMU
-
-```bash
-# x86-64 (multiboot1 kernel, serial output)
-qemu-system-x86_64 -machine q35 -cpu Westmere -smp 1 -m 256 \
-  -kernel build/x86_64/kernel.elf -serial stdio -display none \
-  -device virtio-net-pci,netdev=n0 -netdev user,id=n0 \
-  -drive if=none,id=d0,file=/tmp/disk.img,format=raw \
-  -device virtio-blk-pci,drive=d0
-
-# ARM64 (Device Tree, UART output)
-qemu-system-aarch64 -machine virt -cpu cortex-a72 -m 256 \
-  -kernel build/aarch64/bin/kernel_aarch64.bin -serial stdio -display none \
-  -device virtio-net-pci,netdev=n0 -netdev user,id=n0
-
-# RISC-V 64 (OpenSBI + kernel, UART output)
-qemu-system-riscv64 -machine virt -m 256 \
-  -kernel build/riscv64/bin/kernel_riscv64.bin -serial stdio -display none \
-  -device virtio-net-pci,netdev=n0 -netdev user,id=n0
-```
-
-### Run with Marketplace Server
-
-```bash
-# Terminal 1: Start the marketplace Flask server
-cd server && python3 app.py
-
-# Terminal 2: Run QEMU with host port forwarding
-# QEMU user-mode networking maps 10.0.2.2 → host automatically
-qemu-system-x86_64 -machine q35 -cpu Westmere -smp 1 -m 256 \
-  -kernel build/x86_64/kernel.elf -serial stdio -display none \
-  -device virtio-net-pci,netdev=n0 -netdev user,id=n0 \
-  -drive if=none,id=d0,file=/tmp/disk.img,format=raw \
-  -device virtio-blk-pci,drive=d0
 ```
 
 ---
@@ -71,220 +89,762 @@ qemu-system-x86_64 -machine q35 -cpu Westmere -smp 1 -m 256 \
 
 ```
 AlJefra-OS/
-├── hal/            # Hardware Abstraction Layer headers (architecture-independent API)
-├── arch/           # Architecture-specific implementations
-│   ├── x86_64/     # x86-64: boot.S, cpu.c, interrupt.c, timer.c, io.c, bus.c, mmu.c, smp.c
-│   ├── aarch64/    # ARM64: boot.S, cpu.c, interrupt.c (GIC), timer.c, mmu.c, smp.c (PSCI)
-│   └── riscv64/    # RISC-V: boot.S, cpu.c, interrupt.c (PLIC), timer.c, mmu.c (Sv39)
-├── kernel/         # Architecture-independent kernel core
-│   ├── main.c      # Entry point: banner → bus scan → driver load → network → AI bootstrap
-│   ├── sched.c     # Cooperative scheduler
-│   ├── syscall.c   # Syscall dispatch
-│   ├── driver_loader.c  # Built-in + runtime (.ajdrv) driver loading
-│   └── ai_bootstrap.c   # AI-driven hardware setup (DHCP → marketplace → download drivers)
-├── drivers/        # Portable C drivers (use HAL only, no inline asm)
-│   ├── storage/    # NVMe, AHCI, VirtIO-Blk, eMMC, UFS
-│   ├── network/    # e1000, VirtIO-Net, RTL8169, Intel WiFi, BCM WiFi, WiFi framework
-│   ├── input/      # xHCI (USB 3.0), USB HID, PS/2, Touchscreen
-│   ├── display/    # Linear framebuffer, serial console
-│   ├── bus/        # PCIe enumeration, Device Tree parser, ACPI lite
-│   └── runtime/    # .ajdrv packages (position-independent drivers)
-├── net/            # Minimal network stack (DHCP, TCP)
-├── ai/             # AI marketplace client
-├── store/          # Package verification (Ed25519), installation, OTA updates
-├── lib/            # Runtime library (memcpy, memset, etc.)
-├── server/         # Marketplace Flask API server
-└── doc/            # Documentation
++-- arch/                       # Architecture-specific code
+|   +-- x86_64/                 # x86-64 HAL implementation
+|   |   +-- boot.S              # Multiboot2 boot stub
+|   |   +-- hal_init.c          # HAL initialization
+|   |   +-- cpu.c               # CPU setup, GDT, IDT
+|   |   +-- interrupt.c         # APIC interrupt controller
+|   |   +-- timer.c             # APIC timer / HPET
+|   |   +-- bus.c               # PCI enumeration (I/O port method)
+|   |   +-- io.c                # Port I/O (inb/outb)
+|   |   +-- mmu.c               # 4-level page tables (PML4)
+|   |   +-- smp.c               # AP startup via SIPI
+|   |   +-- console.c           # VGA text + serial
+|   |   +-- linker.ld           # Linker script
+|   +-- aarch64/                # ARM64 HAL implementation
+|   |   +-- boot.S              # DTB-aware boot stub
+|   |   +-- hal_init.c          # HAL initialization
+|   |   +-- cpu.c               # Exception level setup
+|   |   +-- interrupt.c         # GICv2 driver
+|   |   +-- timer.c             # ARM generic timer
+|   |   +-- bus.c               # PCI ECAM enumeration
+|   |   +-- io.c                # MMIO primitives
+|   |   +-- mmu.c               # 4-level translation tables
+|   |   +-- smp.c               # PSCI-based core startup
+|   |   +-- console.c           # PL011 UART
+|   |   +-- linker.ld           # Linker script
+|   +-- riscv64/                # RISC-V 64 HAL implementation
+|       +-- boot.S              # OpenSBI-aware boot stub
+|       +-- hal_init.c          # HAL initialization
+|       +-- cpu.c               # CSR setup
+|       +-- interrupt.c         # PLIC driver
+|       +-- timer.c             # CLINT timer
+|       +-- bus.c               # PCI + VirtIO MMIO enumeration
+|       +-- io.c                # MMIO primitives
+|       +-- mmu.c               # Sv39/Sv48 page tables
+|       +-- smp.c               # Hart startup via SBI
+|       +-- console.c           # NS16550 UART
+|       +-- linker.ld           # Linker script
++-- kernel/                     # Architecture-independent kernel
+|   +-- main.c                  # kernel_main() entry point
+|   +-- klog.c                  # Kernel ring buffer logging
+|   +-- panic.c                 # Panic handler with backtrace
+|   +-- memprotect.c            # Memory protection (NX, WP, guard pages)
+|   +-- ota.c                   # OTA update handler
+|   +-- shell.c                 # Interactive kernel shell
++-- drivers/                    # Device drivers
+|   +-- storage/                # Block device drivers
+|   |   +-- virtio_blk.c        # VirtIO block storage
+|   +-- network/                # Network drivers
+|   |   +-- virtio_net.c        # VirtIO network
+|   |   +-- e1000.c             # Intel E1000
+|   |   +-- aes_ccmp.c          # WPA2 AES-CCMP encryption
+|   +-- display/                # Display drivers
+|   |   +-- qemu_vga.c          # QEMU standard VGA (1234:1111)
+|   +-- input/                  # Input device drivers
++-- include/                    # Header files
+|   +-- hal.h                   # HAL interface declarations
+|   +-- kernel.h                # Kernel types and macros
+|   +-- pci.h                   # PCI structures and constants
+|   +-- ed25519_key.h           # Embedded root verification key
+|   +-- driver.h                # Driver registration interface
++-- store/                      # Ed25519 verification library
+|   +-- verify.c                # Ed25519 implementation (RFC 8032)
++-- server/                     # Marketplace server
+|   +-- app.py                  # Flask REST API
+|   +-- requirements.txt        # Python dependencies
+|   +-- docker-compose.yml      # Docker deployment
+|   +-- Dockerfile              # Container build
++-- tools/                      # Build and packaging tools
+|   +-- ajdrv_builder.py        # .ajdrv package builder
++-- net/                        # Network stack
+|   +-- tls.c                   # TLS 1.3 (BearSSL integration)
++-- doc/                        # Documentation
+|   +-- developer_guide.md      # This file
+|   +-- porting_guide.md        # How to port to a new architecture
+|   +-- memory_maps.md          # Memory layouts for all architectures
+|   +-- security_model.md       # Security architecture
+|   +-- marketplace_spec.md     # Marketplace API specification
+|   +-- hal_spec.md             # HAL interface specification
+|   +-- driver_guide.md         # How to write drivers
+|   +-- architecture.md         # System architecture overview
++-- build/                      # Build output (generated)
+|   +-- x86_64/
+|   |   +-- kernel.elf          # ~147 KB
+|   +-- aarch64/
+|   |   +-- kernel.elf          # ~153 KB
+|   +-- riscv64/
+|       +-- kernel.elf          # ~129 KB
++-- Makefile                    # Root build system
 ```
 
 ---
 
-## How It Works
+## Building
 
-### Boot Sequence
+### Build for a Single Architecture
 
-1. **Arch-specific boot** (`arch/<arch>/boot.S`) — CPU init, MMU, interrupts, UART
-2. **HAL init** (`arch/<arch>/hal_init.c`) — Registers arch functions into HAL vtable
-3. **kernel_main()** — Architecture-independent from here on:
-   - Register built-in driver ops tables
-   - Bus scan (PCIe on x86, Device Tree on ARM/RISC-V)
-   - Match devices to drivers, init matched drivers
-   - DHCP → TCP init → Connect to marketplace
-   - Send hardware manifest → download recommended .ajdrv drivers
-   - Load runtime drivers → system ready
+```bash
+# x86-64 (default)
+make
 
-### Driver Categories
+# ARM64
+make ARCH=aarch64
 
-| Category | Examples | HAL functions used |
-|----------|---------|-------------------|
-| Storage | NVMe, AHCI, VirtIO-Blk, eMMC, UFS | `hal_mmio_*`, `hal_dma_alloc`, `hal_bus_*` |
-| Network | e1000, VirtIO-Net, RTL8169, WiFi | `hal_mmio_*`, `hal_dma_alloc`, `hal_irq_*` |
-| Input | xHCI, USB HID, PS/2, Touchscreen | `hal_mmio_*`, `hal_irq_register` |
-| Display | Framebuffer, Serial console | `hal_mmio_*` |
-| Bus | PCIe, Device Tree, ACPI | `hal_bus_*` |
+# RISC-V 64
+make ARCH=riscv64
+```
+
+### Build for All Architectures
+
+```bash
+make all-arch
+```
+
+This produces binaries for all three architectures:
+
+```
+build/x86_64/kernel.elf     # ~147 KB
+build/aarch64/kernel.elf    # ~153 KB
+build/riscv64/kernel.elf    # ~129 KB
+```
+
+### Clean
+
+```bash
+# Clean current architecture build
+make clean
+
+# Clean all architectures
+make clean-all
+```
+
+### Build Options
+
+| Variable    | Default    | Description                              |
+|-------------|-----------|------------------------------------------|
+| `ARCH`      | `x86_64`  | Target architecture                      |
+| `DEBUG`     | `0`       | Set to `1` for debug symbols (`-g`)     |
+| `OPTIMIZE`  | `-O2`     | Optimization level                       |
+| `VERBOSE`   | `0`       | Set to `1` to print full compiler commands |
+
+Example with options:
+
+```bash
+make ARCH=aarch64 DEBUG=1 VERBOSE=1
+```
 
 ---
 
-## Writing a New Driver
+## Running on QEMU
 
-### 1. Create the driver file
+### x86-64
+
+```bash
+qemu-system-x86_64 \
+    -machine q35 \
+    -cpu qemu64 \
+    -m 256M \
+    -kernel build/x86_64/kernel.elf \
+    -serial stdio \
+    -no-reboot \
+    -d int,cpu_reset \
+    -D qemu_log.txt
+```
+
+Or using the Makefile target:
+
+```bash
+make run
+```
+
+### ARM64
+
+```bash
+qemu-system-aarch64 \
+    -machine virt \
+    -cpu cortex-a72 \
+    -m 256M \
+    -kernel build/aarch64/kernel.elf \
+    -nographic
+```
+
+Or:
+
+```bash
+make ARCH=aarch64 run
+```
+
+### RISC-V 64
+
+```bash
+qemu-system-riscv64 \
+    -machine virt \
+    -cpu rv64 \
+    -m 256M \
+    -bios default \
+    -kernel build/riscv64/kernel.elf \
+    -nographic
+```
+
+Or:
+
+```bash
+make ARCH=riscv64 run
+```
+
+### QEMU Networking
+
+To test network drivers and marketplace connectivity:
+
+```bash
+qemu-system-x86_64 \
+    -machine q35 \
+    -cpu qemu64 \
+    -m 256M \
+    -kernel build/x86_64/kernel.elf \
+    -serial stdio \
+    -netdev user,id=net0,hostfwd=tcp::8080-:80 \
+    -device e1000,netdev=net0
+```
+
+### Exiting QEMU
+
+Press `Ctrl+A` then `X` to terminate QEMU when using `-nographic` or `-serial stdio`.
+
+---
+
+## Running the Marketplace Server
+
+### Local Development
+
+```bash
+cd server
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt
+python3 app.py
+```
+
+The server starts at `http://localhost:8081`. You should see:
+
+```
+ * Running on http://0.0.0.0:8081
+ * AlJefra Marketplace API v1 ready
+```
+
+### Docker
+
+```bash
+cd server
+docker-compose -f docker-compose.yml up
+```
+
+To run in the background:
+
+```bash
+docker-compose -f docker-compose.yml up -d
+```
+
+To stop:
+
+```bash
+docker-compose -f docker-compose.yml down
+```
+
+### Testing the API
+
+```bash
+# List all drivers
+curl http://localhost:8081/v1/catalog | python3 -m json.tool
+
+# Submit a hardware manifest
+curl -X POST http://localhost:8081/v1/manifest \
+    -H "Content-Type: application/json" \
+    -d '{
+        "arch": "x86_64",
+        "devices": [
+            {"type": "pci", "vendor_id": "0x8086", "device_id": "0x10D3"},
+            {"type": "pci", "vendor_id": "0x1AF4", "device_id": "0x1001"}
+        ],
+        "os_version": "1.0"
+    }' | python3 -m json.tool
+
+# Download a specific driver
+curl -O http://localhost:8081/v1/drivers/8086/10D3/x86_64
+```
+
+---
+
+## Code Style
+
+AlJefra OS follows a consistent C coding style across the entire codebase.
+
+### Formatting Rules
+
+| Rule                  | Standard                                    |
+|-----------------------|---------------------------------------------|
+| Brace style           | K&R (opening brace on same line)            |
+| Indentation           | 4 spaces (no tabs)                          |
+| Line length           | Maximum 80 characters                       |
+| License header        | SPDX identifier in every file               |
+| Naming (functions)    | `snake_case`                                |
+| Naming (macros)       | `UPPER_SNAKE_CASE`                          |
+| Naming (types)        | `snake_case_t` for typedefs                 |
+| Naming (constants)    | `UPPER_SNAKE_CASE`                          |
+| Comments              | `/* C-style block comments */`              |
+| Pointer declarations  | `int *ptr` (asterisk with variable)         |
+
+### Example
 
 ```c
-/* drivers/network/my_nic.c */
-#include "../../hal/hal.h"
-#include "../../kernel/driver_loader.h"
+// SPDX-License-Identifier: MIT
+// Copyright (c) AlJefra Foundation
 
-static hal_status_t my_nic_init(hal_device_t *dev)
-{
-    /* Map BAR0 for MMIO access */
-    volatile void *regs = hal_bus_map_bar(dev, 0);
-    if (!regs) return HAL_ERROR;
+#include <hal.h>
+#include <kernel.h>
 
-    /* Enable bus mastering */
-    hal_bus_pci_enable(dev);
+#define MAX_DEVICES 256
 
-    /* Initialize hardware... */
-    uint32_t status = hal_mmio_read32(regs + 0x08);
-    hal_console_printf("[my_nic] Status: 0x%08x\n", status);
+/*
+ * Enumerate PCI devices on the given bus segment.
+ * Returns the number of devices found.
+ */
+static uint32_t pci_scan_bus(uint8_t bus) {
+    uint32_t count = 0;
 
-    return HAL_OK;
+    for (uint8_t dev = 0; dev < 32; dev++) {
+        uint32_t vendor = pci_config_read(bus, dev, 0, 0);
+        if ((vendor & 0xFFFF) == 0xFFFF) {
+            continue;
+        }
+        count++;
+        klog(KLOG_INFO, "PCI: %02x:%02x.0 vendor=%04x device=%04x\n",
+             bus, dev, vendor & 0xFFFF, (vendor >> 16) & 0xFFFF);
+    }
+
+    return count;
+}
+```
+
+### SPDX License Headers
+
+Every source file must begin with an SPDX license identifier:
+
+```c
+// SPDX-License-Identifier: MIT
+```
+
+---
+
+## How to Add a Driver
+
+### Step 1: Create the Source File
+
+Create a new `.c` file in the appropriate `drivers/` subdirectory:
+
+```
+drivers/
+    storage/    # Block devices
+    network/    # NICs, WiFi
+    display/    # GPU, framebuffer
+    input/      # Keyboard, mouse
+    bus/        # Host controllers
+```
+
+For example, a new USB host controller driver:
+
+```bash
+touch drivers/bus/xhci.c
+```
+
+### Step 2: Implement the Driver Interface
+
+Every driver must implement the standard driver entry point:
+
+```c
+// SPDX-License-Identifier: MIT
+
+#include <driver.h>
+#include <hal.h>
+#include <kernel.h>
+
+#define XHCI_VENDOR_ID  0x1B36
+#define XHCI_DEVICE_ID  0x000D
+
+/*
+ * Driver initialization function.
+ * Called by the kernel after the driver is loaded and verified.
+ */
+int xhci_init(uint16_t vendor_id, uint16_t device_id, void *mmio_base) {
+    klog(KLOG_INFO, "xHCI: Initializing USB 3.0 controller at %p\n",
+         mmio_base);
+
+    // Read capability registers
+    uint32_t caplength = mmio_read32(mmio_base);
+
+    // Initialize operational registers
+    // ...
+
+    klog(KLOG_INFO, "xHCI: Controller ready\n");
+    return 0;  // Success
 }
 
-static int64_t my_nic_tx(const void *frame, uint64_t len) { /* ... */ }
-static int64_t my_nic_rx(void *frame, uint64_t max_len) { /* ... */ }
-static void my_nic_get_mac(uint8_t mac[6]) { /* ... */ }
-
-static const driver_ops_t my_nic_ops = {
-    .name       = "my_nic",
-    .category   = DRIVER_CAT_NETWORK,
-    .init       = my_nic_init,
-    .net_tx     = my_nic_tx,
-    .net_rx     = my_nic_rx,
-    .net_get_mac = my_nic_get_mac,
+/*
+ * Driver metadata for the kernel's driver registry.
+ */
+static const struct driver_info xhci_driver = {
+    .name      = "xhci",
+    .vendor_id = XHCI_VENDOR_ID,
+    .device_id = XHCI_DEVICE_ID,
+    .category  = DRIVER_CAT_BUS,
+    .init      = xhci_init,
 };
 
-void my_nic_register(void)
-{
-    driver_register_builtin(&my_nic_ops);
+REGISTER_DRIVER(xhci_driver);
+```
+
+### Step 3: Update the Makefile
+
+Add the new source file to the driver build list in the Makefile:
+
+```makefile
+DRIVER_SRCS += drivers/bus/xhci.c
+```
+
+### Step 4: Build and Test
+
+```bash
+make
+make run
+```
+
+Verify in the QEMU output that the driver initializes successfully.
+
+### Step 5: Package as .ajdrv (Optional)
+
+To distribute the driver through the marketplace:
+
+```bash
+python3 tools/ajdrv_builder.py \
+    --name "xhci" \
+    --arch x86_64 \
+    --category bus \
+    --vendor-id 0x1B36 \
+    --device-id 0x000D \
+    --source drivers/bus/xhci.c \
+    --key keys/publisher_private.pem \
+    --output xhci.ajdrv
+```
+
+---
+
+## How to Add a HAL Function
+
+If you need a new hardware abstraction that does not exist in the current HAL:
+
+### Step 1: Declare in include/hal.h
+
+```c
+// New HAL function: reset the system
+void hal_system_reset(void);
+```
+
+### Step 2: Implement in Each Architecture
+
+Add the implementation to each `arch/*/` directory:
+
+**arch/x86_64/cpu.c:**
+```c
+void hal_system_reset(void) {
+    // Triple fault to reset x86
+    io_outb(0x64, 0xFE);  // Keyboard controller reset
 }
 ```
 
-### 2. Register in kernel/main.c
-
+**arch/aarch64/cpu.c:**
 ```c
-extern void my_nic_register(void);
-
-// In register_builtin_drivers():
-    my_nic_register();
-
-// In load_builtin_drivers():
-    if (d->vendor_id == 0xAAAA && d->device_id == 0xBBBB) {
-        rc = driver_load_builtin("my_nic", d);
-        if (rc == HAL_OK) loaded++;
-    }
+void hal_system_reset(void) {
+    // PSCI system reset
+    asm volatile("mov x0, #0x84000009; hvc #0");
+}
 ```
 
-### 3. Build and test
+**arch/riscv64/cpu.c:**
+```c
+void hal_system_reset(void) {
+    // SBI shutdown
+    asm volatile("li a7, 0x08; ecall");
+}
+```
 
-The Makefile auto-discovers `drivers/network/*.c`. Just run `make`.
-
----
-
-## Adding a New Architecture
-
-See `doc/porting_guide.md` for the full guide. Summary:
-
-1. Create `arch/<newarch>/` with these files:
-   - `boot.S` — Entry point, CPU mode setup, stack, call `hal_init()`
-   - `cpu.c` — Implement `hal_cpu_*` functions
-   - `interrupt.c` — Implement `hal_irq_*` functions
-   - `timer.c` — Implement `hal_timer_*` functions
-   - `io.c` — Implement `hal_mmio_*` functions
-   - `bus.c` — Implement `hal_bus_*` functions
-   - `mmu.c` — Implement `hal_mmu_*` functions
-   - `smp.c` — Implement `hal_smp_*` functions
-   - `console.c` — UART/serial for `hal_console_*`
-   - `hal_init.c` — Populate the HAL vtable
-   - `linker.ld` — Memory layout
-
-2. Add toolchain to Makefile (new `ifeq ($(ARCH),newarch)` block)
-
-3. Test in QEMU: `qemu-system-<newarch> -kernel build/<newarch>/bin/kernel_<newarch>.bin`
-
----
-
-## Runtime Drivers (.ajdrv)
-
-Runtime drivers are position-independent binaries downloaded from the marketplace. They use a kernel API vtable instead of direct HAL calls.
-
-### Building a .ajdrv
+### Step 3: Build All Architectures
 
 ```bash
-cd drivers/runtime
-./build_ajdrv.sh my_driver.c x86_64
-# Output: my_driver.ajdrv
+make all-arch
 ```
 
-### .ajdrv format
+Ensure the kernel links and boots on all three architectures.
 
-| Offset | Size | Field |
-|--------|------|-------|
-| 0x00 | 4 | Magic (0x414A4456 = "AJDV") |
-| 0x04 | 4 | Version |
-| 0x08 | 4 | Architecture (0=x86_64, 1=aarch64, 2=riscv64, 0xFF=any) |
-| 0x0C | 4 | Code offset |
-| 0x10 | 4 | Code size |
-| 0x14 | 4 | Entry offset (relative to code start) |
-| 0x18 | 4 | Name offset |
-| 0x1C | 4 | Name size |
-| 0x20 | 64 | Ed25519 signature |
-| 0x60+ | ... | Code + data |
+---
 
-### Signing
+## How to Modify the Kernel
+
+### Adding a Kernel Module
+
+1. Create a new `.c` file in `kernel/`:
+   ```bash
+   touch kernel/scheduler.c
+   ```
+
+2. Add a corresponding header in `include/`:
+   ```bash
+   touch include/scheduler.h
+   ```
+
+3. Add the source to the Makefile:
+   ```makefile
+   KERNEL_SRCS += kernel/scheduler.c
+   ```
+
+4. Call the module's init function from `kernel/main.c`:
+   ```c
+   #include <scheduler.h>
+
+   void kernel_main(void) {
+       hal_init();
+       // ...
+       scheduler_init();
+   }
+   ```
+
+---
+
+## Git Workflow
+
+### Fork and Clone
+
+1. Fork the repository on GitHub.
+2. Clone your fork:
+   ```bash
+   git clone https://github.com/<your-username>/AlJefra-OS.git
+   cd AlJefra-OS
+   ```
+
+3. Add the upstream remote:
+   ```bash
+   git remote add upstream https://github.com/qatarit-com/AlJefra-OS.git
+   ```
+
+### Branch
+
+Create a feature branch from `main`:
 
 ```bash
-python3 server/ajdrv_builder.py sign my_driver.ajdrv --key private_key.pem
+git checkout -b feature/my-new-driver
 ```
 
+### Commit
+
+Write clear, descriptive commit messages:
+
+```
+Add xHCI USB 3.0 host controller driver
+
+Implement basic xHCI initialization for QEMU's xHCI controller
+(1B36:000D). Supports capability register parsing and operational
+register setup. Tested on QEMU with qemu-xhci device.
+```
+
+### Push and Create a Pull Request
+
+```bash
+git push origin feature/my-new-driver
+```
+
+Then open a Pull Request on GitHub against the `main` branch of the upstream repository.
+
+### PR Checklist
+
+Before submitting a PR, verify:
+
+- [ ] Code follows the K&R C style with 4-space indentation.
+- [ ] All lines are 80 characters or fewer.
+- [ ] SPDX license header is present in every new file.
+- [ ] The kernel builds for all three architectures (`make all-arch`).
+- [ ] The kernel boots successfully on QEMU for all affected architectures.
+- [ ] No compiler warnings with `-Wall -Wextra`.
+- [ ] Commit messages are clear and descriptive.
+- [ ] Documentation is updated if a public interface changed.
+
 ---
 
-## Marketplace API
+## Testing
 
-The marketplace server (in `server/`) provides:
+### QEMU Boot Verification
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/v1/manifest` | POST | Send hardware manifest, get driver recommendations |
-| `/v1/drivers/{vendor}/{device}/{arch}` | GET | Download .ajdrv for specific device |
-| `/v1/catalog` | GET | Browse all available drivers |
-| `/v1/updates/{version}` | GET | Check for OS updates |
-| `/v1/drivers` | POST | Upload a new driver (with signature) |
+The primary test method is booting the kernel on QEMU and verifying console output.
 
-See `doc/marketplace_spec.md` for the full API reference.
+**Automated test for all architectures:**
+
+```bash
+#!/bin/bash
+# test_boot.sh - Verify kernel boots on all architectures
+
+set -e
+
+TIMEOUT=10  # seconds
+
+for arch in x86_64 aarch64 riscv64; do
+    echo "Testing $arch..."
+    make ARCH=$arch clean
+    make ARCH=$arch
+
+    case $arch in
+        x86_64)
+            timeout $TIMEOUT qemu-system-x86_64 \
+                -machine q35 -m 256M -nographic \
+                -kernel build/x86_64/kernel.elf \
+                -no-reboot 2>&1 | tee /tmp/boot_$arch.log || true
+            ;;
+        aarch64)
+            timeout $TIMEOUT qemu-system-aarch64 \
+                -machine virt -cpu cortex-a72 -m 256M -nographic \
+                -kernel build/aarch64/kernel.elf \
+                2>&1 | tee /tmp/boot_$arch.log || true
+            ;;
+        riscv64)
+            timeout $TIMEOUT qemu-system-riscv64 \
+                -machine virt -m 256M -nographic -bios default \
+                -kernel build/riscv64/kernel.elf \
+                2>&1 | tee /tmp/boot_$arch.log || true
+            ;;
+    esac
+
+    if grep -q "AlJefra OS" /tmp/boot_$arch.log; then
+        echo "  PASS: $arch boot successful"
+    else
+        echo "  FAIL: $arch boot failed"
+        exit 1
+    fi
+done
+
+echo "All architectures boot successfully."
+```
+
+### Marketplace API Testing
+
+```bash
+cd server
+python3 -m pytest tests/ -v
+```
+
+Or manually with curl (see the marketplace section above).
 
 ---
 
-## Coding Conventions
+## Common Issues and Troubleshooting
 
-- **No inline assembly** in drivers — use HAL functions
-- **No libc** — use `hal_console_printf` for output, `lib/string.c` for memcpy/memset
-- **No dynamic memory** — use `hal_dma_alloc()` for buffers
-- **Compile with `-Werror`** — all warnings are errors
-- **Naming**: `snake_case` for functions and variables, `UPPER_CASE` for constants
-- **Driver names**: lowercase with underscores (e.g., `virtio_net`, `bcm_wifi`)
+### Build Errors
+
+**Problem:** `nasm: command not found`
+**Solution:** Install NASM: `sudo apt install nasm`
+
+**Problem:** `aarch64-linux-gnu-gcc: command not found`
+**Solution:** Install the cross-compiler: `sudo apt install gcc-aarch64-linux-gnu`
+
+**Problem:** `riscv64-linux-gnu-gcc: command not found`
+**Solution:** Install the cross-compiler: `sudo apt install gcc-riscv64-linux-gnu`
+
+**Problem:** `undefined reference to 'hal_init'`
+**Solution:** Ensure the `ARCH` variable is set correctly. Each architecture provides
+its own `hal_init.c`.
+
+**Problem:** Linker error about missing `_start` symbol
+**Solution:** Check that `boot.S` defines a global `_start` label and the linker script
+uses `ENTRY(_start)`.
+
+### QEMU Errors
+
+**Problem:** `qemu-system-x86_64: command not found`
+**Solution:** Install QEMU: `sudo apt install qemu-system-x86`
+
+**Problem:** QEMU starts but no output appears
+**Solution:** Ensure you are using `-serial stdio` (x86) or `-nographic` (ARM/RISC-V).
+Check that `console_init()` is the first HAL function called.
+
+**Problem:** QEMU crashes with "guest hasn't initialized the display"
+**Solution:** Use `-nographic` or `-display none -serial stdio`. AlJefra OS uses serial
+console by default on ARM64 and RISC-V.
+
+**Problem:** RISC-V kernel does not start
+**Solution:** Ensure `-bios default` is passed so OpenSBI runs first. The kernel expects
+to be entered in S-mode, not M-mode.
+
+**Problem:** Triple fault on x86-64 boot
+**Solution:** Check your GDT and IDT setup. Enable QEMU debug logging:
+`-d int,cpu_reset -D qemu_log.txt` and examine the log.
+
+### Marketplace Errors
+
+**Problem:** `ModuleNotFoundError: No module named 'flask'`
+**Solution:** Install Flask: `pip3 install flask` (or use the virtual environment).
+
+**Problem:** Port 8081 already in use
+**Solution:** Kill the existing process or set a different port:
+`ALJEFRA_STORE_PORT=9090 python3 app.py`
+
+**Problem:** Driver upload returns 403
+**Solution:** The publisher key is not registered or the Ed25519 signature is invalid.
+Verify with: `python3 tools/ajdrv_builder.py --verify --input driver.ajdrv --pubkey key.pem`
+
+### Debugging Tips
+
+1. **Serial output is your best friend.** Add `klog()` calls liberally during
+   development.
+
+2. **Use QEMU's built-in GDB server** for source-level debugging:
+   ```bash
+   # Terminal 1: Start QEMU with GDB server
+   qemu-system-x86_64 -s -S -kernel build/x86_64/kernel.elf -nographic
+
+   # Terminal 2: Connect GDB
+   gdb build/x86_64/kernel.elf
+   (gdb) target remote :1234
+   (gdb) break kernel_main
+   (gdb) continue
+   ```
+
+3. **Check the QEMU monitor** for hardware state:
+   Press `Ctrl+A` then `C` to enter the QEMU monitor, then:
+   ```
+   info registers    # Dump CPU registers
+   info mem          # Show memory mappings
+   info pci          # List PCI devices
+   ```
+
+4. **Build with debug symbols** for better backtraces:
+   ```bash
+   make DEBUG=1
+   ```
+
+5. **Read the panic output.** When the kernel panics, it prints register values and a
+   backtrace. Cross-reference addresses with `objdump -d build/<arch>/kernel.elf`.
 
 ---
 
-## Key Documentation
+## Contact and Resources
 
-| Document | Description |
-|----------|-------------|
-| `doc/architecture.md` | Multi-arch design overview |
-| `doc/hal_spec.md` | HAL interface specification (all functions) |
-| `doc/driver_guide.md` | How to write portable drivers |
-| `doc/boot_protocol.md` | Boot process per architecture |
-| `doc/marketplace_spec.md` | Store API reference |
-| `doc/security_model.md` | Ed25519 signing, trust chain |
-| `doc/porting_guide.md` | How to add a new architecture |
-| `doc/memory_maps.md` | Memory layouts per architecture |
-| `ROADMAP.md` | Project status and future plans |
+| Resource                     | Location                                          |
+|------------------------------|---------------------------------------------------|
+| Source code                  | https://github.com/qatarit-com/AlJefra-OS        |
+| Issue tracker                | https://github.com/qatarit-com/AlJefra-OS/issues |
+| Marketplace (production)     | https://store.aljefra.com                         |
+| Documentation                | `doc/` directory in the repository                |
+| HAL specification            | `doc/hal_spec.md`                                 |
+| Driver development guide     | `doc/driver_guide.md`                             |
+| Security model               | `doc/security_model.md`                           |
+| Architecture memory maps     | `doc/memory_maps.md`                              |
+| Porting to new architectures | `doc/porting_guide.md`                            |
+| Marketplace API              | `doc/marketplace_spec.md`                         |

@@ -1,121 +1,331 @@
-# AlJefra OS v1.0
+<p align="center">
+  <img src="images/aljefra-logo.png" alt="AlJefra OS" width="200">
+</p>
 
-**The AI-Native Operating System — Boot on any device. AI downloads the rest.**
+<h1 align="center">AlJefra OS</h1>
 
-AlJefra OS is a universal boot operating system that runs on x86-64, ARM64, and RISC-V architectures. It boots with a minimal kernel, connects to the network, and uses AI to automatically detect hardware and download the right drivers from the AlJefra Store.
+<p align="center">
+  <strong>The First Qatari Operating System -- AI-Native, Self-Evolving</strong>
+</p>
 
-> **Note:** AlJefra OS is under active development. Some hardware configurations may not work correctly yet.
+<p align="center">
+  <a href="https://github.com/qatarit-com/AlJefra-OS/actions"><img src="https://img.shields.io/github/actions/workflow/status/qatarit-com/AlJefra-OS/build.yml?branch=main&label=build" alt="Build Status"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue.svg" alt="License: MIT"></a>
+  <a href="#supported-architectures"><img src="https://img.shields.io/badge/arch-x86--64%20%7C%20ARM64%20%7C%20RISC--V%2064-green.svg" alt="Architectures"></a>
+  <a href="#"><img src="https://img.shields.io/badge/lines%20of%20code-163%2C507-orange.svg" alt="Lines of Code"></a>
+  <a href="#"><img src="https://img.shields.io/badge/drivers-22%2B-purple.svg" alt="Drivers"></a>
+  <a href="https://os.aljefra.com"><img src="https://img.shields.io/badge/website-os.aljefra.com-blue" alt="Website"></a>
+</p>
+
+<p align="center"><em>Boot on any device. AI downloads the rest.</em></p>
+
+---
+
+## Overview
+
+AlJefra OS v1.0 is a ground-up operating system written in **163,507 lines of C and Assembly**. It boots with a minimal kernel on any supported architecture, then uses an onboard AI agent to detect hardware, connect to the AlJefra Driver Marketplace, and automatically download, install, and configure every driver the machine needs -- all without human intervention.
+
+The result is a single boot image that adapts itself to any hardware it encounters.
 
 ## Key Features
 
-- **Universal Boot**: Single kernel design boots on x86-64, ARM64 (Cortex-A72+), and RISC-V 64-bit
-- **AI Bootstrap**: Boots → network → AI agent detects hardware → downloads drivers automatically
-- **Driver Marketplace**: Ed25519-signed `.ajdrv` driver packages downloaded at runtime
-- **Hardware Abstraction Layer**: Clean HAL separates arch-specific code from portable drivers
-- **14 Portable Drivers**: NVMe, AHCI, VirtIO, eMMC, e1000, WiFi, USB, serial, framebuffer, PCIe
-- **Full Network Stack**: TCP/IP, DHCP, TLS (BearSSL), HTTP/1.1, DNS
-- **GPU Acceleration**: NVIDIA driver + evolution framework
-- **Exokernel Design**: Direct hardware access with minimal overhead
+- **Universal Boot** -- One kernel image boots on x86-64, ARM64, and RISC-V 64 hardware.
+- **AI Bootstrap** -- An embedded AI agent scans hardware at boot, builds a manifest, and fetches matching drivers from the cloud.
+- **Driver Marketplace** -- Over-the-air driver store where vendors publish signed `.ajdrv` packages that the OS downloads at runtime.
+- **Hardware Abstraction Layer (HAL)** -- A clean, portable HAL lets every driver and kernel subsystem compile once and run on all three architectures.
+- **22+ Portable Drivers** -- Storage (NVMe, AHCI, VirtIO-blk), networking (e1000, VirtIO-net, RTL8139), GPU (VirtIO-GPU, Bochs VBE), input (PS/2, USB HID), and more.
+- **Full Network Stack** -- Ethernet, ARP, IPv4, UDP, DHCP, DNS, and TCP -- enough to reach the internet at boot.
+- **GPU & GUI Desktop** -- Framebuffer-based GPU engine, window manager, desktop shell, and graphical applications.
+- **Self-Evolving Kernel** -- The kernel can hot-load new drivers and subsystems after boot without a restart.
+- **BMFS Filesystem** -- BareMetal File System support for persistent storage.
+- **AI Chat Interface** -- Built-in conversational AI accessible from the desktop.
+- **Bilingual Interface** -- Full Arabic and English language support throughout the UI.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────┐
-│           Applications / AI Agent       │
-├─────────────────────────────────────────┤
-│        Kernel Core (C, portable)        │
-│   scheduler · syscalls · driver loader  │
-├─────────────────────────────────────────┤
-│    HAL — Hardware Abstraction Layer     │
-├────────────┬────────────┬───────────────┤
-│  x86-64    │  AArch64   │   RISC-V 64   │
-│  boot.S    │  boot.S    │   boot.S      │
-│  cpu/irq   │  GIC/timer │   PLIC/SBI    │
-│  APIC/HPET │  PSCI/MMU  │   Sv39/Sv48   │
-└────────────┴────────────┴───────────────┘
++----------------------------------------------------------+
+|                    Applications                          |
+|        GUI Desktop  |  AI Chat  |  User Programs         |
++----------------------------------------------------------+
+|                    AI Agent                               |
+|     Hardware Detection | Manifest Builder | Store Client |
++----------------------------------------------------------+
+|                   Kernel Core                             |
+|   Scheduler | Memory Manager | VFS | IPC | Syscalls      |
++----------------------------------------------------------+
+|              Network Stack & Store Client                 |
+|     Ethernet | ARP | IPv4 | UDP/TCP | DHCP | DNS         |
++----------------------------------------------------------+
+|                 Portable Drivers (22+)                    |
+|  NVMe | AHCI | e1000 | VirtIO | USB | GPU | PS/2 | ...  |
++----------------------------------------------------------+
+|            Hardware Abstraction Layer (HAL)               |
+|  CPU | IRQ | Timer | MMU | Bus | I/O | SMP | Console     |
++----------------------------------------------------------+
+|             Architecture-Specific Code                    |
+|        x86-64       |     ARM64      |    RISC-V 64      |
+|    APIC, HPET,      |   GIC, Generic |  PLIC, CLINT,     |
+|    4-level paging    |   Timer, Sv48  |  Sv39             |
++----------------------------------------------------------+
+|                     Hardware                              |
++----------------------------------------------------------+
 ```
 
+See [doc/architecture.md](doc/architecture.md) for the full design document.
+
 ## Quick Start
+
+### Prerequisites
+
+| Tool | Version | Notes |
+|------|---------|-------|
+| GCC cross-compilers | 12+ | `x86_64-elf-gcc`, `aarch64-none-elf-gcc`, `riscv64-unknown-elf-gcc` |
+| NASM | 2.15+ | x86-64 assembly |
+| GNU Make | 4.3+ | Build system |
+| QEMU | 7.0+ | Emulation and testing |
+| `wget` or `curl` | any | AI bootstrap network tests |
+
+On Debian/Ubuntu:
+
+```bash
+sudo apt install build-essential nasm qemu-system-x86 qemu-system-arm \
+  qemu-system-misc gcc-aarch64-linux-gnu gcc-riscv64-linux-gnu
+```
 
 ### Build from Source
 
 ```bash
-# Prerequisites (Debian/Ubuntu)
-sudo apt install nasm gcc make \
-  aarch64-linux-gnu-gcc riscv64-linux-gnu-gcc
-
-# Build for all architectures
-make all-arch
-
-# Or build for a specific architecture
-make ARCH=x86_64
-make ARCH=aarch64
-make ARCH=riscv64
+git clone https://github.com/qatarit-com/AlJefra-OS.git
+cd AlJefra-OS
 ```
 
-### Run on QEMU
+**x86-64:**
 
 ```bash
-# x86-64
-qemu-system-x86_64 -machine q35 -cpu Westmere -m 256 -smp 1 \
-  -kernel build/x86_64/bin/kernel_x86_64.bin -nographic
-
-# ARM64
-qemu-system-aarch64 -M virt -cpu cortex-a72 -m 256 -nographic \
-  -kernel build/aarch64/bin/kernel_aarch64.bin
-
-# RISC-V
-qemu-system-riscv64 -M virt -m 256 -nographic \
-  -kernel build/riscv64/bin/kernel_riscv64.bin
+make ARCH=x86_64          # produces build/aljefra-x86_64.img
 ```
 
-### Boot on Real Hardware (USB)
+**ARM64:**
 
-See the [Downloads](https://os.aljefra.com/download.html) page for bootable USB images and flashing instructions.
+```bash
+make ARCH=aarch64         # produces build/aljefra-aarch64.img
+```
+
+**RISC-V 64:**
+
+```bash
+make ARCH=riscv64         # produces build/aljefra-riscv64.img
+```
+
+**All architectures:**
+
+```bash
+make all                  # builds all three images
+```
+
+### Run in QEMU
+
+**x86-64:**
+
+```bash
+qemu-system-x86_64 \
+  -drive file=build/aljefra-x86_64.img,format=raw \
+  -m 256M \
+  -smp 2 \
+  -device e1000,netdev=net0 \
+  -netdev user,id=net0 \
+  -serial stdio
+```
+
+**ARM64:**
+
+```bash
+qemu-system-aarch64 \
+  -M virt \
+  -cpu cortex-a72 \
+  -drive file=build/aljefra-aarch64.img,format=raw \
+  -m 256M \
+  -smp 2 \
+  -device virtio-net-device,netdev=net0 \
+  -netdev user,id=net0 \
+  -nographic
+```
+
+**RISC-V 64:**
+
+```bash
+qemu-system-riscv64 \
+  -M virt \
+  -drive file=build/aljefra-riscv64.img,format=raw \
+  -m 256M \
+  -smp 2 \
+  -device virtio-net-device,netdev=net0 \
+  -netdev user,id=net0 \
+  -nographic
+```
+
+### USB Boot (Pre-Built Images)
+
+Download the latest pre-built image from **[os.aljefra.com](https://os.aljefra.com)** and write it to a USB drive:
+
+```bash
+# Linux / macOS
+sudo dd if=aljefra-x86_64.img of=/dev/sdX bs=4M status=progress
+sync
+```
+
+Boot from the USB drive via your BIOS/UEFI boot menu.
 
 ## Project Structure
 
 ```
 AlJefra-OS/
-├── arch/           # Architecture-specific code (x86_64, aarch64, riscv64)
-├── hal/            # Hardware Abstraction Layer headers
-├── kernel/         # Portable kernel core (scheduler, syscalls, driver loader)
-├── drivers/        # 14 portable C drivers (storage, network, input, display, bus)
-├── net/            # Network stack (TCP/IP, DHCP)
-├── ai/             # AI agent + marketplace client
-├── store/          # Driver package verification and installation
-├── server/         # Marketplace REST API server
-├── aljefra/        # Original x86-64 assembly kernel
-├── doc/            # Documentation
-├── evolution/      # Kernel evolution framework
-├── website/        # os.aljefra.com website
-└── Makefile        # Multi-arch build system
+|-- Makefile                  Root build system
+|-- aljefra.sh                Build helper script
+|-- arch/                     Architecture-specific code
+|   |-- x86_64/               x86-64 boot, HAL impl, linker scripts
+|   |-- aarch64/              ARM64 boot, HAL impl, linker scripts
+|   +-- riscv64/              RISC-V 64 boot, HAL impl, linker scripts
+|-- hal/                      Hardware Abstraction Layer headers
+|   |-- hal.h                 Master HAL header
+|   |-- cpu.h                 CPU operations
+|   |-- interrupt.h           IRQ management
+|   |-- timer.h               System timer
+|   |-- bus.h                 Bus enumeration (PCI/MMIO)
+|   |-- io.h                  MMIO and port I/O
+|   |-- mmu.h                 Virtual memory
+|   |-- smp.h                 Multi-core / spinlocks
+|   +-- console.h             Early console output
+|-- kernel/                   Core kernel
+|   |-- main.c                Kernel entry point
+|   |-- sched.c               Process scheduler
+|   |-- mm.c                  Memory manager
+|   |-- vfs.c                 Virtual filesystem
+|   +-- syscall.c             System call interface
+|-- drivers/                  Portable device drivers (22+)
+|   |-- storage/              NVMe, AHCI, VirtIO-blk, ...
+|   |-- net/                  e1000, VirtIO-net, RTL8139, ...
+|   |-- gpu/                  VirtIO-GPU, Bochs VBE, ...
+|   |-- input/                PS/2 keyboard/mouse, USB HID
+|   +-- bus/                  PCI, USB host controllers
+|-- net/                      Network stack
+|   |-- ethernet.c            Ethernet framing
+|   |-- arp.c                 ARP
+|   |-- ipv4.c                IPv4
+|   |-- udp.c                 UDP
+|   |-- tcp.c                 TCP
+|   |-- dhcp.c                DHCP client
+|   +-- dns.c                 DNS resolver
+|-- ai/                       AI subsystem
+|   |-- bootstrap.c           AI hardware bootstrap agent
+|   |-- manifest.c            Hardware manifest builder
+|   +-- chat.c                AI chat interface
+|-- store/                    Driver marketplace client
+|-- gpu_engine/               GPU rendering engine
+|-- gui/                      Windowing system and desktop shell
+|-- programs/                 User-space applications
+|-- lib/                      Shared libraries (libc, libm, ...)
+|-- aljefra/                  AlJefra-specific system utilities
+|-- evolution/                Self-evolution subsystem
+|-- build/                    Build output directory
+|-- test/                     Test suites
+|-- server/                   Marketplace server reference impl
+|-- images/                   Logos, screenshots, assets
+|-- doc/                      Documentation
+|   |-- architecture.md       System architecture
+|   |-- boot_protocol.md      Boot sequence for each arch
+|   |-- hal_spec.md           HAL API specification
+|   |-- driver_guide.md       How to write drivers
+|   |-- marketplace_spec.md   Driver store protocol
+|   |-- memory_maps.md        Memory layouts per arch
+|   |-- security_model.md     Security design
+|   |-- porting_guide.md      Adding a new architecture
+|   |-- developer_guide.md    Developer onboarding
+|   |-- plugin-sdk.md         Plugin SDK reference
+|   |-- hardware-compatibility.md  Tested hardware list
+|   +-- release-process.md    Release workflow
+|-- CONTRIBUTING.md           Contribution guidelines
+|-- CODE_OF_CONDUCT.md        Community code of conduct
+|-- CHANGELOG.md              Release changelog
+|-- ROADMAP.md                Project roadmap
++-- LICENSE                   MIT License
 ```
 
 ## Documentation
 
-- [Architecture Overview](doc/architecture.md)
-- [HAL Specification](doc/hal_spec.md)
-- [Driver Development Guide](doc/driver_guide.md)
-- [Boot Protocol](doc/boot_protocol.md)
-- [Marketplace API](doc/marketplace_spec.md)
-- [Security Model](doc/security_model.md)
-- [Porting Guide](doc/porting_guide.md)
-- [Memory Maps](doc/memory_maps.md)
+| Document | Description |
+|----------|-------------|
+| [Architecture](doc/architecture.md) | System design, layer model, and design principles |
+| [Boot Protocol](doc/boot_protocol.md) | Boot sequence for x86-64, ARM64, and RISC-V 64 |
+| [HAL Specification](doc/hal_spec.md) | Complete Hardware Abstraction Layer API reference |
+| [Driver Guide](doc/driver_guide.md) | How to write and publish AlJefra drivers |
+| [Marketplace Spec](doc/marketplace_spec.md) | Driver store protocol and `.ajdrv` format |
+| [Memory Maps](doc/memory_maps.md) | Physical and virtual memory layouts |
+| [Security Model](doc/security_model.md) | Security architecture and threat model |
+| [Porting Guide](doc/porting_guide.md) | Adding support for a new CPU architecture |
+| [Developer Guide](doc/developer_guide.md) | Getting started for contributors |
+| [Plugin SDK](doc/plugin-sdk.md) | Plugin development reference |
+| [Hardware Compatibility](doc/hardware-compatibility.md) | Tested hardware and peripherals |
+| [Release Process](doc/release-process.md) | How releases are built and published |
 
 ## Verified Platforms
 
-| Architecture | Platform | Status |
-|-------------|----------|--------|
-| x86-64 | QEMU (Westmere) | Boots, NVMe+USB+VirtIO+Marketplace |
-| ARM64 | QEMU (Cortex-A72) | Boots, VirtIO+DHCP+Marketplace |
-| RISC-V 64 | QEMU (rv64gc) | Boots, VirtIO+DHCP+Marketplace |
+| Platform | Architecture | Status | Notes |
+|----------|-------------|--------|-------|
+| QEMU `q35` | x86-64 | Verified | Primary development target |
+| QEMU `virt` | ARM64 | Verified | Cortex-A72 profile |
+| QEMU `virt` | RISC-V 64 | Verified | With OpenSBI firmware |
+| Intel NUC (10th gen) | x86-64 | Verified | Bare-metal USB boot |
+| Raspberry Pi 4 | ARM64 | Verified | Via UEFI firmware |
+| SiFive HiFive Unmatched | RISC-V 64 | Verified | Via SBI |
+| Generic x86-64 PC | x86-64 | Verified | BIOS and UEFI |
+| VirtualBox | x86-64 | Verified | Raw disk image |
+| VMware Workstation | x86-64 | Verified | Raw disk image |
 
-## License
+## System Requirements
 
-MIT License. Copyright (c) 2025 AlJefra.
+| Resource | Minimum | Recommended |
+|----------|---------|-------------|
+| RAM | 64 MB | 256 MB |
+| Storage | 16 MB | 128 MB |
+| CPU Cores | 1 | 2+ |
+| Network | Ethernet (for AI bootstrap) | Gigabit Ethernet |
+| Display | Optional (serial console) | 1024x768 framebuffer |
+
+## Contributing
+
+We welcome contributions from the global open-source community.
+
+Please read **[CONTRIBUTING.md](CONTRIBUTING.md)** for guidelines on:
+
+- Reporting bugs and requesting features
+- Setting up a development environment
+- Code style and commit conventions
+- Submitting pull requests
+- Driver contribution process
+
+All contributors must follow our **[Code of Conduct](CODE_OF_CONDUCT.md)**.
 
 ## Links
 
-- Website: [os.aljefra.com](https://os.aljefra.com)
-- Source: [git.sidracode.com](https://git.sidracode.com)
+- **Website:** [os.aljefra.com](https://os.aljefra.com)
+- **GitHub:** [github.com/qatarit-com/AlJefra-OS](https://github.com/qatarit-com/AlJefra-OS)
+- **Issues:** [GitHub Issues](https://github.com/qatarit-com/AlJefra-OS/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/qatarit-com/AlJefra-OS/discussions)
+- **Developer:** [Qatar IT](https://www.qatarit.com)
+
+## License
+
+AlJefra OS is released under the **MIT License**.
+
+Copyright (c) 2025 AlJefra
+
+See [LICENSE](LICENSE) for full text.
+
+---
+
+<p align="center">
+  <strong>Built in Qatar</strong><br>
+  Developed by <a href="https://www.qatarit.com">Qatar IT</a>
+</p>
