@@ -124,7 +124,8 @@ ALL_OBJS = $(ARCH_S_OBJS) $(ARCH_C_OBJS) $(PLATFORM_OBJS) $(KERNEL_OBJS) \
 
 # ── Targets ──
 
-.PHONY: all clean all-arch info check-docs sign verify keygen patch-elf gen-roadmap
+.PHONY: all clean all-arch info check-docs sign verify keygen patch-elf gen-roadmap docs \
+       iso test-bios test-uefi test-boot
 
 all: $(KERNEL_BIN)
 	@echo "Built $(KERNEL_BIN) for $(ARCH)"
@@ -180,6 +181,79 @@ check-docs:
 # Auto-generate website/roadmap.html from ROADMAP.md
 gen-roadmap:
 	@python3 tools/gen_roadmap.py
+
+# Unified documentation pipeline: regenerate + validate + fix
+docs:
+	@echo "=== Regenerating roadmap.html from ROADMAP.md ==="
+	@python3 tools/gen_roadmap.py
+	@echo "=== Checking all documentation for consistency ==="
+	@python3 tools/doc_check.py --fix --verbose
+	@echo "=== Documentation pipeline complete ==="
+
+# ── ISO & Boot Testing (x86_64 only) ──
+
+ISO_STAGING := /tmp/aljefra_iso_build
+ISO_VERSION := $(shell cat VERSION 2>/dev/null || echo 0.0.0)
+ISO_OUT     := website/aljefra_os_v$(ISO_VERSION).iso
+
+# Build bootable ISO (requires grub-mkrescue, xorriso, mtools)
+iso: $(KERNEL_BIN)
+	@echo "=== Building ISO v$(ISO_VERSION) ==="
+	@rm -rf $(ISO_STAGING)
+	@mkdir -p $(ISO_STAGING)/boot/grub/fonts
+	@cp $(KERNEL_BIN) $(ISO_STAGING)/boot/aljefra.bin
+	@cp boot/grub.cfg $(ISO_STAGING)/boot/grub/grub.cfg
+	@for f in /usr/share/grub/unicode.pf2 /usr/share/grub2/unicode.pf2; do \
+		[ -f "$$f" ] && cp "$$f" $(ISO_STAGING)/boot/grub/fonts/ && break; \
+	done; true
+	grub-mkrescue -o $(ISO_OUT) $(ISO_STAGING) 2>&1 | tail -1
+	@ls -lh $(ISO_OUT)
+	@md5sum $(ISO_OUT)
+
+# BIOS boot test — boots raw kernel in QEMU, checks serial output
+test-bios: $(KERNEL_BIN)
+	@echo "=== BIOS Boot Test (QEMU) ==="
+	@rm -f /tmp/aljefra_test_bios.log
+	@timeout 15s qemu-system-x86_64 \
+		-kernel $(KERNEL_BIN) \
+		-serial file:/tmp/aljefra_test_bios.log \
+		-display none -no-reboot -m 128M 2>/dev/null || true
+	@grep -q "Console initialized" /tmp/aljefra_test_bios.log \
+		&& echo "  PASS: console initialized" \
+		|| { echo "  FAIL: console not initialized"; cat /tmp/aljefra_test_bios.log; exit 1; }
+	@grep -q "AlJefra OS" /tmp/aljefra_test_bios.log \
+		&& echo "  PASS: kernel banner" \
+		|| { echo "  FAIL: no kernel banner"; exit 1; }
+	@echo "=== BIOS boot test passed ==="
+	@rm -f /tmp/aljefra_test_bios.log
+
+# UEFI boot test — boots ISO in QEMU+OVMF, checks framebuffer + serial
+# Requires: qemu-system-x86, ovmf, grub-mkrescue, xorriso, mtools
+test-uefi: iso
+	@echo "=== UEFI Boot Test (QEMU + OVMF) ==="
+	@rm -f /tmp/aljefra_test_uefi.log /tmp/aljefra_test_vars.fd
+	@cp /usr/share/OVMF/OVMF_VARS_4M.fd /tmp/aljefra_test_vars.fd
+	@timeout 25s qemu-system-x86_64 -machine q35 \
+		-drive if=pflash,format=raw,readonly=on,file=/usr/share/OVMF/OVMF_CODE_4M.fd \
+		-drive if=pflash,format=raw,file=/tmp/aljefra_test_vars.fd \
+		-cdrom $(ISO_OUT) \
+		-serial file:/tmp/aljefra_test_uefi.log \
+		-display none -no-reboot -m 256M -boot d 2>/dev/null || true
+	@grep -q "lfb=yes" /tmp/aljefra_test_uefi.log \
+		&& echo "  PASS: framebuffer initialized" \
+		|| { echo "  FAIL: no framebuffer"; cat /tmp/aljefra_test_uefi.log; exit 1; }
+	@grep -q "Console initialized" /tmp/aljefra_test_uefi.log \
+		&& echo "  PASS: console initialized" \
+		|| { echo "  FAIL: console not initialized"; exit 1; }
+	@grep -q "AlJefra OS" /tmp/aljefra_test_uefi.log \
+		&& echo "  PASS: kernel banner" \
+		|| { echo "  FAIL: no kernel banner"; exit 1; }
+	@echo "=== UEFI boot test passed ==="
+	@rm -f /tmp/aljefra_test_uefi.log /tmp/aljefra_test_vars.fd
+
+# Run both BIOS and UEFI boot tests
+test-boot: test-bios test-uefi
+	@echo "=== All boot tests passed ==="
 
 # ── Secure Boot Signing ──
 
