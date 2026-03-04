@@ -49,16 +49,16 @@
         </div>
 
         <div class="download-box">
-            <h3>Bootable ISO (standalone)</h3>
+            <h3>Bootable ISO (standalone) &mdash; v1.0.2</h3>
             <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                 GRUB2 bootable ISO image. Write to USB with Balena Etcher, Rufus, <code>dd</code>, or boot directly in QEMU.
             </p>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
+                <strong>Version:</strong> 1.0.2 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
             </p>
-            <a href="aljefra_os_v1.0.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.iso</a>
+            <a href="aljefra_os_v1.0.2.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.2.iso</a>
             <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-                MD5: 4434195ac74bce6c0596a38bfabdf158 | Updated 2026-03-04
+                MD5: ed161449362b30240692f9cd19949b6f | Updated 2026-03-04
             </p>
         </div>
     </section>
@@ -172,9 +172,9 @@ sync</code></pre>
             The AlJefra OS boot menu provides four options:
         </p>
         <ul style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-            <li><strong>AlJefra OS v1.0</strong> &mdash; Normal boot at 1024x768. Try this first.</li>
-            <li><strong>Safe Video (800x600)</strong> &mdash; Lower resolution for laptops with display compatibility issues.</li>
-            <li><strong>Text Mode</strong> &mdash; Basic VGA text output. Works on all hardware.</li>
+            <li><strong>AlJefra OS v1.0.2</strong> &mdash; Text mode boot (default). Works on all hardware.</li>
+            <li><strong>Graphical 1024x768</strong> &mdash; Framebuffer mode at 1024x768 for graphical output.</li>
+            <li><strong>Graphical 800x600</strong> &mdash; Lower resolution for laptops with display compatibility issues.</li>
             <li><strong>Serial Console</strong> &mdash; Headless mode for debugging via COM1 (115200 8N1).</li>
         </ul>
 
@@ -332,9 +332,36 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
         <p>Read our <a href="https://github.com/qatarit-com/AlJefra-OS/blob/main/CONTRIBUTING.md" target="_blank">Contributing Guide</a> for code style, PR process, and review guidelines.</p>
     </section>
 
+    <!-- Version History -->
+    <section class="section">
+        <h2>Version History</h2>
+        <table>
+            <thead>
+                <tr><th>Version</th><th>Date</th><th>Changes</th></tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><strong>v1.0.2</strong></td>
+                    <td>2026-03-04</td>
+                    <td>Fix GRUB boot for UEFI laptops: text console default, proper video module loading. Add Balena Etcher/Rufus instructions, BIOS setup guide, troubleshooting section. GUI widget system, desktop enhancements.</td>
+                </tr>
+                <tr>
+                    <td><strong>v1.0.1</strong></td>
+                    <td>2026-03-04</td>
+                    <td>Fix GRUB video modules for real hardware (added all_video, vbe, vga). Add fallback video modes and multiple boot options.</td>
+                </tr>
+                <tr>
+                    <td><strong>v1.0.0</strong></td>
+                    <td>2026-02-27</td>
+                    <td>Initial release. x86-64 kernel with AI bootstrap, driver marketplace, TCP/IP + TLS networking, 22+ drivers, GUI desktop.</td>
+                </tr>
+            </tbody>
+        </table>
+    </section>
+
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 AlJefra OS v1.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p>&copy; 2026 AlJefra OS v1.0.2 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
         <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> — <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>
