@@ -138,54 +138,6 @@ static char serial_getc(void)
 }
 
 /* -------------------------------------------------------------------------- */
-/* Debug serial output (unconditional, no serial_available check)             */
-/* -------------------------------------------------------------------------- */
-
-static void dbg_serial_str(const char *s)
-{
-    while (*s) {
-        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
-            __asm__ volatile ("pause");
-        if (*s == '\n') outb(COM1_DATA, '\r');
-        outb(COM1_DATA, (uint8_t)*s++);
-    }
-}
-
-static void dbg_serial_hex(uint64_t val)
-{
-    static const char hex[] = "0123456789abcdef";
-    char buf[17];
-    int pos = 0;
-    if (val == 0) { dbg_serial_str("0"); return; }
-    while (val) { buf[pos++] = hex[val & 0xF]; val >>= 4; }
-    for (int i = pos - 1; i >= 0; i--) {
-        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
-            __asm__ volatile ("pause");
-        outb(COM1_DATA, (uint8_t)buf[i]);
-    }
-}
-
-static void dbg_serial_dec(uint32_t val)
-{
-    char buf[11];
-    int pos = 0;
-    if (val == 0) { dbg_serial_str("0"); return; }
-    while (val) { buf[pos++] = '0' + (char)(val % 10); val /= 10; }
-    for (int i = pos - 1; i >= 0; i--) {
-        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
-            __asm__ volatile ("pause");
-        outb(COM1_DATA, (uint8_t)buf[i]);
-    }
-}
-
-/* -------------------------------------------------------------------------- */
-/* Framebuffer memory type notes                                              */
-/* -------------------------------------------------------------------------- */
-/* MTRR Write-Combining was attempted but causes triple-fault on real UEFI
- * hardware (firmware occupies all MTRR slots, wrmsr triggers #GP).
- * The 64-bit bulk operations in lfb.c provide the main software speedup. */
-
-/* -------------------------------------------------------------------------- */
 /* Framebuffer init from multiboot info                                       */
 /* -------------------------------------------------------------------------- */
 
@@ -280,6 +232,45 @@ static void framebuffer_init(void)
 /* -------------------------------------------------------------------------- */
 /* HAL Console API                                                            */
 /* -------------------------------------------------------------------------- */
+
+/* Debug: unconditional serial print (doesn't require serial_available).
+ * Used during early boot to log framebuffer info for diagnostics. */
+static void dbg_serial_str(const char *s)
+{
+    while (*s) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        if (*s == '\n') outb(COM1_DATA, '\r');
+        outb(COM1_DATA, (uint8_t)*s++);
+    }
+}
+
+static void dbg_serial_hex(uint64_t val)
+{
+    static const char hex[] = "0123456789abcdef";
+    char buf[17];
+    int pos = 0;
+    if (val == 0) { dbg_serial_str("0"); return; }
+    while (val) { buf[pos++] = hex[val & 0xF]; val >>= 4; }
+    for (int i = pos - 1; i >= 0; i--) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        outb(COM1_DATA, (uint8_t)buf[i]);
+    }
+}
+
+static void dbg_serial_dec(uint32_t val)
+{
+    char buf[11];
+    int pos = 0;
+    if (val == 0) { dbg_serial_str("0"); return; }
+    while (val) { buf[pos++] = '0' + (char)(val % 10); val /= 10; }
+    for (int i = pos - 1; i >= 0; i--) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        outb(COM1_DATA, (uint8_t)buf[i]);
+    }
+}
 
 hal_status_t hal_console_init(void)
 {

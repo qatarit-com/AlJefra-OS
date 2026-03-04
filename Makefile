@@ -58,7 +58,6 @@ endif
 CFLAGS += -ffreestanding -fno-stack-protector -fno-pic -fno-pie \
           -nostdinc -nostdlib -Wall -Wextra -Werror \
           -Wno-unused-parameter -Wno-unused-function \
-          -mno-sse -mno-sse2 -mno-mmx \
           -O2 -g -Ihal -I. \
           -isystem $(shell $(CC) -print-file-name=include)
 
