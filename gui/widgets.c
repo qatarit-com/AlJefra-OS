@@ -112,6 +112,47 @@ static void widget_compute_abs(widget_t *w)
 #define CURSOR_BLINK_RATE 25
 
 /* ======================================================================
+ * Terminal static buffers (single instance — no malloc)
+ * ====================================================================== */
+
+static char    g_term_cells[TERM_BUF_ROWS][TERM_COLS_MAX];
+static uint8_t g_term_attrs[TERM_BUF_ROWS][TERM_COLS_MAX];
+static char    g_term_input[TERM_INPUT_MAX];
+static char    g_term_input_save[TERM_INPUT_MAX];
+static int     g_term_input_save_len;
+static char    g_term_history[TERM_HISTORY_MAX][TERM_INPUT_MAX];
+static char    g_term_prompt[TERM_PROMPT_MAX] = "$ ";
+static int     g_term_prompt_len = 2;
+
+/* ANSI color palette (16 colors, matching AlJefra dark theme) */
+static const uint32_t g_ansi_colors[16] = {
+    0x0D1117,  /*  0: Black       */
+    0xF85149,  /*  1: Red         */
+    0x3FB950,  /*  2: Green       */
+    0xD29922,  /*  3: Yellow      */
+    0x58A6FF,  /*  4: Blue        */
+    0xBC8CFF,  /*  5: Magenta     */
+    0x39D2E0,  /*  6: Cyan        */
+    0xC9D1D9,  /*  7: White       */
+    0x484F58,  /*  8: Bright Blk  */
+    0xFF7B72,  /*  9: Bright Red  */
+    0x56D364,  /* 10: Bright Grn  */
+    0xE3B341,  /* 11: Bright Yel  */
+    0x79C0FF,  /* 12: Bright Blu  */
+    0xD2A8FF,  /* 13: Bright Mag  */
+    0x56D4E0,  /* 14: Bright Cyn  */
+    0xFFFFFF,  /* 15: Bright Wht  */
+};
+
+#define TERM_DEFAULT_ATTR  0x07  /* White on black  */
+#define TERM_PROMPT_ATTR   0x02  /* Green on black  */
+
+/* ANSI escape parser states */
+#define ESC_NONE     0
+#define ESC_GOT_ESC  1
+#define ESC_CSI      2
+
+/* ======================================================================
  * Panel drawing
  * ====================================================================== */
 
@@ -512,6 +553,554 @@ static void draw_scrollbar(widget_t *w)
 }
 
 /* ======================================================================
+ * Terminal internals
+ * ====================================================================== */
+
+/* Process SGR (Select Graphic Rendition) escape sequence */
+static void term_process_sgr(terminal_data_t *td)
+{
+    if (td->esc_nparam == 0) {
+        td->cur_attr = TERM_DEFAULT_ATTR;
+        return;
+    }
+    for (int i = 0; i < td->esc_nparam; i++) {
+        int p = td->esc_params[i];
+        uint8_t fg = td->cur_attr & 0x0F;
+        uint8_t bg = (td->cur_attr >> 4) & 0x0F;
+
+        if (p == 0)           { fg = 7; bg = 0; }
+        else if (p == 1)      { fg |= 8; }              /* bold=bright */
+        else if (p >= 30 && p <= 37)   { fg = (fg & 8) | (uint8_t)(p - 30); }
+        else if (p >= 40 && p <= 47)   { bg = (uint8_t)(p - 40); }
+        else if (p >= 90 && p <= 97)   { fg = (uint8_t)(p - 90) + 8; }
+        else if (p >= 100 && p <= 107) { bg = (uint8_t)(p - 100) + 8; }
+
+        td->cur_attr = (bg << 4) | fg;
+    }
+}
+
+/* Scroll the terminal buffer up by one row */
+static void term_scroll_up(terminal_data_t *td)
+{
+    for (int r = 0; r < TERM_BUF_ROWS - 1; r++)
+        for (int c = 0; c < TERM_COLS_MAX; c++) {
+            g_term_cells[r][c] = g_term_cells[r + 1][c];
+            g_term_attrs[r][c] = g_term_attrs[r + 1][c];
+        }
+
+    int last = TERM_BUF_ROWS - 1;
+    for (int c = 0; c < TERM_COLS_MAX; c++) {
+        g_term_cells[last][c] = ' ';
+        g_term_attrs[last][c] = TERM_DEFAULT_ATTR;
+    }
+
+    if (td->buf_used > TERM_BUF_ROWS)
+        td->buf_used = TERM_BUF_ROWS;
+    td->cursor_row = TERM_BUF_ROWS - 1;
+}
+
+/* Write a raw character to the buffer at cursor position */
+static void term_raw_putc(terminal_data_t *td, char c)
+{
+    if (c == '\n') {
+        td->cursor_col = 0;
+        td->cursor_row++;
+        if (td->cursor_row >= TERM_BUF_ROWS)
+            term_scroll_up(td);
+        if (td->cursor_row >= td->buf_used)
+            td->buf_used = td->cursor_row + 1;
+        return;
+    }
+    if (c == '\r') {
+        td->cursor_col = 0;
+        return;
+    }
+    if (c == '\t') {
+        int next = (td->cursor_col + 8) & ~7;
+        while (td->cursor_col < next && td->cursor_col < td->cols) {
+            g_term_cells[td->cursor_row][td->cursor_col] = ' ';
+            g_term_attrs[td->cursor_row][td->cursor_col] = td->cur_attr;
+            td->cursor_col++;
+        }
+        if (td->cursor_col >= td->cols) {
+            td->cursor_col = 0;
+            td->cursor_row++;
+            if (td->cursor_row >= TERM_BUF_ROWS)
+                term_scroll_up(td);
+            if (td->cursor_row >= td->buf_used)
+                td->buf_used = td->cursor_row + 1;
+        }
+        return;
+    }
+
+    /* Line wrap */
+    if (td->cursor_col >= td->cols) {
+        td->cursor_col = 0;
+        td->cursor_row++;
+        if (td->cursor_row >= TERM_BUF_ROWS)
+            term_scroll_up(td);
+        if (td->cursor_row >= td->buf_used)
+            td->buf_used = td->cursor_row + 1;
+    }
+
+    g_term_cells[td->cursor_row][td->cursor_col] = c;
+    g_term_attrs[td->cursor_row][td->cursor_col] = td->cur_attr;
+    td->cursor_col++;
+
+    if (td->cursor_row >= td->buf_used)
+        td->buf_used = td->cursor_row + 1;
+}
+
+/* Process a character through the ANSI escape parser */
+static void term_process_char(terminal_data_t *td, char c)
+{
+    switch (td->esc_state) {
+    case ESC_NONE:
+        if (c == 0x1B)
+            td->esc_state = ESC_GOT_ESC;
+        else
+            term_raw_putc(td, c);
+        break;
+
+    case ESC_GOT_ESC:
+        if (c == '[') {
+            td->esc_state = ESC_CSI;
+            td->esc_nparam = 0;
+            for (int i = 0; i < 8; i++)
+                td->esc_params[i] = 0;
+        } else {
+            td->esc_state = ESC_NONE;
+        }
+        break;
+
+    case ESC_CSI:
+        if (c >= '0' && c <= '9') {
+            if (td->esc_nparam == 0) td->esc_nparam = 1;
+            td->esc_params[td->esc_nparam - 1] =
+                td->esc_params[td->esc_nparam - 1] * 10 + (uint8_t)(c - '0');
+        } else if (c == ';') {
+            if (td->esc_nparam < 8) td->esc_nparam++;
+        } else {
+            if (c == 'm') {
+                term_process_sgr(td);
+            } else if (c == 'J') {
+                /* ESC[2J = clear screen */
+                if (td->esc_nparam > 0 && td->esc_params[0] == 2) {
+                    for (int r = 0; r < TERM_BUF_ROWS; r++)
+                        for (int col = 0; col < TERM_COLS_MAX; col++) {
+                            g_term_cells[r][col] = ' ';
+                            g_term_attrs[r][col] = TERM_DEFAULT_ATTR;
+                        }
+                    td->cursor_row = 0;
+                    td->cursor_col = 0;
+                    td->buf_used = 1;
+                    td->scroll = 0;
+                }
+            } else if (c == 'K') {
+                /* ESC[K = clear to end of line */
+                for (int col = td->cursor_col; col < TERM_COLS_MAX; col++) {
+                    g_term_cells[td->cursor_row][col] = ' ';
+                    g_term_attrs[td->cursor_row][col] = TERM_DEFAULT_ATTR;
+                }
+            }
+            td->esc_state = ESC_NONE;
+        }
+        break;
+    }
+}
+
+/* Auto-scroll to keep cursor visible */
+static void term_auto_scroll(terminal_data_t *td)
+{
+    int visible = td->rows - 1;   /* -1 for input line */
+    if (visible < 1) visible = 1;
+
+    int need = td->buf_used - visible;
+    if (need < 0) need = 0;
+    if (td->scroll < need)
+        td->scroll = need;
+}
+
+/* ======================================================================
+ * Terminal drawing
+ * ====================================================================== */
+
+static void draw_terminal(widget_t *w)
+{
+    terminal_data_t *td = &w->data.term;
+    int x = w->abs_x;
+    int y = w->abs_y;
+    int bw = w->bounds.w;
+    int bh = w->bounds.h;
+
+    /* Background */
+    gui_draw_rect_border(x, y, bw, bh, w->border_color, 0x0D1117);
+
+    /* Compute grid dimensions */
+    int pad = 4;
+    td->cols = (bw - pad * 2 - SCROLLBAR_W) / GUI_FONT_W;
+    td->rows = (bh - pad * 2) / GUI_FONT_H;
+    if (td->cols > TERM_COLS_MAX) td->cols = TERM_COLS_MAX;
+    if (td->cols < 1) td->cols = 1;
+    if (td->rows < 2) td->rows = 2;
+
+    /* Clip to interior */
+    gui_rect_t clip = { x + pad, y + pad,
+                        bw - pad * 2 - SCROLLBAR_W, bh - pad * 2 };
+    gui_push_clip(&clip);
+
+    term_auto_scroll(td);
+
+    /* Draw output buffer rows */
+    int visible_rows = td->rows - 1;  /* reserve bottom row for input */
+    for (int r = 0; r < visible_rows; r++) {
+        int buf_r = td->scroll + r;
+        if (buf_r < 0 || buf_r >= td->buf_used) continue;
+
+        int dy = y + pad + r * GUI_FONT_H;
+        for (int c = 0; c < td->cols; c++) {
+            char ch = g_term_cells[buf_r][c];
+            if (ch == 0 || ch == ' ') continue;
+
+            uint8_t attr = g_term_attrs[buf_r][c];
+            uint32_t fg = g_ansi_colors[attr & 0x0F];
+            uint32_t bg_c = g_ansi_colors[(attr >> 4) & 0x0F];
+            int dx = x + pad + c * GUI_FONT_W;
+
+            if ((attr >> 4) != 0)
+                gui_draw_rect(dx, dy, GUI_FONT_W, GUI_FONT_H, bg_c);
+            gui_draw_char_transparent(dx, dy, ch, fg);
+        }
+    }
+
+    /* Draw input line (prompt + current input) on last visible row */
+    int input_y = y + pad + visible_rows * GUI_FONT_H;
+    int input_x = x + pad;
+
+    /* Prompt */
+    for (int i = 0; i < g_term_prompt_len && i < td->cols; i++)
+        gui_draw_char_transparent(input_x + i * GUI_FONT_W, input_y,
+                                   g_term_prompt[i],
+                                   g_ansi_colors[TERM_PROMPT_ATTR & 0x0F]);
+
+    /* Input text */
+    int istart = g_term_prompt_len;
+    for (int i = 0; i < td->input_len && istart + i < td->cols; i++)
+        gui_draw_char_transparent(input_x + (istart + i) * GUI_FONT_W,
+                                   input_y, g_term_input[i],
+                                   g_ansi_colors[7]);
+
+    /* Blinking cursor */
+    if (w->focused) {
+        td->cursor_timer++;
+        td->cursor_visible = ((td->cursor_timer / CURSOR_BLINK_RATE) & 1)
+                             ? 0 : 1;
+
+        if (td->cursor_visible) {
+            int cx = input_x + (istart + td->input_cursor) * GUI_FONT_W;
+            gui_draw_rect(cx, input_y, GUI_FONT_W, GUI_FONT_H,
+                          g_ansi_colors[7]);
+            if (td->input_cursor < td->input_len)
+                gui_draw_char_transparent(cx, input_y,
+                    g_term_input[td->input_cursor], 0x0D1117);
+        }
+    }
+
+    gui_pop_clip();
+
+    /* Scrollbar */
+    int sb_x = x + bw - SCROLLBAR_W;
+    gui_draw_rect(sb_x, y, SCROLLBAR_W, bh, GUI_BG3);
+
+    int total = td->buf_used + 1;
+    if (total > visible_rows && total > 0) {
+        int thumb_h = (visible_rows * bh) / total;
+        if (thumb_h < 20) thumb_h = 20;
+        if (thumb_h > bh) thumb_h = bh;
+
+        int max_s = total - visible_rows;
+        if (max_s < 1) max_s = 1;
+        int thumb_y = y + (td->scroll * (bh - thumb_h)) / max_s;
+
+        gui_draw_rect(sb_x + 1, thumb_y, SCROLLBAR_W - 2,
+                      thumb_h, GUI_TEXT2);
+    }
+}
+
+/* ======================================================================
+ * Web View — inline Markdown renderer
+ * ====================================================================== */
+
+/* Read a line from content at *pos, write into buf (max buflen).
+ * Returns line length (0 for blank line, -1 for end). */
+static int md_read_line(const char *content, int clen, int *pos,
+                        char *buf, int buflen)
+{
+    if (*pos >= clen) return -1;
+
+    int start = *pos;
+    int i = 0;
+    while (*pos < clen && content[*pos] != '\n' && i < buflen - 1) {
+        buf[i++] = content[(*pos)++];
+    }
+    buf[i] = '\0';
+
+    if (*pos < clen && content[*pos] == '\n')
+        (*pos)++;
+
+    return i;
+}
+
+/* Draw a styled line with inline Markdown (**bold**, `code`, [link](url)).
+ * Returns height consumed in pixels. */
+static int md_draw_inline(int x, int y, int max_w, const char *line,
+                           int len, int do_draw, uint32_t base_fg)
+{
+    int dx = x;
+    int dy = y;
+    int max_x = x + max_w;
+    int bold = 0, italic = 0, code = 0, link_text = 0, link_url = 0;
+    uint32_t fg = base_fg;
+
+    for (int i = 0; i < len; i++) {
+        char c = line[i];
+
+        /* Skip link URL contents: (url) */
+        if (link_url) {
+            if (c == ')') link_url = 0;
+            continue;
+        }
+
+        /* Link text start: [text] */
+        if (c == '[' && !code) {
+            link_text = 1;
+            fg = GUI_BLUE;
+            continue;
+        }
+        if (link_text && c == ']') {
+            link_text = 0;
+            fg = bold ? GUI_WHITE : (italic ? 0x79C0FF : base_fg);
+            if (i + 1 < len && line[i + 1] == '(') {
+                link_url = 1;
+                i++;
+            }
+            continue;
+        }
+
+        /* Inline code: `text` */
+        if (c == '`' && !bold) {
+            code = !code;
+            fg = code ? GUI_GREEN : base_fg;
+            continue;
+        }
+
+        /* Bold: **text** */
+        if (c == '*' && i + 1 < len && line[i + 1] == '*' && !code) {
+            bold = !bold;
+            fg = bold ? GUI_WHITE : (italic ? 0x79C0FF : base_fg);
+            i++;
+            continue;
+        }
+
+        /* Italic: *text* (single asterisk, not in code) */
+        if (c == '*' && !code) {
+            italic = !italic;
+            fg = italic ? 0x79C0FF : (bold ? GUI_WHITE : base_fg);
+            continue;
+        }
+
+        /* Word wrap */
+        if (dx + GUI_FONT_W > max_x) {
+            dx = x;
+            dy += GUI_FONT_H;
+        }
+
+        /* Draw character */
+        if (do_draw) {
+            if (code)
+                gui_draw_rect(dx, dy, GUI_FONT_W, GUI_FONT_H, GUI_BG3);
+            gui_draw_char_transparent(dx, dy, c, fg);
+        }
+        dx += GUI_FONT_W;
+    }
+
+    return dy - y + GUI_FONT_H;
+}
+
+/* Render the full Markdown document. Returns total height. */
+static int md_render(widget_t *w, int do_draw)
+{
+    webview_data_t *wd = &w->data.web;
+    int x = w->abs_x + 4;
+    int base_y = w->abs_y + 4;
+    int max_w = w->bounds.w - 8 - SCROLLBAR_W;
+    if (max_w < 40) max_w = 40;
+
+    int pos = 0;
+    int dy = base_y - (do_draw ? wd->scroll : 0);
+    char line[256];
+    int in_code_block = 0;
+
+    while (1) {
+        int ll = md_read_line(wd->content, wd->content_len, &pos,
+                              line, 256);
+        if (ll < 0) break;
+
+        /* Code block fence: ``` */
+        if (ll >= 3 && line[0] == '`' && line[1] == '`' && line[2] == '`') {
+            in_code_block = !in_code_block;
+            dy += 4;  /* small gap */
+            continue;
+        }
+
+        /* Inside code block: draw with green on dark bg */
+        if (in_code_block) {
+            if (do_draw) {
+                gui_draw_rect(x, dy, max_w, GUI_FONT_H, GUI_BG3);
+                gui_draw_text(x + 4, dy, line, GUI_GREEN);
+            }
+            dy += GUI_FONT_H;
+            continue;
+        }
+
+        /* Blank line = paragraph gap */
+        if (ll == 0) {
+            dy += GUI_FONT_H / 2;
+            continue;
+        }
+
+        /* Horizontal rule: --- or *** (3+ chars) */
+        if (ll >= 3) {
+            int is_hr = 1;
+            char rc = line[0];
+            if (rc == '-' || rc == '*') {
+                for (int i = 1; i < ll; i++)
+                    if (line[i] != rc && line[i] != ' ') { is_hr = 0; break; }
+            } else {
+                is_hr = 0;
+            }
+            if (is_hr) {
+                dy += 4;
+                if (do_draw)
+                    gui_draw_hline(x, dy, max_w, GUI_BORDER);
+                dy += 8;
+                continue;
+            }
+        }
+
+        /* Heading: # H1, ## H2, ### H3 */
+        if (line[0] == '#') {
+            int level = 0;
+            while (level < ll && level < 3 && line[level] == '#')
+                level++;
+            int text_start = level;
+            while (text_start < ll && line[text_start] == ' ')
+                text_start++;
+
+            uint32_t hfg;
+            if (level == 1)      hfg = GUI_BLUE;
+            else if (level == 2) hfg = 0x56D4E0;  /* Bright cyan */
+            else                 hfg = GUI_WHITE;
+
+            dy += 4;  /* gap before heading */
+            int hh = md_draw_inline(x, dy, max_w, line + text_start,
+                                     ll - text_start, do_draw, hfg);
+            dy += hh;
+
+            /* Underline for H1 */
+            if (level == 1 && do_draw) {
+                gui_draw_hline(x, dy, max_w, GUI_BLUE);
+            }
+            if (level == 1) dy += 4;
+            dy += 4;  /* gap after heading */
+            continue;
+        }
+
+        /* Unordered list: - item or * item */
+        if (ll >= 2 && (line[0] == '-' || line[0] == '*') && line[1] == ' ') {
+            int indent = 12;
+            if (do_draw) {
+                /* Draw bullet */
+                int bx = x + 4;
+                int by = dy + GUI_FONT_H / 2 - 1;
+                gui_draw_rect(bx, by, 3, 3, GUI_TEXT2);
+            }
+            int lh = md_draw_inline(x + indent, dy, max_w - indent,
+                                     line + 2, ll - 2, do_draw, GUI_TEXT);
+            dy += lh;
+            continue;
+        }
+
+        /* Ordered list: 1. item */
+        if (ll >= 3 && line[0] >= '1' && line[0] <= '9' && line[1] == '.' &&
+            line[2] == ' ') {
+            int indent = 20;
+            if (do_draw) {
+                char num[4] = { line[0], '.', ' ', '\0' };
+                gui_draw_text(x + 2, dy, num, GUI_TEXT2);
+            }
+            int lh = md_draw_inline(x + indent, dy, max_w - indent,
+                                     line + 3, ll - 3, do_draw, GUI_TEXT);
+            dy += lh;
+            continue;
+        }
+
+        /* Normal paragraph text */
+        int lh = md_draw_inline(x, dy, max_w, line, ll, do_draw, GUI_TEXT);
+        dy += lh;
+    }
+
+    return dy - base_y + (do_draw ? wd->scroll : 0);
+}
+
+static void draw_webview(widget_t *w)
+{
+    webview_data_t *wd = &w->data.web;
+    int x = w->abs_x;
+    int y = w->abs_y;
+    int bw = w->bounds.w;
+    int bh = w->bounds.h;
+
+    /* Background */
+    gui_draw_rect_border(x, y, bw, bh, w->border_color, GUI_BG);
+
+    /* Compute content height (measure pass) */
+    wd->content_h = md_render(w, 0);
+
+    /* Clamp scroll */
+    int max_scroll = wd->content_h - (bh - 8);
+    if (max_scroll < 0) max_scroll = 0;
+    if (wd->scroll > max_scroll) wd->scroll = max_scroll;
+    if (wd->scroll < 0) wd->scroll = 0;
+
+    /* Clip to interior */
+    gui_rect_t clip = { x + 1, y + 1, bw - 2 - SCROLLBAR_W, bh - 2 };
+    gui_push_clip(&clip);
+
+    /* Draw pass */
+    md_render(w, 1);
+
+    gui_pop_clip();
+
+    /* Scrollbar */
+    int sb_x = x + bw - SCROLLBAR_W;
+    gui_draw_rect(sb_x, y, SCROLLBAR_W, bh, GUI_BG3);
+
+    if (wd->content_h > bh - 8) {
+        int thumb_h = ((bh - 8) * bh) / wd->content_h;
+        if (thumb_h < 20) thumb_h = 20;
+        if (thumb_h > bh) thumb_h = bh;
+
+        int thumb_y = y;
+        if (max_scroll > 0)
+            thumb_y = y + (wd->scroll * (bh - thumb_h)) / max_scroll;
+
+        gui_draw_rect(sb_x + 1, thumb_y, SCROLLBAR_W - 2,
+                      thumb_h, GUI_TEXT2);
+    }
+}
+
+/* ======================================================================
  * Widget constructors
  * ====================================================================== */
 
@@ -682,6 +1271,72 @@ widget_t *widget_scrollbar(int x, int y, int w, int h, widget_t *target)
     return wgt;
 }
 
+widget_t *widget_terminal(int x, int y, int w, int h,
+                           terminal_cmd_fn on_command)
+{
+    widget_t *wgt = widget_alloc();
+    if (!wgt) return (widget_t *)0;
+
+    wgt->type = W_TERMINAL;
+    wgt->bounds.x = x;
+    wgt->bounds.y = y;
+    wgt->bounds.w = w;
+    wgt->bounds.h = h;
+    wgt->bg_color = 0x0D1117;
+    wgt->draw = draw_terminal;
+
+    terminal_data_t *td = &wgt->data.term;
+    td->cols = (w - 8 - SCROLLBAR_W) / GUI_FONT_W;
+    td->rows = (h - 8) / GUI_FONT_H;
+    if (td->cols > TERM_COLS_MAX) td->cols = TERM_COLS_MAX;
+    td->cursor_col = 0;
+    td->cursor_row = 0;
+    td->scroll = 0;
+    td->buf_used = 1;
+    td->input_len = 0;
+    td->input_cursor = 0;
+    td->history_count = 0;
+    td->history_pos = -1;
+    td->cursor_visible = 1;
+    td->cursor_timer = 0;
+    td->cur_attr = TERM_DEFAULT_ATTR;
+    td->esc_state = ESC_NONE;
+    td->esc_nparam = 0;
+    td->on_command = on_command;
+
+    /* Clear buffers */
+    for (int r = 0; r < TERM_BUF_ROWS; r++)
+        for (int c = 0; c < TERM_COLS_MAX; c++) {
+            g_term_cells[r][c] = ' ';
+            g_term_attrs[r][c] = TERM_DEFAULT_ATTR;
+        }
+    g_term_input[0] = '\0';
+
+    return wgt;
+}
+
+widget_t *widget_webview(int x, int y, int w, int h)
+{
+    widget_t *wgt = widget_alloc();
+    if (!wgt) return (widget_t *)0;
+
+    wgt->type = W_WEBVIEW;
+    wgt->bounds.x = x;
+    wgt->bounds.y = y;
+    wgt->bounds.w = w;
+    wgt->bounds.h = h;
+    wgt->bg_color = GUI_BG;
+    wgt->draw = draw_webview;
+
+    webview_data_t *wd = &wgt->data.web;
+    wd->content[0] = '\0';
+    wd->content_len = 0;
+    wd->scroll = 0;
+    wd->content_h = 0;
+
+    return wgt;
+}
+
 /* ======================================================================
  * Panel operations
  * ====================================================================== */
@@ -822,6 +1477,97 @@ const char *textinput_get_text(widget_t *w)
 {
     if (!w || w->type != W_TEXTINPUT) return "";
     return w->data.input.text;
+}
+
+/* ======================================================================
+ * Web view operations
+ * ====================================================================== */
+
+void webview_set_content(widget_t *w, const char *markdown)
+{
+    if (!w || w->type != W_WEBVIEW || !markdown) return;
+    webview_data_t *wd = &w->data.web;
+    gui_strncpy(wd->content, markdown, WEBVIEW_CONTENT_MAX);
+    wd->content_len = gui_strlen(wd->content);
+    wd->scroll = 0;
+    wd->content_h = 0;
+}
+
+void webview_append(widget_t *w, const char *text)
+{
+    if (!w || w->type != W_WEBVIEW || !text) return;
+    webview_data_t *wd = &w->data.web;
+    int tlen = gui_strlen(text);
+    int space = WEBVIEW_CONTENT_MAX - 1 - wd->content_len;
+    if (space <= 0) return;
+    if (tlen > space) tlen = space;
+    for (int i = 0; i < tlen; i++)
+        wd->content[wd->content_len + i] = text[i];
+    wd->content_len += tlen;
+    wd->content[wd->content_len] = '\0';
+}
+
+void webview_clear(widget_t *w)
+{
+    if (!w || w->type != W_WEBVIEW) return;
+    w->data.web.content[0] = '\0';
+    w->data.web.content_len = 0;
+    w->data.web.scroll = 0;
+    w->data.web.content_h = 0;
+}
+
+void webview_scroll_top(widget_t *w)
+{
+    if (!w || w->type != W_WEBVIEW) return;
+    w->data.web.scroll = 0;
+}
+
+/* ======================================================================
+ * Terminal operations
+ * ====================================================================== */
+
+void terminal_putc(widget_t *w, char c)
+{
+    if (!w || w->type != W_TERMINAL) return;
+    term_process_char(&w->data.term, c);
+}
+
+void terminal_puts(widget_t *w, const char *s)
+{
+    if (!w || w->type != W_TERMINAL || !s) return;
+    terminal_data_t *td = &w->data.term;
+    while (*s)
+        term_process_char(td, *s++);
+}
+
+void terminal_clear(widget_t *w)
+{
+    if (!w || w->type != W_TERMINAL) return;
+    terminal_data_t *td = &w->data.term;
+    for (int r = 0; r < TERM_BUF_ROWS; r++)
+        for (int c = 0; c < TERM_COLS_MAX; c++) {
+            g_term_cells[r][c] = ' ';
+            g_term_attrs[r][c] = TERM_DEFAULT_ATTR;
+        }
+    td->cursor_row = 0;
+    td->cursor_col = 0;
+    td->buf_used = 1;
+    td->scroll = 0;
+    td->cur_attr = TERM_DEFAULT_ATTR;
+    td->esc_state = ESC_NONE;
+}
+
+void terminal_set_prompt(const char *prompt)
+{
+    if (!prompt) return;
+    gui_strncpy(g_term_prompt, prompt, TERM_PROMPT_MAX);
+    g_term_prompt_len = gui_strlen(g_term_prompt);
+}
+
+void terminal_set_color(widget_t *w, uint8_t attr)
+{
+    if (!w || w->type != W_TERMINAL) return;
+    w->data.term.cur_attr = attr;
 }
 
 /* ======================================================================
@@ -979,6 +1725,21 @@ widget_t *widget_mouse_event(widget_t *root, gui_event_t *evt)
             widget_set_focus(target);
             target->data.chat.auto_scroll = 0;
         }
+    }
+
+    /* Terminal */
+    if (target->type == W_TERMINAL) {
+        if (evt->type == EVT_MOUSE_DOWN || evt->type == EVT_MOUSE_CLICK) {
+            widget_set_focus(target);
+            target->data.term.cursor_timer = 0;
+            target->data.term.cursor_visible = 1;
+        }
+    }
+
+    /* WebView */
+    if (target->type == W_WEBVIEW) {
+        if (evt->type == EVT_MOUSE_DOWN || evt->type == EVT_MOUSE_CLICK)
+            widget_set_focus(target);
     }
 
     /* Scrollbar */
@@ -1217,6 +1978,198 @@ bool widget_key_event(widget_t *focused, gui_event_t *evt)
 
         if (key == GUI_KEY_END) {
             chatview_scroll_to_bottom(focused);
+            return true;
+        }
+
+        return false;
+    }
+
+    /* --- Web View --- */
+    if (focused->type == W_WEBVIEW) {
+        webview_data_t *wd = &focused->data.web;
+        int scroll_step = GUI_FONT_H * 3;
+        int max_s = wd->content_h - (focused->bounds.h - 8);
+        if (max_s < 0) max_s = 0;
+
+        if (key == GUI_KEY_UP) {
+            wd->scroll -= scroll_step;
+            if (wd->scroll < 0) wd->scroll = 0;
+            return true;
+        }
+        if (key == GUI_KEY_DOWN) {
+            wd->scroll += scroll_step;
+            if (wd->scroll > max_s) wd->scroll = max_s;
+            return true;
+        }
+        if (key == GUI_KEY_PGUP) {
+            wd->scroll -= focused->bounds.h - GUI_FONT_H;
+            if (wd->scroll < 0) wd->scroll = 0;
+            return true;
+        }
+        if (key == GUI_KEY_PGDN) {
+            wd->scroll += focused->bounds.h - GUI_FONT_H;
+            if (wd->scroll > max_s) wd->scroll = max_s;
+            return true;
+        }
+        if (key == GUI_KEY_HOME) {
+            wd->scroll = 0;
+            return true;
+        }
+        if (key == GUI_KEY_END) {
+            wd->scroll = max_s;
+            return true;
+        }
+        if (key == GUI_KEY_TAB || key == '\t')
+            return false;
+        return false;
+    }
+
+    /* --- Terminal --- */
+    if (focused->type == W_TERMINAL) {
+        terminal_data_t *td = &focused->data.term;
+
+        td->cursor_timer = 0;
+        td->cursor_visible = 1;
+
+        /* Enter: execute command */
+        if (key == '\n' || key == '\r') {
+            g_term_input[td->input_len] = '\0';
+
+            /* Echo prompt + input to buffer */
+            uint8_t save = td->cur_attr;
+            td->cur_attr = TERM_PROMPT_ATTR;
+            for (int i = 0; i < g_term_prompt_len; i++)
+                term_raw_putc(td, g_term_prompt[i]);
+            td->cur_attr = TERM_DEFAULT_ATTR;
+            for (int i = 0; i < td->input_len; i++)
+                term_raw_putc(td, g_term_input[i]);
+            term_raw_putc(td, '\n');
+            td->cur_attr = save;
+
+            /* Add to history */
+            if (td->input_len > 0) {
+                if (td->history_count >= TERM_HISTORY_MAX) {
+                    for (int h = 0; h < TERM_HISTORY_MAX - 1; h++)
+                        gui_strncpy(g_term_history[h],
+                                    g_term_history[h + 1], TERM_INPUT_MAX);
+                    td->history_count = TERM_HISTORY_MAX - 1;
+                }
+                gui_strncpy(g_term_history[td->history_count],
+                            g_term_input, TERM_INPUT_MAX);
+                td->history_count++;
+            }
+
+            /* Execute */
+            if (td->on_command && td->input_len > 0)
+                td->on_command(g_term_input);
+
+            /* Reset input */
+            td->input_len = 0;
+            td->input_cursor = 0;
+            td->history_pos = -1;
+            g_term_input[0] = '\0';
+            return true;
+        }
+
+        /* Backspace */
+        if (key == '\b' || key == 127) {
+            if (td->input_cursor > 0) {
+                for (int i = td->input_cursor - 1; i < td->input_len; i++)
+                    g_term_input[i] = g_term_input[i + 1];
+                td->input_cursor--;
+                td->input_len--;
+            }
+            return true;
+        }
+
+        /* Delete */
+        if (key == GUI_KEY_DELETE) {
+            if (td->input_cursor < td->input_len) {
+                for (int i = td->input_cursor; i < td->input_len; i++)
+                    g_term_input[i] = g_term_input[i + 1];
+                td->input_len--;
+            }
+            return true;
+        }
+
+        /* History: Up */
+        if (key == GUI_KEY_UP) {
+            if (td->history_count > 0) {
+                if (td->history_pos == -1) {
+                    gui_strncpy(g_term_input_save, g_term_input,
+                                TERM_INPUT_MAX);
+                    g_term_input_save_len = td->input_len;
+                    td->history_pos = td->history_count - 1;
+                } else if (td->history_pos > 0) {
+                    td->history_pos--;
+                }
+                gui_strncpy(g_term_input,
+                            g_term_history[td->history_pos], TERM_INPUT_MAX);
+                td->input_len = gui_strlen(g_term_input);
+                td->input_cursor = td->input_len;
+            }
+            return true;
+        }
+
+        /* History: Down */
+        if (key == GUI_KEY_DOWN) {
+            if (td->history_pos >= 0) {
+                td->history_pos++;
+                if (td->history_pos >= td->history_count) {
+                    td->history_pos = -1;
+                    gui_strncpy(g_term_input, g_term_input_save,
+                                TERM_INPUT_MAX);
+                    td->input_len = g_term_input_save_len;
+                } else {
+                    gui_strncpy(g_term_input,
+                                g_term_history[td->history_pos],
+                                TERM_INPUT_MAX);
+                    td->input_len = gui_strlen(g_term_input);
+                }
+                td->input_cursor = td->input_len;
+            }
+            return true;
+        }
+
+        /* Cursor movement */
+        if (key == GUI_KEY_LEFT) {
+            if (td->input_cursor > 0) td->input_cursor--;
+            return true;
+        }
+        if (key == GUI_KEY_RIGHT) {
+            if (td->input_cursor < td->input_len) td->input_cursor++;
+            return true;
+        }
+        if (key == GUI_KEY_HOME) { td->input_cursor = 0; return true; }
+        if (key == GUI_KEY_END)  { td->input_cursor = td->input_len; return true; }
+
+        /* Page up/down: scroll output */
+        if (key == GUI_KEY_PGUP) {
+            td->scroll -= (td->rows - 2);
+            if (td->scroll < 0) td->scroll = 0;
+            return true;
+        }
+        if (key == GUI_KEY_PGDN) {
+            td->scroll += (td->rows - 2);
+            int ms = td->buf_used - (td->rows - 1);
+            if (ms < 0) ms = 0;
+            if (td->scroll > ms) td->scroll = ms;
+            return true;
+        }
+
+        /* Tab: let desktop handle focus cycling */
+        if (key == GUI_KEY_TAB || key == '\t')
+            return false;
+
+        /* Printable character */
+        if (key >= 0x20 && key <= 0x7E) {
+            if (td->input_len < TERM_INPUT_MAX - 1) {
+                for (int i = td->input_len; i >= td->input_cursor; i--)
+                    g_term_input[i + 1] = g_term_input[i];
+                g_term_input[td->input_cursor] = (char)key;
+                td->input_cursor++;
+                td->input_len++;
+            }
             return true;
         }
 

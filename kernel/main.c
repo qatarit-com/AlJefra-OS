@@ -15,6 +15,7 @@
 #include "syscall.h"
 #include "driver_loader.h"
 #include "ai_bootstrap.h"
+#include "secboot.h"
 
 /* Forward declarations for subsystem init */
 static void banner(void);
@@ -45,7 +46,11 @@ void kernel_main(void)
 {
     banner();
 
-    /* Phase 0: Register built-in driver ops tables */
+    /* Phase 0a: Secure boot — verify kernel integrity */
+    secboot_init();
+    secboot_verify_self();
+
+    /* Phase 0b: Register built-in driver ops tables */
     register_builtin_drivers();
 
     /* Phase 1: Hardware discovery */

@@ -23,4 +23,8 @@ void ajdrv_set_trusted_key(const uint8_t pub_key[AJDRV_PUBKEY_SIZE]);
 /* Verify a package using the trusted key */
 hal_status_t ajdrv_verify(const void *data, uint64_t size);
 
+/* Compute SHA-512 hash of arbitrary data.
+ * out: must point to a 64-byte buffer. */
+void sha512(const uint8_t *data, uint64_t len, uint8_t hash[64]);
+
 #endif /* ALJEFRA_VERIFY_H */

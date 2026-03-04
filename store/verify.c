@@ -164,13 +164,12 @@ static void sha512_final(sha512_ctx_t *ctx, uint8_t hash[64])
 }
 
 /* Convenience: hash arbitrary data in one call */
-static void sha512(const uint8_t *data, uint64_t len, uint8_t hash[64])
+void sha512(const uint8_t *data, uint64_t len, uint8_t hash[64])
 {
     sha512_ctx_t ctx;
     sha512_init(&ctx);
     sha512_update(&ctx, data, len);
     sha512_final(&ctx, hash);
-    (void)sha512; /* suppress unused warning when not called directly */
 }
 
 /* ════════════════════════════════════════════════════════════════════

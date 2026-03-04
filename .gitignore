@@ -8,6 +8,7 @@ bochslog.txt
 *.o
 *.app
 *.bin
+*.ajkrn
 experiment_b/build/
 experiment_b/evolve_bin
 experiment_b/tmp/

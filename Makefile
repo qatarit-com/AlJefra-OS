@@ -79,7 +79,7 @@ KERNEL_SRCS = kernel/main.c kernel/sched.c kernel/syscall.c \
               kernel/driver_loader.c kernel/ai_bootstrap.c \
               kernel/fs.c kernel/ai_chat.c kernel/keyboard.c \
               kernel/dhcp.c kernel/ota.c kernel/panic.c \
-              kernel/klog.c kernel/memprotect.c
+              kernel/klog.c kernel/memprotect.c kernel/secboot.c
 
 # Portable drivers
 DRIVER_SRCS = $(wildcard drivers/storage/*.c) \
@@ -124,7 +124,7 @@ ALL_OBJS = $(ARCH_S_OBJS) $(ARCH_C_OBJS) $(PLATFORM_OBJS) $(KERNEL_OBJS) \
 
 # ── Targets ──
 
-.PHONY: all clean all-arch info check-docs
+.PHONY: all clean all-arch info check-docs sign verify keygen patch-elf gen-roadmap
 
 all: $(KERNEL_BIN)
 	@echo "Built $(KERNEL_BIN) for $(ARCH)"
@@ -176,6 +176,29 @@ clean:
 # Documentation consistency check
 check-docs:
 	@python3 tools/doc_check.py
+
+# Auto-generate website/roadmap.html from ROADMAP.md
+gen-roadmap:
+	@python3 tools/gen_roadmap.py
+
+# ── Secure Boot Signing ──
+
+# Patch the .secboot section in the kernel ELF with SHA-512 hash
+patch-elf: $(KERNEL_BIN)
+	python3 tools/sign_kernel.py patch-elf $(BUILD_DIR)/kernel.elf
+
+# Sign the kernel binary → .ajkrn
+sign: $(KERNEL_BIN)
+	python3 tools/sign_kernel.py sign $(KERNEL_BIN) \
+		-o $(BIN_DIR)/kernel_$(ARCH).ajkrn
+
+# Verify a signed kernel image
+verify:
+	python3 tools/sign_kernel.py verify $(BIN_DIR)/kernel_$(ARCH).ajkrn
+
+# Generate development key pair
+keygen:
+	python3 tools/sign_kernel.py keygen --out keys/
 
 # Info
 info:

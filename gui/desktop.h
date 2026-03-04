@@ -98,6 +98,20 @@ void desktop_set_net_status(int connected);
 /* Update the clock display. */
 void desktop_update_clock(int hours, int minutes, int seconds);
 
+/* Toggle the terminal panel (F2).
+ * When visible, replaces the AI chat panel on the right side. */
+void desktop_toggle_terminal(void);
+
+/* Toggle the docs/web view panel (F3).
+ * Shows rendered Markdown documentation. */
+void desktop_toggle_docs(void);
+
+/* Get the terminal widget (for writing output from external code). */
+struct widget *desktop_get_terminal(void);
+
+/* Get the web view widget (for loading external content). */
+struct widget *desktop_get_webview(void);
+
 /* Request a full redraw on the next frame. */
 void desktop_request_redraw(void);
 

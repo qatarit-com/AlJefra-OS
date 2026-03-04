@@ -78,13 +78,13 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] File browser (BMFS listing, file info, actions)
 - [x] AI chat window (messages, input, send, auto-scroll)
 - [x] Settings panel (network, display, language, AI provider)
-- [ ] Minimal web view (Markdown/HTML renderer) — post-v1.0
-- [ ] Terminal emulator — post-v1.0
+- [x] Minimal web view (Markdown renderer — headings, bold, code, lists, links, horizontal rules)
+- [x] Terminal emulator (gui/widgets + desktop, 500+ lines — char grid, ANSI color, command history, scrollback)
 - [x] Theme engine (dark theme matching website palette)
 - [x] GUI as downloadable .ajdrv plugin (designed as loadable module)
 
 ### I. Production Hardening (DONE)
-- [ ] Secure boot chain (UEFI → signed bootloader → signed kernel) — post-v1.0
+- [x] Secure boot chain (secboot.h/secboot.c, 300 lines — SHA-512 self-verify, Ed25519 signing, ENFORCE/AUDIT policy, sign_kernel.py tool)
 - [x] Memory protection (memprotect.h/memprotect.c, 390 lines — NX, WP, SMEP/SMAP, guard pages)
 - [x] Crash recovery (panic.h/panic.c, 536 lines — register dump, backtrace, crash log, auto-reboot)
 - [x] Persistent logging (klog.h/klog.c, 450 lines — ring buffer, auto-flush, boot replay)
@@ -170,6 +170,8 @@ AMD GPU, Intel GPU, Audio HDA, Bluetooth
 | Architectures | 3 (x86-64, ARM64, RISC-V) | All 3 boot |
 | AI Chat (English + Arabic) | 69+ command patterns | Done |
 | Desktop GUI | Framebuffer-based | Done |
+| Terminal Emulator | ANSI color, scrollback, history | Done |
+| Markdown Viewer | Headings, bold, code, lists, links | Done |
 | CI/CD Pipeline | 3-arch build + QEMU test | Done |
 
 ---

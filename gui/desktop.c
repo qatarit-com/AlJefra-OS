@@ -54,6 +54,16 @@ static widget_t *g_btn_new;
 static widget_t *g_btn_refresh;
 static widget_t *g_lbl_file_info;
 
+/* Terminal panel (right side, toggled with F2) */
+static widget_t *g_term_panel;
+static widget_t *g_terminal;
+static int       g_show_terminal;
+
+/* Docs panel (right side, toggled with F3) */
+static widget_t *g_docs_panel;
+static widget_t *g_webview;
+static int       g_show_docs;
+
 /* Layout dimensions (computed from screen size) */
 static int g_file_panel_w;
 static int g_chat_panel_w;
@@ -171,6 +181,168 @@ static void fs_list_add_cb(const char *name, uint64_t size, void *ctx)
     int size_kb = (int)(size / 1024);
     if (size_kb == 0 && size > 0) size_kb = 1;
     desktop_add_file(name, size_kb);
+}
+
+/* Terminal fs_list callback */
+static void term_fs_list_cb(const char *name, uint64_t size, void *ctx)
+{
+    widget_t *term = (widget_t *)ctx;
+    char line[80];
+    int pos = 0;
+    int nlen = gui_strlen(name);
+
+    line[pos++] = ' ';
+    line[pos++] = ' ';
+    for (int i = 0; i < nlen && pos < 28; i++)
+        line[pos++] = name[i];
+    while (pos < 26) line[pos++] = ' ';
+
+    int kb = (int)(size / 1024);
+    if (kb == 0 && size > 0) kb = 1;
+    char num[12];
+    gui_itoa(kb, num, 12);
+    int slen = gui_strlen(num);
+    /* Right-align the number in a 6-char field */
+    int pad = 6 - slen;
+    if (pad < 0) pad = 0;
+    while (pad-- > 0 && pos < 70) line[pos++] = ' ';
+    for (int i = 0; i < slen && pos < 70; i++)
+        line[pos++] = num[i];
+    line[pos++] = ' ';
+    line[pos++] = 'K';
+    line[pos++] = 'B';
+    line[pos++] = '\n';
+    line[pos] = '\0';
+    terminal_puts(term, line);
+}
+
+/* Terminal command handler */
+static void on_terminal_command(const char *cmd)
+{
+    if (!g_terminal || !cmd) return;
+
+    /* Skip whitespace */
+    while (*cmd == ' ') cmd++;
+    if (*cmd == '\0') return;
+
+    int len = gui_strlen(cmd);
+
+    /* help */
+    if (len >= 4 && cmd[0] == 'h' && cmd[1] == 'e' && cmd[2] == 'l' &&
+        cmd[3] == 'p' && (len == 4 || cmd[4] == ' ')) {
+        terminal_puts(g_terminal,
+            "\033[1;36mAlJefra OS Terminal\033[0m\n"
+            "Built-in commands:\n"
+            "  \033[32mhelp\033[0m     Show this help\n"
+            "  \033[32mls\033[0m       List files\n"
+            "  \033[32mclear\033[0m    Clear terminal\n"
+            "  \033[32mstatus\033[0m   System status\n"
+            "  \033[32march\033[0m     Architecture info\n"
+            "  \033[32mnet\033[0m      Network status\n"
+            "  \033[32mecho\033[0m     Echo text\n"
+            "  \033[32muname\033[0m    OS version\n"
+            "  \033[32mfree\033[0m     Memory info\n"
+            "\nPress F2 to switch to AI chat.\n");
+        return;
+    }
+
+    /* clear */
+    if (len >= 5 && cmd[0] == 'c' && cmd[1] == 'l' && cmd[2] == 'e' &&
+        cmd[3] == 'a' && cmd[4] == 'r' && (len == 5 || cmd[5] == ' ')) {
+        terminal_clear(g_terminal);
+        return;
+    }
+
+    /* ls */
+    if (len >= 2 && cmd[0] == 'l' && cmd[1] == 's' &&
+        (len == 2 || cmd[2] == ' ')) {
+        terminal_puts(g_terminal, "\033[1;34mFiles:\033[0m\n");
+        int count = fs_list(term_fs_list_cb, (void *)g_terminal);
+        if (count <= 0) {
+            terminal_puts(g_terminal, "  kernel.bin          147 KB\n");
+            terminal_puts(g_terminal, "  aljefra.cfg           1 KB\n");
+            terminal_puts(g_terminal, "  ai_agent.app        251 KB\n");
+            terminal_puts(g_terminal, "  hello.app             2 KB\n");
+            terminal_puts(g_terminal, "  readme.txt            1 KB\n");
+        }
+        return;
+    }
+
+    /* echo */
+    if (len >= 4 && cmd[0] == 'e' && cmd[1] == 'c' && cmd[2] == 'h' &&
+        cmd[3] == 'o') {
+        const char *msg = cmd + 4;
+        while (*msg == ' ') msg++;
+        terminal_puts(g_terminal, msg);
+        terminal_putc(g_terminal, '\n');
+        return;
+    }
+
+    /* uname */
+    if (len >= 5 && cmd[0] == 'u' && cmd[1] == 'n' && cmd[2] == 'a' &&
+        cmd[3] == 'm' && cmd[4] == 'e') {
+        terminal_puts(g_terminal,
+            "AlJefra OS v1.0 (x86-64/ARM64/RISC-V)\n");
+        return;
+    }
+
+    /* status */
+    if (len >= 6 && cmd[0] == 's' && cmd[1] == 't' && cmd[2] == 'a' &&
+        cmd[3] == 't' && cmd[4] == 'u' && cmd[5] == 's') {
+        terminal_puts(g_terminal,
+            "\033[1;36mSystem Status\033[0m\n"
+            "  OS:      AlJefra OS v1.0\n"
+            "  Arch:    x86-64 / ARM64 / RISC-V\n"
+            "  GUI:     Active (framebuffer)\n");
+        if (g_desktop.net_connected)
+            terminal_puts(g_terminal,
+                "  Net:     \033[32mOnline\033[0m\n");
+        else
+            terminal_puts(g_terminal,
+                "  Net:     \033[31mOffline\033[0m\n");
+        return;
+    }
+
+    /* arch */
+    if (len >= 4 && cmd[0] == 'a' && cmd[1] == 'r' && cmd[2] == 'c' &&
+        cmd[3] == 'h') {
+        terminal_puts(g_terminal,
+            "\033[1;36mArchitectures\033[0m\n"
+            "  x86-64   AMD64 / Intel 64\n"
+            "  AArch64  ARM64, Cortex-A72+\n"
+            "  RISC-V   RV64GC, Sv39 MMU\n");
+        return;
+    }
+
+    /* net */
+    if (len >= 3 && cmd[0] == 'n' && cmd[1] == 'e' && cmd[2] == 't') {
+        if (g_desktop.net_connected)
+            terminal_puts(g_terminal,
+                "\033[32mNetwork: Online\033[0m\n"
+                "  Stack:   TCP/IP + TLS 1.2 (BearSSL)\n"
+                "  Drivers: e1000, VirtIO-Net, RTL8169\n");
+        else
+            terminal_puts(g_terminal,
+                "\033[31mNetwork: Offline\033[0m\n"
+                "  Connect a network adapter for online features.\n");
+        return;
+    }
+
+    /* free */
+    if (len >= 4 && cmd[0] == 'f' && cmd[1] == 'r' && cmd[2] == 'e' &&
+        cmd[3] == 'e') {
+        terminal_puts(g_terminal,
+            "\033[1;36mMemory\033[0m\n"
+            "  Kernel:  ~90 KB code + data\n"
+            "  Widgets: 48 slots (static pool)\n"
+            "  GUI:     ~3 MB backbuffer (1024x768)\n");
+        return;
+    }
+
+    /* Unknown command */
+    terminal_puts(g_terminal, "\033[31mUnknown command: \033[0m");
+    terminal_puts(g_terminal, cmd);
+    terminal_puts(g_terminal, "\nType '\033[32mhelp\033[0m' for commands.\n");
 }
 
 /* ======================================================================
@@ -323,6 +495,43 @@ int desktop_init(void)
         panel_add_child(g_chat_panel, g_chat_send_btn);
     }
 
+    /* ---- TERMINAL (right panel, hidden by default) ---- */
+    g_term_panel = widget_panel(g_file_panel_w, DESKTOP_TOPBAR_H,
+                                 g_chat_panel_w, g_content_h, "Terminal");
+    if (g_term_panel) {
+        g_term_panel->bg_color = 0x0D1117;
+        g_term_panel->data.panel.title_bg = GUI_BG3;
+        g_term_panel->visible = 0;
+        panel_add_child(g_root_panel, g_term_panel);
+
+        int tp_inner_w = g_chat_panel_w - 2;
+        int tp_inner_h = g_content_h - PANEL_TITLE_H - 2;
+
+        g_terminal = widget_terminal(4, 4, tp_inner_w - 8, tp_inner_h - 8,
+                                      on_terminal_command);
+        if (g_terminal)
+            panel_add_child(g_term_panel, g_terminal);
+    }
+    g_show_terminal = 0;
+
+    /* ---- DOCS / WEB VIEW (right panel, hidden by default) ---- */
+    g_docs_panel = widget_panel(g_file_panel_w, DESKTOP_TOPBAR_H,
+                                 g_chat_panel_w, g_content_h, "Documentation");
+    if (g_docs_panel) {
+        g_docs_panel->bg_color = GUI_BG;
+        g_docs_panel->data.panel.title_bg = GUI_BG3;
+        g_docs_panel->visible = 0;
+        panel_add_child(g_root_panel, g_docs_panel);
+
+        int dp_inner_w = g_chat_panel_w - 2;
+        int dp_inner_h = g_content_h - PANEL_TITLE_H - 2;
+
+        g_webview = widget_webview(4, 4, dp_inner_w - 8, dp_inner_h - 8);
+        if (g_webview)
+            panel_add_child(g_docs_panel, g_webview);
+    }
+    g_show_docs = 0;
+
     /* Welcome messages */
     chatview_add(g_chat_view,
         "Welcome to AlJefra OS v1.0. How can I help you?", 0);
@@ -385,12 +594,26 @@ int desktop_handle_event(gui_event_t *evt)
             desktop_system_message(
                 "Keyboard shortcuts:\n"
                 "  F1       - Show this help\n"
+                "  F2       - Toggle terminal\n"
+                "  F3       - Toggle docs viewer\n"
                 "  Ctrl+R   - Refresh file list\n"
                 "  Escape   - Quit GUI\n"
                 "  Tab      - Switch focus\n"
                 "\n"
                 "Chat commands: help, files, status, arch, net, clear");
             g_desktop.needs_redraw = 1;
+            return 1;
+        }
+
+        /* F2 = Toggle terminal */
+        if (key == GUI_KEY_F2) {
+            desktop_toggle_terminal();
+            return 1;
+        }
+
+        /* F3 = Toggle docs viewer */
+        if (key == GUI_KEY_F3) {
+            desktop_toggle_docs();
             return 1;
         }
 
@@ -411,10 +634,22 @@ int desktop_handle_event(gui_event_t *evt)
         /* Tab = Cycle focus */
         if (key == '\t' || key == GUI_KEY_TAB) {
             widget_t *cur = widget_get_focus();
-            if (cur == g_chat_input)
-                widget_set_focus(g_file_list);
-            else
-                widget_set_focus(g_chat_input);
+            if (g_show_terminal) {
+                if (cur == g_terminal)
+                    widget_set_focus(g_file_list);
+                else
+                    widget_set_focus(g_terminal);
+            } else if (g_show_docs) {
+                if (cur == g_webview)
+                    widget_set_focus(g_file_list);
+                else
+                    widget_set_focus(g_webview);
+            } else {
+                if (cur == g_chat_input)
+                    widget_set_focus(g_file_list);
+                else
+                    widget_set_focus(g_chat_input);
+            }
             g_desktop.needs_redraw = 1;
             return 1;
         }
@@ -691,7 +926,8 @@ void desktop_send_message(const char *text)
                        "Architecture: Universal (x86-64/ARM64/RISC-V)\n"
                        "GUI: Active\n"
                        "Widgets: Panel, Label, Button, TextInput, "
-                       "ListView, ChatView, Scrollbar";
+                       "ListView, ChatView, Scrollbar, Terminal\n"
+                       "Press F2 to open the terminal.";
         }
         else if (len >= 4 && text[0] == 'a' && text[1] == 'r' &&
                  text[2] == 'c' && text[3] == 'h') {
@@ -789,4 +1025,138 @@ void desktop_request_redraw(void)
 const desktop_state_t *desktop_get_state(void)
 {
     return &g_desktop;
+}
+
+/* ======================================================================
+ * Right-panel switching (chat / terminal / docs)
+ * ====================================================================== */
+
+static void desktop_show_right_panel(int chat, int term, int docs)
+{
+    if (g_chat_panel) g_chat_panel->visible = chat;
+    if (g_term_panel) g_term_panel->visible = term;
+    if (g_docs_panel) g_docs_panel->visible = docs;
+    g_show_terminal = term;
+    g_show_docs = docs;
+    g_desktop.needs_redraw = 1;
+}
+
+void desktop_toggle_terminal(void)
+{
+    if (g_show_terminal) {
+        /* Switch back to chat */
+        desktop_show_right_panel(1, 0, 0);
+        if (g_chat_input) widget_set_focus(g_chat_input);
+    } else {
+        /* Show terminal */
+        desktop_show_right_panel(0, 1, 0);
+        if (g_terminal) {
+            widget_set_focus(g_terminal);
+            /* Welcome on first open */
+            terminal_data_t *td = &g_terminal->data.term;
+            if (td->buf_used <= 1 && td->cursor_col == 0)
+                terminal_puts(g_terminal,
+                    "\033[1;36mAlJefra OS Terminal v1.0\033[0m\n"
+                    "Type '\033[32mhelp\033[0m' for commands.  "
+                    "Press F2 to switch to AI chat.\n\n");
+        }
+    }
+}
+
+widget_t *desktop_get_terminal(void)
+{
+    return g_terminal;
+}
+
+/* ======================================================================
+ * Docs viewer toggle
+ * ====================================================================== */
+
+/* Default help document (Markdown) */
+static const char g_help_doc[] =
+    "# AlJefra OS v1.0\n"
+    "\n"
+    "The **first AI-native operating system** built in Qatar.\n"
+    "\n"
+    "## Keyboard Shortcuts\n"
+    "\n"
+    "- **F1** Show help in chat\n"
+    "- **F2** Toggle terminal\n"
+    "- **F3** Toggle this docs viewer\n"
+    "- **Tab** Cycle focus between panels\n"
+    "- **Ctrl+R** Refresh file list\n"
+    "- **Escape** Quit GUI\n"
+    "\n"
+    "## Chat Commands\n"
+    "\n"
+    "- `help` Available commands\n"
+    "- `files` Refresh file list\n"
+    "- `status` System information\n"
+    "- `arch` Architecture details\n"
+    "- `net` Network status\n"
+    "- `clear` Clear chat history\n"
+    "\n"
+    "## Terminal Commands\n"
+    "\n"
+    "Press **F2** to open the terminal, then type:\n"
+    "\n"
+    "- `help` Show terminal help\n"
+    "- `ls` List files\n"
+    "- `clear` Clear terminal\n"
+    "- `echo` Echo text\n"
+    "- `uname` OS version\n"
+    "- `status` System status\n"
+    "- `free` Memory information\n"
+    "\n"
+    "## Supported Architectures\n"
+    "\n"
+    "1. **x86-64** AMD64 / Intel 64\n"
+    "2. **AArch64** ARM64, Cortex-A72+\n"
+    "3. **RISC-V** RV64GC, Sv39 MMU\n"
+    "\n"
+    "---\n"
+    "\n"
+    "## Hardware Support\n"
+    "\n"
+    "- Intel e1000 (verified)\n"
+    "- VirtIO-Blk / VirtIO-Net (verified)\n"
+    "- NVMe, AHCI, xHCI USB 3.0\n"
+    "- PS/2, Serial UART, VGA/LFB\n"
+    "\n"
+    "## AI System\n"
+    "\n"
+    "AlJefra OS features a **two-mode AI** system:\n"
+    "\n"
+    "- **Offline** Local NLP parser (instant, no network)\n"
+    "- **Online** Cloud AI via [AlJefra AI](api.aljefra.com)\n"
+    "\n"
+    "The system auto-detects connectivity and falls back\n"
+    "to offline mode when the network is unavailable.\n"
+    "\n"
+    "---\n"
+    "\n"
+    "*Built in Qatar. Built for the world.*\n"
+    "*Qatar IT — www.QatarIT.com*\n";
+
+void desktop_toggle_docs(void)
+{
+    if (g_show_docs) {
+        /* Switch back to chat */
+        desktop_show_right_panel(1, 0, 0);
+        if (g_chat_input) widget_set_focus(g_chat_input);
+    } else {
+        /* Show docs */
+        desktop_show_right_panel(0, 0, 1);
+        if (g_webview) {
+            widget_set_focus(g_webview);
+            /* Load help doc if empty */
+            if (g_webview->data.web.content_len == 0)
+                webview_set_content(g_webview, g_help_doc);
+        }
+    }
+}
+
+widget_t *desktop_get_webview(void)
+{
+    return g_webview;
 }

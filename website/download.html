@@ -51,24 +51,51 @@
         <div class="download-box">
             <h3>Bootable ISO (standalone)</h3>
             <p style="color: var(--text-secondary); margin-bottom: 1rem;">
-                GRUB2 bootable ISO image. Write to USB with <code>dd</code>, Balena Etcher, or boot directly in QEMU.
+                GRUB2 bootable ISO image. Write to USB with Balena Etcher, Rufus, <code>dd</code>, or boot directly in QEMU.
             </p>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                <strong>Size:</strong> 11.5 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS) | <strong>Architecture:</strong> x86-64
+                <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
             </p>
             <a href="aljefra_os_v1.0.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.iso</a>
             <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-                MD5: ef07dd7c9e0158e66a10de04f87510e6 | Updated 2026-02-27
+                MD5: 684a88d4f37ca0dbac4ad85747734752 | Updated 2026-03-04
             </p>
         </div>
     </section>
 
     <!-- Flash Instructions -->
     <section class="section">
-        <h2>Flash to USB (macOS)</h2>
-        <p>The easiest way to get AlJefra OS running on real hardware.</p>
+        <h2>Flash to USB</h2>
+        <p>Get AlJefra OS running on real hardware. Choose the method that matches your platform.</p>
 
-        <h3>Option A: Automated Script (recommended)</h3>
+        <h3>Option A: Balena Etcher (Windows / macOS / Linux &mdash; recommended)</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            The easiest method for all platforms. No command-line needed.
+        </p>
+        <ol style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            <li>Download and install <a href="https://etcher.balena.io/" target="_blank">Balena Etcher</a></li>
+            <li>Insert a USB drive (2 GB or larger)</li>
+            <li>Open Balena Etcher and click <strong>"Flash from file"</strong></li>
+            <li>Select the downloaded <code>aljefra_os_v1.0.iso</code></li>
+            <li>Click <strong>"Select target"</strong> and choose your USB drive</li>
+            <li>Click <strong>"Flash!"</strong> and wait for completion</li>
+            <li>Eject the USB and plug it into the target machine</li>
+        </ol>
+
+        <h3>Option B: Rufus (Windows only)</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            Lightweight Windows alternative with more control over boot settings.
+        </p>
+        <ol style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            <li>Download <a href="https://rufus.ie/" target="_blank">Rufus</a> (portable version works fine)</li>
+            <li>Insert a USB drive and open Rufus</li>
+            <li>Select your USB drive under <strong>"Device"</strong></li>
+            <li>Click <strong>"SELECT"</strong> and choose <code>aljefra_os_v1.0.iso</code></li>
+            <li>Set <strong>Partition scheme</strong> to <strong>MBR</strong> (for BIOS) or <strong>GPT</strong> (for UEFI)</li>
+            <li>Click <strong>"START"</strong> and wait for completion</li>
+        </ol>
+
+        <h3>Option C: Automated Script (macOS)</h3>
         <pre><code>unzip aljefra-os-v1.0-usb.zip
 chmod +x flash_usb.sh
 sudo ./flash_usb.sh</code></pre>
@@ -76,7 +103,7 @@ sudo ./flash_usb.sh</code></pre>
             The script auto-detects your USB drive, asks for confirmation, and flashes.
         </p>
 
-        <h3>Option B: Manual (macOS)</h3>
+        <h3>Option D: Manual dd (macOS)</h3>
         <pre><code># Find your USB disk (e.g. /dev/disk2)
 diskutil list
 
@@ -89,13 +116,75 @@ sudo dd if=aljefra_os_v1.0.iso of=/dev/rdiskN bs=4m
 # Eject
 diskutil eject /dev/diskN</code></pre>
 
-        <h3>Option C: Manual (Linux)</h3>
+        <h3>Option E: Manual dd (Linux)</h3>
         <pre><code># Find your USB (e.g. /dev/sdb)
 lsblk
 
 # Flash
 sudo dd if=aljefra_os_v1.0.iso of=/dev/sdX bs=4M status=progress
 sync</code></pre>
+    </section>
+
+    <!-- BIOS Setup -->
+    <section class="section">
+        <h2>BIOS / UEFI Setup</h2>
+        <p>Before booting AlJefra OS on real hardware, you may need to adjust your BIOS/UEFI settings.</p>
+
+        <h3>Disable Secure Boot</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            AlJefra OS does not have a Microsoft-signed bootloader. If your machine has Secure Boot enabled, you will see:
+            <code style="display: block; margin: 0.5rem 0; padding: 0.5rem; background: rgba(255,100,100,0.1);">Secure Boot Violation — Invalid signature detected. Check Secure Boot policy in setup.</code>
+        </p>
+        <ol style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            <li>Restart your computer and enter BIOS/UEFI setup (see key table below)</li>
+            <li>Navigate to the <strong>Security</strong> or <strong>Boot</strong> tab</li>
+            <li>Find <strong>Secure Boot</strong> and set it to <strong>Disabled</strong></li>
+            <li>If the option is grayed out, set a <strong>Supervisor Password</strong> first</li>
+            <li>Save and exit (usually <strong>F10</strong>)</li>
+        </ol>
+
+        <h3>BIOS Entry Keys by Brand</h3>
+        <table>
+            <thead>
+                <tr><th>Brand</th><th>BIOS Key</th><th>Boot Menu Key</th></tr>
+            </thead>
+            <tbody>
+                <tr><td>Lenovo</td><td>F2 or F1</td><td>F12</td></tr>
+                <tr><td>Dell</td><td>F2</td><td>F12</td></tr>
+                <tr><td>HP</td><td>F10 or Esc</td><td>F9</td></tr>
+                <tr><td>ASUS</td><td>F2 or Del</td><td>F8</td></tr>
+                <tr><td>Acer</td><td>F2 or Del</td><td>F12</td></tr>
+                <tr><td>MSI</td><td>Del</td><td>F11</td></tr>
+                <tr><td>Toshiba</td><td>F2</td><td>F12</td></tr>
+            </tbody>
+        </table>
+
+        <h3>Set USB as Boot Device</h3>
+        <ol style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            <li>Insert the AlJefra OS USB drive</li>
+            <li>Restart and press the <strong>Boot Menu Key</strong> for your brand (see table above)</li>
+            <li>Select the USB drive from the boot menu</li>
+            <li>Alternatively, enter BIOS setup and change the <strong>Boot Order</strong> to place USB first</li>
+        </ol>
+
+        <h3>Boot Menu Options</h3>
+        <p style="color: var(--text-secondary); margin-bottom: 0.75rem;">
+            The AlJefra OS boot menu provides four options:
+        </p>
+        <ul style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+            <li><strong>AlJefra OS v1.0</strong> &mdash; Normal boot at 1024x768. Try this first.</li>
+            <li><strong>Safe Video (800x600)</strong> &mdash; Lower resolution for laptops with display compatibility issues.</li>
+            <li><strong>Text Mode</strong> &mdash; Basic VGA text output. Works on all hardware.</li>
+            <li><strong>Serial Console</strong> &mdash; Headless mode for debugging via COM1 (115200 8N1).</li>
+        </ul>
+
+        <h3>Troubleshooting</h3>
+        <ul style="color: var(--text-secondary);">
+            <li><strong>"No suitable video mode found"</strong> &mdash; Try the <strong>Safe Video</strong> or <strong>Text Mode</strong> boot option.</li>
+            <li><strong>"Secure Boot Violation"</strong> &mdash; Disable Secure Boot in BIOS (see above).</li>
+            <li><strong>USB not detected</strong> &mdash; Try a different USB port (USB 2.0 ports are more compatible). Check that USB boot is enabled in BIOS.</li>
+            <li><strong>Black screen after boot</strong> &mdash; The kernel may be outputting to serial. Try the <strong>Text Mode</strong> option, or connect a serial cable.</li>
+        </ul>
     </section>
 
     <!-- Build from Source -->
@@ -140,8 +229,21 @@ make ARCH=riscv64    # ~996 KB kernel ELF</code></pre>
         <pre><code># Build a GRUB ISO first:
 mkdir -p /tmp/iso/boot/grub
 cp build/x86_64/bin/kernel_x86_64.bin /tmp/iso/boot/aljefra.bin
-echo 'set timeout=0; menuentry "AlJefra OS" { multiboot /boot/aljefra.bin; boot; }' \
-  > /tmp/iso/boot/grub/grub.cfg
+cat > /tmp/iso/boot/grub/grub.cfg &lt;&lt;'EOF'
+insmod all_video
+insmod gfxterm
+insmod vbe
+insmod vga
+terminal_output gfxterm console
+set gfxmode=1024x768x32,800x600,auto
+set gfxpayload=keep
+set timeout=3
+menuentry "AlJefra OS" {
+    set gfxpayload=1024x768x32,800x600,auto
+    multiboot /boot/aljefra.bin
+    boot
+}
+EOF
 grub-mkrescue -o aljefra.iso /tmp/iso
 
 # Boot it:

@@ -47,8 +47,23 @@ jobs:
           sudo apt-get install -y --no-install-recommends \
             gcc-riscv64-linux-gnu binutils-riscv64-linux-gnu make
 
+      - name: Install signing dependencies
+        run: pip install pynacl
+
       - name: Build kernel
         run: make ARCH=${{ matrix.arch }}
+
+      - name: Patch ELF with secure boot hash
+        run: make ARCH=${{ matrix.arch }} patch-elf
+
+      - name: Generate signing keys (dev)
+        run: make keygen || true
+
+      - name: Sign kernel
+        run: make ARCH=${{ matrix.arch }} sign
+
+      - name: Verify signed kernel
+        run: make ARCH=${{ matrix.arch }} verify
 
       - name: Show binary size
         run: ls -lh build/${{ matrix.arch }}/bin/

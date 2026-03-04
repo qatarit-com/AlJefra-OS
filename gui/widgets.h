@@ -29,6 +29,16 @@
 #define WIDGET_CHAT_MSG_MAX    32      /* Max messages in chat view         */
 #define WIDGET_CHAT_TEXT_MAX   256     /* Max chars per chat message        */
 
+/* Web view (Markdown renderer) limits */
+#define WEBVIEW_CONTENT_MAX    4096    /* Max content size in bytes         */
+
+/* Terminal widget limits */
+#define TERM_COLS_MAX          80      /* Max terminal columns              */
+#define TERM_BUF_ROWS          100     /* Terminal scrollback buffer rows   */
+#define TERM_INPUT_MAX         256     /* Terminal input line max chars     */
+#define TERM_HISTORY_MAX       16      /* Command history entries           */
+#define TERM_PROMPT_MAX        16      /* Prompt string max chars           */
+
 /* ======================================================================
  * Widget types
  * ====================================================================== */
@@ -40,6 +50,8 @@ typedef enum {
     W_LISTVIEW,
     W_CHATVIEW,
     W_SCROLLBAR,
+    W_TERMINAL,
+    W_WEBVIEW,
 } widget_type_t;
 
 /* Text alignment */
@@ -56,6 +68,7 @@ typedef struct widget widget_t;
 typedef void (*widget_click_fn)(void);
 typedef void (*widget_submit_fn)(const char *text);
 typedef void (*widget_select_fn)(int index, const char *item);
+typedef void (*terminal_cmd_fn)(const char *cmd);
 
 /* ======================================================================
  * Widget-specific data structures
@@ -129,6 +142,35 @@ typedef struct {
     widget_t *target;          /* Widget this scrollbar controls        */
 } scrollbar_data_t;
 
+/* -- Terminal -- character grid terminal emulator */
+typedef struct {
+    int       cols;            /* Computed visible columns               */
+    int       rows;            /* Computed visible rows                  */
+    int       cursor_col;      /* Output cursor column in buffer        */
+    int       cursor_row;      /* Output cursor row in buffer           */
+    int       scroll;          /* First visible buffer row              */
+    int       buf_used;        /* Number of rows used in buffer         */
+    int       input_len;       /* Current input line length             */
+    int       input_cursor;    /* Cursor position within input          */
+    int       history_count;   /* Number of stored history entries      */
+    int       history_pos;     /* -1=editing, 0..n-1=browsing history   */
+    int       cursor_visible;  /* Blink state                           */
+    uint32_t  cursor_timer;    /* Frame counter for blinking            */
+    uint8_t   cur_attr;        /* Current output color attribute        */
+    uint8_t   esc_state;       /* ANSI escape parser state              */
+    uint8_t   esc_params[8];   /* Escape sequence parameters            */
+    uint8_t   esc_nparam;      /* Number of escape params accumulated   */
+    terminal_cmd_fn on_command;/* Called when user presses Enter        */
+} terminal_data_t;
+
+/* -- Web View -- Markdown/HTML renderer */
+typedef struct {
+    char      content[WEBVIEW_CONTENT_MAX];
+    int       content_len;     /* Length of content string               */
+    int       scroll;          /* Vertical scroll offset in pixels       */
+    int       content_h;       /* Total rendered height (computed)       */
+} webview_data_t;
+
 /* ======================================================================
  * Widget structure
  * ====================================================================== */
@@ -156,6 +198,8 @@ struct widget {
         listview_data_t   list;
         chatview_data_t   chat;
         scrollbar_data_t  scrollbar;
+        terminal_data_t   term;
+        webview_data_t    web;
     } data;
 
     /* Parent widget (NULL for root panels) */
@@ -180,6 +224,9 @@ widget_t *widget_listview(int x, int y, int w, int h,
                            widget_select_fn on_select);
 widget_t *widget_chatview(int x, int y, int w, int h);
 widget_t *widget_scrollbar(int x, int y, int w, int h, widget_t *target);
+widget_t *widget_terminal(int x, int y, int w, int h,
+                           terminal_cmd_fn on_command);
+widget_t *widget_webview(int x, int y, int w, int h);
 
 /* ======================================================================
  * Panel operations
@@ -216,6 +263,41 @@ void chatview_clear(widget_t *w);
 void textinput_clear(widget_t *w);
 void textinput_set_text(widget_t *w, const char *text);
 const char *textinput_get_text(widget_t *w);
+
+/* ======================================================================
+ * Web view operations
+ * ====================================================================== */
+
+/* Set the Markdown content to render. */
+void webview_set_content(widget_t *w, const char *markdown);
+
+/* Append text to the current content. */
+void webview_append(widget_t *w, const char *text);
+
+/* Clear the web view content. */
+void webview_clear(widget_t *w);
+
+/* Scroll to the top. */
+void webview_scroll_top(widget_t *w);
+
+/* ======================================================================
+ * Terminal operations
+ * ====================================================================== */
+
+/* Write a character to the terminal (supports ANSI escape codes). */
+void terminal_putc(widget_t *w, char c);
+
+/* Write a string to the terminal. */
+void terminal_puts(widget_t *w, const char *s);
+
+/* Clear the terminal screen and reset cursor. */
+void terminal_clear(widget_t *w);
+
+/* Set the terminal prompt string (default "$ "). */
+void terminal_set_prompt(const char *prompt);
+
+/* Set the current output color attribute (hi=bg, lo=fg, 0-15 ANSI). */
+void terminal_set_color(widget_t *w, uint8_t attr);
 
 /* ======================================================================
  * Widget tree dispatch

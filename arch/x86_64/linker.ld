@@ -43,6 +43,14 @@ SECTIONS
         *(.rodata .rodata.*)
     }
 
+    /* ---- Secure boot verification data ---- */
+    .secboot ALIGN(16) :
+    {
+        _secboot_start = .;
+        KEEP(*(.secboot))
+        _secboot_end = .;
+    }
+
     /* ---- GOT (needed by some code models) ---- */
     .got ALIGN(16) :
     {

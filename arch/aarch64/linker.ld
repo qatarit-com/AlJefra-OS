@@ -30,6 +30,8 @@ PHDRS
 
 SECTIONS
 {
+    _kernel_start = .;
+
     /* Boot code must come first at load address */
     .text.boot ORIGIN(RAM) : {
         KEEP(*(.text.boot))
@@ -43,6 +45,13 @@ SECTIONS
     /* Read-only data */
     .rodata : ALIGN(4096) {
         *(.rodata .rodata.*)
+    } > RAM :text
+
+    /* Secure boot verification data */
+    .secboot : ALIGN(16) {
+        _secboot_start = .;
+        KEEP(*(.secboot))
+        _secboot_end = .;
     } > RAM :text
 
     /* Initialized data */
