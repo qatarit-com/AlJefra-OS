@@ -49,16 +49,16 @@
         </div>
 
         <div class="download-box">
-            <h3>Bootable ISO (standalone) &mdash; v1.0.6</h3>
+            <h3>Bootable ISO (standalone) &mdash; v0.5.0</h3>
             <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                 GRUB2 bootable ISO image. Write to USB with Balena Etcher, Rufus, <code>dd</code>, or boot directly in QEMU.
             </p>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                <strong>Version:</strong> 1.0.6 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
+                <strong>Version:</strong> 0.5.0 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
             </p>
-            <a href="aljefra_os_v1.0.6.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.6.iso</a>
+            <a href="aljefra_os_v0.5.0.iso" class="btn btn-primary" download>Download aljefra_os_v0.5.0.iso</a>
             <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-                MD5: a4a014f80432d8d46b5dc2295a59d672 | Updated 2026-03-04
+                MD5: 1a8753f82b4dbc034cc843d0db6d4a20 | Updated 2026-03-04
             </p>
         </div>
     </section>
@@ -340,32 +340,17 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>v1.0.6</strong></td>
+                    <td><strong>v0.5.0</strong></td>
                     <td>2026-03-04</td>
-                    <td>Framebuffer performance: MTRR Write-Combining for ~100x faster pixel writes, 64-bit bulk copy/fill for scroll/clear, unrolled 32bpp character rendering. Boot text now appears instantly instead of slow line-by-line.</td>
+                    <td>UEFI framebuffer display, multiboot info preservation, 32GB identity mapping, automated BIOS+UEFI boot testing, universal GRUB config.</td>
                 </tr>
                 <tr>
-                    <td><strong>v1.0.5</strong></td>
+                    <td><strong>v0.4.0</strong></td>
                     <td>2026-03-04</td>
-                    <td>Fix blank screen on UEFI laptops: copy multiboot info before page table setup (GRUB places it at the same address), extend identity mapping to 32GB for high framebuffer addresses. Verified with QEMU UEFI (OVMF).</td>
+                    <td>Universal UEFI/BIOS boot: efi_gop, unicode font, gfxterm auto-detect. Balena Etcher/Rufus setup guide.</td>
                 </tr>
                 <tr>
-                    <td><strong>v1.0.3</strong></td>
-                    <td>2026-03-04</td>
-                    <td>Universal UEFI/BIOS boot: load efi_gop for UEFI displays, load unicode font for gfxterm, auto-detect platform.</td>
-                </tr>
-                <tr>
-                    <td><strong>v1.0.2</strong></td>
-                    <td>2026-03-04</td>
-                    <td>Text console default for UEFI compatibility. Add Balena Etcher/Rufus instructions, BIOS setup guide, troubleshooting section. GUI widget system, desktop enhancements.</td>
-                </tr>
-                <tr>
-                    <td><strong>v1.0.1</strong></td>
-                    <td>2026-03-04</td>
-                    <td>Fix GRUB video modules for real hardware (added all_video, vbe, vga). Add fallback video modes and multiple boot options.</td>
-                </tr>
-                <tr>
-                    <td><strong>v1.0.0</strong></td>
+                    <td><strong>v0.3.0</strong></td>
                     <td>2026-02-27</td>
                     <td>Initial release. x86-64 kernel with AI bootstrap, driver marketplace, TCP/IP + TLS networking, 22+ drivers, GUI desktop.</td>
                 </tr>
@@ -375,7 +360,7 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 AlJefra OS v1.0.6 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p>&copy; 2026 AlJefra OS v0.5.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
         <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> — <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>

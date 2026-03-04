@@ -307,6 +307,56 @@ def extract_ground_truth(repo):
             ))
             truth["action_type_count"] = len(action_names)
 
+    # ── Per-file line counts (for ROADMAP/CHANGELOG claims) ───
+    truth["fs_lines"] = file_lines("kernel/fs.c")
+    truth["keyboard_lines"] = file_lines("kernel/keyboard.c")
+    truth["ota_lines"] = file_lines("kernel/ota.c")
+    truth["panic_lines"] = file_lines("kernel/panic.c")
+    truth["klog_lines"] = file_lines("kernel/klog.c")
+    truth["memprotect_lines"] = file_lines("kernel/memprotect.c")
+    truth["secboot_lines"] = file_lines("kernel/secboot.c")
+    truth["gui_c_lines"] = file_lines("gui/gui.c")
+    truth["widgets_lines"] = file_lines("gui/widgets.c")
+    truth["desktop_lines"] = file_lines("gui/desktop.c")
+    truth["tls_lines"] = file_lines("net/tls.c") + file_lines("net/tls.h")
+    truth["dhcp_total_lines"] = (
+        file_lines("net/dhcp.c") + file_lines("kernel/dhcp.c")
+    )
+
+    # ── Total codebase LOC (all file types, not just C/H/ASM/S) ──
+    all_code_exts = {
+        ".c", ".h", ".asm", ".S", ".py", ".html", ".css", ".js",
+        ".json", ".md", ".sh", ".yml",
+    }
+    all_code_files = list(rglob_files(
+        repo, all_code_exts,
+        exclude_parts=["bearssl", ".git", "build", "node_modules"],
+    ))
+    truth["total_codebase_loc"] = sum_lines(all_code_files)
+
+    # ── Experiment B lines ────────────────────────────────────
+    exp_b = repo / "experiment_b"
+    if exp_b.exists():
+        truth["experiment_b_lines"] = sum_lines(
+            rglob_files(exp_b, {".c", ".h"})
+        )
+
+    # ── Doc file line counts (ROADMAP claims specific doc sizes) ──
+    truth["contributing_lines"] = file_lines("CONTRIBUTING.md")
+    truth["changelog_lines"] = file_lines("CHANGELOG.md")
+    truth["code_of_conduct_lines"] = file_lines("CODE_OF_CONDUCT.md")
+    truth["plugin_sdk_lines"] = file_lines("doc/plugin-sdk.md")
+    truth["hw_compat_lines"] = file_lines("doc/hardware-compatibility.md")
+    truth["release_process_lines"] = file_lines("doc/release-process.md")
+    truth["ci_yml_lines"] = file_lines(".github/workflows/ci.yml")
+
+    # ── GPU ASM lines ─────────────────────────────────────────
+    for gpu_path in ["aljefra/src/gpu.asm", "src/gpu.asm"]:
+        f = repo / gpu_path
+        if f.exists():
+            truth["gpu_asm_lines"] = count_lines(f)
+            break
+
     return truth
 
 
@@ -587,8 +637,10 @@ def check_component_lines(filepath, lines, truth, mismatches):
         (r"\bai_chat\.c\b", "ai_chat_lines", "AI chat lines", None),
         (r"\bverify\.c\b", "verify_c_lines", "verify.c lines", None),
         (r"\bdhcp\.c\b", "dhcp_lines", "DHCP lines", None),
-        # GUI: match "GUI system totals N lines" but not "AI chat" context
-        (r"\bGUI\s+system\b|\bgui/\b", "gui_lines", "GUI lines", None),
+        # GUI: match "GUI system" but skip specific file refs and total claims
+        # (totals are handled by check_gui_doc_total)
+        (r"\bGUI\s+system\b|\bgui/\b", "gui_lines", "GUI lines",
+         r"\bgui\.\w+,|\bgui\.c\b|totals\s+[\d,]+\s+lines|across\s+core"),
     ]
     for i, line in enumerate(lines, 1):
         for keyword_pat, truth_key, cat, excl in checks:
@@ -622,7 +674,7 @@ def check_html_stat_boxes(filepath, lines, truth, mismatches):
     LABEL_MAP = [
         # (label_regex, truth_key, exact_match)
         (r"Lines\s+of\s+Original\s+Code", "original_loc", True),
-        (r"Lines\s+of\s+Code",            "original_loc", False),
+        (r"Lines\s+of\s+Code",            "total_codebase_loc", False),
         (r"v1\.0\s+Target",               "original_loc", False),
     ]
     for i, line in enumerate(lines, 1):
@@ -660,9 +712,9 @@ def check_html_stat_boxes(filepath, lines, truth, mismatches):
                          fix_old=f">{raw}</",
                          fix_new=f">{new_val}</")
             else:
-                approx = (actual // 1000) * 1000
                 has_plus = "+" in raw
-                if claimed != approx:
+                if not within_tolerance(claimed, actual, 5):
+                    approx = (actual // 1000) * 1000
                     new_val = f"{approx:,}" + ("+" if has_plus else "")
                     _add(mismatches,
                          file=filepath, line=i,
@@ -808,6 +860,149 @@ def check_badge_claims(filepath, lines, truth, mismatches):
                      fix_new=f"lines%20of%20code-{new_val}-")
 
 
+def check_file_specific_line_claims(filepath, lines, truth, mismatches):
+    """Check per-file line count claims like 'fs.c, 796 lines' in docs.
+
+    Covers ROADMAP.md, CHANGELOG.md, and similar docs that reference
+    specific source files with line counts.
+    """
+    FILE_LINE_CLAIMS = [
+        (r"fs\.c.*?([\d,]+)\s*lines",                      "fs_lines"),
+        (r"keyboard\.c.*?([\d,]+)\s*lines",                 "keyboard_lines"),
+        (r"ota\.\w*.*?([\d,]+)\s*lines",                    "ota_lines"),
+        (r"panic\.\w*.*?([\d,]+)\s*lines",                  "panic_lines"),
+        (r"klog\.\w*.*?([\d,]+)\s*lines",                   "klog_lines"),
+        (r"memprotect\.\w*.*?([\d,]+)\s*lines",             "memprotect_lines"),
+        (r"secboot\.\w*.*?([\d,]+)\s*lines",                "secboot_lines"),
+        (r"gui\.c.*?([\d,]+)\s*lines",                      "gui_c_lines"),
+        (r"widgets\.\w*.*?([\d,]+)\s*lines",                "widgets_lines"),
+        (r"desktop\.\w*.*?([\d,]+)\s*lines",                "desktop_lines"),
+        (r"tls\.\w.*?([\d,]+)\s*lines",                     "tls_lines"),
+        (r"dhcp\.\w.*?([\d,]+)\s*lines",                    "dhcp_lines"),
+        (r"plugin-sdk\.md.*?([\d,]+)\s*lines",              "plugin_sdk_lines"),
+        (r"hardware-compatibility.*?([\d,]+)\s*lines",      "hw_compat_lines"),
+        (r"release-process.*?([\d,]+)\s*lines",             "release_process_lines"),
+        (r"CONTRIBUTING\.md.*?([\d,]+)\s*lines",            "contributing_lines"),
+        (r"CHANGELOG\.md.*?([\d,]+)\s*lines",               "changelog_lines"),
+        (r"CODE_OF_CONDUCT.*?([\d,]+)\s*lines",             "code_of_conduct_lines"),
+        (r"ci\.yml.*?([\d,]+)\s*lines",                     "ci_yml_lines"),
+        (r"gpu\.asm.*?([\d,]+)\s*lines",                    "gpu_asm_lines"),
+        (r"ai_bootstrap\.c.*?([\d,]+)\s*lines",             "ai_bootstrap_lines"),
+    ]
+    for i, line in enumerate(lines, 1):
+        for pat, truth_key in FILE_LINE_CLAIMS:
+            actual = truth.get(truth_key)
+            if actual is None or actual == 0:
+                continue
+            m = re.search(pat, line, re.IGNORECASE)
+            if not m:
+                continue
+            claimed_str = m.group(1).replace(",", "")
+            try:
+                claimed = int(claimed_str)
+            except ValueError:
+                continue
+            if not within_tolerance(claimed, actual, 10):
+                old_num = m.group(1)
+                new_num = f"{actual:,}" if actual >= 1000 else str(actual)
+                _add(mismatches,
+                     file=filepath, line=i,
+                     category=f"file line count ({truth_key})",
+                     expected=str(actual),
+                     actual=str(claimed),
+                     context=line.strip()[:120],
+                     fixable=True,
+                     fix_old=old_num,
+                     fix_new=new_num)
+
+
+def check_total_codebase_loc(filepath, lines, truth, mismatches):
+    """Check 'total codebase' claims (~90,000 lines) distinct from original LOC.
+
+    The 'original_loc' truth key covers 'lines of original C and Assembly'.
+    This checks broader 'total codebase' or 'codebase size' claims that
+    include all file types.
+    """
+    actual = truth.get("total_codebase_loc")
+    if actual is None:
+        return
+    for i, line in enumerate(lines, 1):
+        # Match "~90,000 lines" near "codebase" or "Total codebase"
+        if not re.search(r"[Tt]otal\s+codebase|[Cc]odebase\s+size", line):
+            continue
+        for m in re.finditer(r"~?([\d,]+)\+?\s*lines", line):
+            claimed = int(m.group(1).replace(",", ""))
+            if claimed < 10000:
+                continue
+            if not within_tolerance(claimed, actual, 5):
+                old_num = m.group(1)
+                new_num = f"{actual:,}"
+                _add(mismatches,
+                     file=filepath, line=i,
+                     category="total codebase LOC",
+                     expected=f"~{actual:,}",
+                     actual=f"{claimed:,}",
+                     context=line.strip()[:120],
+                     fixable=True,
+                     fix_old=old_num,
+                     fix_new=new_num)
+
+
+def check_gui_doc_total(filepath, lines, truth, mismatches):
+    """Check GUI total line count claims like '3,286 lines across core modules'."""
+    actual = truth.get("gui_lines")
+    if actual is None:
+        return
+    for i, line in enumerate(lines, 1):
+        if not re.search(r"GUI|gui.*total|across\s+core\s+modules", line, re.IGNORECASE):
+            continue
+        # Skip lines that reference a specific file (gui.c, widgets.c, desktop.c)
+        if re.search(r"\b(gui\.c|widgets\.\w|desktop\.\w)\b", line):
+            continue
+        for m in re.finditer(r"([\d,]+)\s*lines", line):
+            claimed = int(m.group(1).replace(",", ""))
+            if claimed < 1000:
+                continue
+            if not within_tolerance(claimed, actual, 10):
+                old_num = m.group(1)
+                new_num = f"{actual:,}"
+                _add(mismatches,
+                     file=filepath, line=i,
+                     category="GUI total LOC",
+                     expected=f"~{actual:,}",
+                     actual=f"{claimed:,}",
+                     context=line.strip()[:120],
+                     fixable=True,
+                     fix_old=old_num,
+                     fix_new=new_num)
+
+
+def check_experiment_b_claims(filepath, lines, truth, mismatches):
+    """Check Experiment B line count claims like '4,032 lines of C'."""
+    actual = truth.get("experiment_b_lines")
+    if actual is None:
+        return
+    for i, line in enumerate(lines, 1):
+        if not re.search(r"[Ee]xperiment\s*B", line):
+            continue
+        for m in re.finditer(r"([\d,]+)\s*lines", line):
+            claimed = int(m.group(1).replace(",", ""))
+            if claimed < 100:
+                continue
+            if not within_tolerance(claimed, actual, 10):
+                old_num = m.group(1)
+                new_num = f"{actual:,}"
+                _add(mismatches,
+                     file=filepath, line=i,
+                     category="Experiment B LOC",
+                     expected=str(actual),
+                     actual=str(claimed),
+                     context=line.strip()[:120],
+                     fixable=True,
+                     fix_old=old_num,
+                     fix_new=new_num)
+
+
 # ═══════════════════════════════════════════════════════════════════════
 #  Main scan orchestrator
 # ═══════════════════════════════════════════════════════════════════════
@@ -828,6 +1023,10 @@ ALL_CHECKS = [
     check_html_stat_boxes,
     check_roadmap_component_table,
     check_inline_numeric_claims,
+    check_file_specific_line_claims,
+    check_total_codebase_loc,
+    check_gui_doc_total,
+    check_experiment_b_claims,
 ]
 
 
@@ -963,6 +1162,10 @@ def main():
     doc_paths = [
         repo / "doc",
         repo / "README.md",
+        repo / "ROADMAP.md",
+        repo / "CHANGELOG.md",
+        repo / "EVOLUTION_STATUS.md",
+        repo / "CONTRIBUTING.md",
     ]
 
     website_dir = None

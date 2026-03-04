@@ -34,7 +34,7 @@
         <h2>Launch Status</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
-                <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">63,000</div>
+                <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">87,603</div>
                 <div style="color: var(--text-secondary); font-size: 0.85rem;">Lines of Code</div>
             </div>
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
@@ -57,7 +57,7 @@
         <table>
             <thead><tr><th>Feature</th><th>Details</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>x86-64 ASM kernel</td><td>20 KB, 9,102 lines</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>x86-64 ASM kernel</td><td>20 KB, 9,126 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>HAL abstraction</td><td>9 headers, 3 architectures</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>ARM64 boot</td><td>Cortex-A72, GIC, Generic Timer, Sv48 MMU</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>RISC-V boot</td><td>OpenSBI, PLIC, CLINT, Sv39 MMU</td><td style="color: var(--accent-green);">Done</td></tr>
@@ -125,13 +125,13 @@
             <thead><tr><th>Feature</th><th>Details</th><th>Status</th></tr></thead>
             <tbody>
                 <tr><td>Wire framebuffer keyboard input</td><td>PS/2 + USB HID &rarr; keyboard.c, 380 lines</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>In-kernel filesystem API (fs.h/fs.c, 796 lines</td><td>BMFS read/write/list/create/delete)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>In-kernel filesystem API (fs.h/fs.c, 678 lines</td><td>BMFS read/write/list/create/delete)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Embed real Ed25519 public key</td><td>ed25519_key.h, deterministic test key</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Wire Claude API as default AI backend</td><td>via ai_chat LLM callback</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>DHCP client (dhcp.h/dhcp.c, 382 lines</td><td>full DORA + retry)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Marketplace TLS (kernel client)</td><td>net/tls.h/tls.c, BearSSL wrapper for kernel TCP</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Real .ajdrv packages for top 5 drivers</td><td>e1000, virtio_blk, virtio_net, nvme, ahci (10 packages, 3 architectures)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>OTA update: download &rarr; stage &rarr; verify &rarr; apply</td><td>ota.h/ota.c, 744 lines</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>OTA update: download &rarr; stage &rarr; verify &rarr; apply</td><td>ota.h/ota.c, 665 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Marketplace SQLite persistence</td><td>server/database.py (drivers, evolutions, reviews, metrics)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Fix 8KB driver download buffer</td><td>TCP RX 64KB + streaming chunked download (up to 1MB)</td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
@@ -162,10 +162,10 @@
         <table>
             <thead><tr><th>Feature</th><th>Details</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>Core GUI system (gui.h/gui.c, 899 lines</td><td>framebuffer drawing, clipping, double buffer)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>Widget toolkit (widgets.h/widgets.c, 1,511 lines</td><td>panel, label, button, textinput, listview, chatview, scrollbar)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Core GUI system (gui.h/gui.c, 687 lines</td><td>framebuffer drawing, clipping, double buffer)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Widget toolkit (widgets.h/widgets.c, 2,186 lines</td><td>panel, label, button, textinput, listview, chatview, scrollbar)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Mouse cursor</td><td>software sprite, click/drag events</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>Desktop shell (desktop.h/desktop.c, 932 lines</td><td>top bar, file browser, AI chat)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Desktop shell (desktop.h/desktop.c, 1,162 lines</td><td>top bar, file browser, AI chat)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>File browser</td><td>BMFS listing, file info, actions</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>AI chat window</td><td>messages, input, send, auto-scroll</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Settings panel</td><td>network, display, language, AI provider</td><td style="color: var(--accent-green);">Done</td></tr>
@@ -182,11 +182,11 @@
         <table>
             <thead><tr><th>Feature</th><th>Details</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>Secure boot chain (secboot.h/secboot.c, 300 lines</td><td>SHA-512 self-verify, Ed25519 signing, ENFORCE/AUDIT policy, sign_kernel.py tool)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>Memory protection (memprotect.h/memprotect.c, 390 lines</td><td>NX, WP, SMEP/SMAP, guard pages)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>Crash recovery (panic.h/panic.c, 536 lines</td><td>register dump, backtrace, crash log, auto-reboot)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>Persistent logging (klog.h/klog.c, 450 lines</td><td>ring buffer, auto-flush, boot replay)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>Automated CI/CD (ci.yml, 102 lines</td><td>3-arch build + QEMU smoke test)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Secure boot chain (secboot.h/secboot.c, 215 lines</td><td>SHA-512 self-verify, Ed25519 signing, ENFORCE/AUDIT policy, sign_kernel.py tool)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Memory protection (memprotect.h/memprotect.c, 336 lines</td><td>NX, WP, SMEP/SMAP, guard pages)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Crash recovery (panic.h/panic.c, 470 lines</td><td>register dump, backtrace, crash log, auto-reboot)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Persistent logging (klog.h/klog.c, 393 lines</td><td>ring buffer, auto-flush, boot replay)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Automated CI/CD (ci.yml, 126 lines</td><td>3-arch build + QEMU smoke test)</td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
     </section>
@@ -201,7 +201,7 @@
                 <tr><td>Hardware compatibility database</td><td>doc/hardware-compatibility.md, 169 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Release process</td><td>doc/release-process.md, 179 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>CHANGELOG.md (60 lines</td><td>v1.0.0 initial release)</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>CODE_OF_CONDUCT.md (90 lines</td><td>Contributor Covenant)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>CODE_OF_CONDUCT.md (137 lines</td><td>Contributor Covenant)</td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
     </section>
@@ -224,7 +224,7 @@
                 <tr><td>Boot to AI chat</td><td>&lt; 10 seconds</td><td style="color: var(--accent-green);">Achieved</td></tr>
                 <tr><td>Marketplace drivers</td><td>50+</td><td style="color: var(--text-secondary);">In Progress</td></tr>
                 <tr><td>Tested hardware</td><td>100+ devices</td><td style="color: var(--text-secondary);">In Progress</td></tr>
-                <tr><td>Total codebase</td><td>~90,000 lines</td><td style="color: var(--accent-green);">90,242 lines</td></tr>
+                <tr><td>Total codebase</td><td>~87,603 lines</td><td style="color: var(--accent-green);">87,603 lines</td></tr>
                 <tr><td>Architectures</td><td>3 (x86-64, ARM64, RISC-V)</td><td style="color: var(--accent-green);">All 3 boot</td></tr>
                 <tr><td>AI Chat (English + Arabic)</td><td>69+ command patterns</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Desktop GUI</td><td>Framebuffer-based</td><td style="color: var(--accent-green);">Done</td></tr>

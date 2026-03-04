@@ -15,7 +15,7 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 ## v1.0 Feature Set (All Included)
 
 ### A. Core Kernel (DONE)
-- [x] x86-64 ASM kernel (20 KB, 9,102 lines)
+- [x] x86-64 ASM kernel (20 KB, 9,126 lines)
 - [x] HAL abstraction (9 headers, 3 architectures)
 - [x] ARM64 boot (Cortex-A72, GIC, Generic Timer, Sv48 MMU)
 - [x] RISC-V boot (OpenSBI, PLIC, CLINT, Sv39 MMU)
@@ -48,13 +48,13 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 
 ### F. Core Fixes (DONE ✓)
 - [x] Wire framebuffer keyboard input (PS/2 + USB HID → keyboard.c, 380 lines)
-- [x] In-kernel filesystem API (fs.h/fs.c, 796 lines — BMFS read/write/list/create/delete)
+- [x] In-kernel filesystem API (fs.h/fs.c, 678 lines — BMFS read/write/list/create/delete)
 - [x] Embed real Ed25519 public key (ed25519_key.h, deterministic test key)
 - [x] Wire Claude API as default AI backend (via ai_chat LLM callback)
 - [x] DHCP client (dhcp.h/dhcp.c, 382 lines — full DORA + retry)
 - [x] Marketplace TLS (kernel client) — net/tls.h/tls.c, BearSSL wrapper for kernel TCP
 - [x] Real .ajdrv packages for top 5 drivers — e1000, virtio_blk, virtio_net, nvme, ahci (10 packages, 3 architectures)
-- [x] OTA update: download → stage → verify → apply (ota.h/ota.c, 744 lines)
+- [x] OTA update: download → stage → verify → apply (ota.h/ota.c, 665 lines)
 - [x] Marketplace SQLite persistence — server/database.py (drivers, evolutions, reviews, metrics)
 - [x] Fix 8KB driver download buffer — TCP RX 64KB + streaming chunked download (up to 1MB)
 
@@ -71,10 +71,10 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] Arabic + English support (auto-detection, bilingual responses)
 
 ### H. Desktop GUI (DONE)
-- [x] Core GUI system (gui.h/gui.c, 899 lines — framebuffer drawing, clipping, double buffer)
-- [x] Widget toolkit (widgets.h/widgets.c, 1,511 lines — panel, label, button, textinput, listview, chatview, scrollbar)
+- [x] Core GUI system (gui.h/gui.c, 687 lines — framebuffer drawing, clipping, double buffer)
+- [x] Widget toolkit (widgets.h/widgets.c, 2,186 lines — panel, label, button, textinput, listview, chatview, scrollbar)
 - [x] Mouse cursor (software sprite, click/drag events)
-- [x] Desktop shell (desktop.h/desktop.c, 932 lines — top bar, file browser, AI chat)
+- [x] Desktop shell (desktop.h/desktop.c, 1,162 lines — top bar, file browser, AI chat)
 - [x] File browser (BMFS listing, file info, actions)
 - [x] AI chat window (messages, input, send, auto-scroll)
 - [x] Settings panel (network, display, language, AI provider)
@@ -84,11 +84,11 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] GUI as downloadable .ajdrv plugin (designed as loadable module)
 
 ### I. Production Hardening (DONE)
-- [x] Secure boot chain (secboot.h/secboot.c, 300 lines — SHA-512 self-verify, Ed25519 signing, ENFORCE/AUDIT policy, sign_kernel.py tool)
-- [x] Memory protection (memprotect.h/memprotect.c, 390 lines — NX, WP, SMEP/SMAP, guard pages)
-- [x] Crash recovery (panic.h/panic.c, 536 lines — register dump, backtrace, crash log, auto-reboot)
-- [x] Persistent logging (klog.h/klog.c, 450 lines — ring buffer, auto-flush, boot replay)
-- [x] Automated CI/CD (ci.yml, 102 lines — 3-arch build + QEMU smoke test)
+- [x] Secure boot chain (secboot.h/secboot.c, 215 lines — SHA-512 self-verify, Ed25519 signing, ENFORCE/AUDIT policy, sign_kernel.py tool)
+- [x] Memory protection (memprotect.h/memprotect.c, 336 lines — NX, WP, SMEP/SMAP, guard pages)
+- [x] Crash recovery (panic.h/panic.c, 470 lines — register dump, backtrace, crash log, auto-reboot)
+- [x] Persistent logging (klog.h/klog.c, 393 lines — ring buffer, auto-flush, boot replay)
+- [x] Automated CI/CD (ci.yml, 126 lines — 3-arch build + QEMU smoke test)
 
 ### J. Open Source Ready (DONE)
 - [x] CONTRIBUTING.md (347 lines — code style, PR process, review guidelines)
@@ -96,7 +96,7 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] Hardware compatibility database (doc/hardware-compatibility.md, 169 lines)
 - [x] Release process (doc/release-process.md, 179 lines)
 - [x] CHANGELOG.md (60 lines — v1.0.0 initial release)
-- [x] CODE_OF_CONDUCT.md (90 lines — Contributor Covenant)
+- [x] CODE_OF_CONDUCT.md (137 lines — Contributor Covenant)
 
 ---
 
@@ -166,7 +166,7 @@ AMD GPU, Intel GPU, Audio HDA, Bluetooth
 | Boot to AI chat | < 10 seconds | Achieved |
 | Marketplace drivers | 50+ | In Progress |
 | Tested hardware | 100+ devices | In Progress |
-| Total codebase | ~90,000 lines | 90,242 lines |
+| Total codebase | ~87,603 lines | 87,603 lines |
 | Architectures | 3 (x86-64, ARM64, RISC-V) | All 3 boot |
 | AI Chat (English + Arabic) | 69+ command patterns | Done |
 | Desktop GUI | Framebuffer-based | Done |

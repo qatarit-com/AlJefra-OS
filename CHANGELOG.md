@@ -31,7 +31,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Self-Evolving Kernel:** 11 evolution generations with 200+ optimizations
   across 25 kernel files. Dual experiment system: AI-directed source
   optimization (Experiment A) and GPU-accelerated binary evolution
-  (Experiment B, 4,032 lines of C).
+  (Experiment B, 4,555 lines of C).
 - **GPU Compute:** NVIDIA RTX 5090 driver (951 lines ASM) with VRAM management,
   compute dispatch, fence synchronization, and AI scheduler.
 - **Desktop GUI System:** Window manager, widget toolkit, mouse cursor, desktop
