@@ -138,6 +138,110 @@ static char serial_getc(void)
 }
 
 /* -------------------------------------------------------------------------- */
+/* Debug serial output (unconditional, no serial_available check)             */
+/* -------------------------------------------------------------------------- */
+
+static void dbg_serial_str(const char *s)
+{
+    while (*s) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        if (*s == '\n') outb(COM1_DATA, '\r');
+        outb(COM1_DATA, (uint8_t)*s++);
+    }
+}
+
+static void dbg_serial_hex(uint64_t val)
+{
+    static const char hex[] = "0123456789abcdef";
+    char buf[17];
+    int pos = 0;
+    if (val == 0) { dbg_serial_str("0"); return; }
+    while (val) { buf[pos++] = hex[val & 0xF]; val >>= 4; }
+    for (int i = pos - 1; i >= 0; i--) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        outb(COM1_DATA, (uint8_t)buf[i]);
+    }
+}
+
+static void dbg_serial_dec(uint32_t val)
+{
+    char buf[11];
+    int pos = 0;
+    if (val == 0) { dbg_serial_str("0"); return; }
+    while (val) { buf[pos++] = '0' + (char)(val % 10); val /= 10; }
+    for (int i = pos - 1; i >= 0; i--) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        outb(COM1_DATA, (uint8_t)buf[i]);
+    }
+}
+
+/* -------------------------------------------------------------------------- */
+/* MTRR Write-Combining for framebuffer                                       */
+/* -------------------------------------------------------------------------- */
+
+#define MSR_MTRRCAP         0x000000FE
+#define MSR_MTRR_DEF_TYPE   0x000002FF
+#define MSR_MTRR_PHYSBASE0  0x00000200
+#define MSR_MTRR_PHYSMASK0  0x00000201
+
+#define MTRR_TYPE_WC        0x01  /* Write-Combining */
+#define MTRR_MASK_VALID     (1ULL << 11)
+
+static inline uint64_t rdmsr(uint32_t msr)
+{
+    uint32_t lo, hi;
+    __asm__ volatile ("rdmsr" : "=a"(lo), "=d"(hi) : "c"(msr));
+    return ((uint64_t)hi << 32) | lo;
+}
+
+static inline void wrmsr(uint32_t msr, uint64_t val)
+{
+    __asm__ volatile ("wrmsr" : : "c"(msr),
+                      "a"((uint32_t)val), "d"((uint32_t)(val >> 32)));
+}
+
+/* Set MTRR Write-Combining for a physical address range.
+ * This changes the framebuffer memory type from UC (Uncacheable, ~100ns
+ * per write via PCI bus) to WC (Write-Combining, batches writes into
+ * write-combine buffers for ~10-100x speedup on framebuffer operations). */
+static void mtrr_set_wc(uint64_t phys_addr, uint64_t size)
+{
+    if (size == 0) return;
+
+    /* Round size up to nearest power of 2 (MTRR requirement) */
+    uint64_t p2 = 1;
+    while (p2 < size)
+        p2 <<= 1;
+
+    /* Read MTRRCAP to get number of variable-range MTRRs */
+    uint64_t cap = rdmsr(MSR_MTRRCAP);
+    uint32_t vcnt = (uint32_t)(cap & 0xFF);
+    if (vcnt == 0) return;
+
+    /* Find first free MTRR slot (valid bit clear in mask register) */
+    for (uint32_t i = 0; i < vcnt; i++) {
+        uint64_t mask = rdmsr(MSR_MTRR_PHYSMASK0 + 2 * i);
+        if (!(mask & MTRR_MASK_VALID)) {
+            /* Free slot — program base (addr + WC type) and mask */
+            uint64_t base = (phys_addr & ~0xFFFULL) | MTRR_TYPE_WC;
+            uint64_t msk  = (~(p2 - 1) & 0x000FFFFFFFFFF000ULL) | MTRR_MASK_VALID;
+            wrmsr(MSR_MTRR_PHYSBASE0 + 2 * i, base);
+            wrmsr(MSR_MTRR_PHYSMASK0 + 2 * i, msk);
+            dbg_serial_str("[mtrr] WC set for fb at 0x");
+            dbg_serial_hex(phys_addr);
+            dbg_serial_str(" size=");
+            dbg_serial_dec((uint32_t)(p2 >> 20));
+            dbg_serial_str("MB\n");
+            return;
+        }
+    }
+    dbg_serial_str("[mtrr] no free MTRR slot\n");
+}
+
+/* -------------------------------------------------------------------------- */
 /* Framebuffer init from multiboot info                                       */
 /* -------------------------------------------------------------------------- */
 
@@ -225,52 +329,21 @@ static void framebuffer_init(void)
     /* Paint a raw diagnostic splash to confirm framebuffer works */
     fb_raw_splash(fb.base, fb.pitch, fb.width, fb.height, fb.bpp);
 
-    if (lfb_init(&lfb_con, &fb) == HAL_OK)
+    if (lfb_init(&lfb_con, &fb) == HAL_OK) {
         lfb_available = true;
+
+        /* Enable MTRR Write-Combining for framebuffer — massive speed boost.
+         * Without this, every pixel write goes through the PCI bus at ~100ns
+         * each (Uncacheable). With WC, writes are batched in CPU write-combine
+         * buffers and flushed in bursts, typically 10-100x faster. */
+        uint64_t fb_size = (uint64_t)fb.pitch * fb.height;
+        mtrr_set_wc(fb.phys_base, fb_size);
+    }
 }
 
 /* -------------------------------------------------------------------------- */
 /* HAL Console API                                                            */
 /* -------------------------------------------------------------------------- */
-
-/* Debug: unconditional serial print (doesn't require serial_available).
- * Used during early boot to log framebuffer info for diagnostics. */
-static void dbg_serial_str(const char *s)
-{
-    while (*s) {
-        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
-            __asm__ volatile ("pause");
-        if (*s == '\n') outb(COM1_DATA, '\r');
-        outb(COM1_DATA, (uint8_t)*s++);
-    }
-}
-
-static void dbg_serial_hex(uint64_t val)
-{
-    static const char hex[] = "0123456789abcdef";
-    char buf[17];
-    int pos = 0;
-    if (val == 0) { dbg_serial_str("0"); return; }
-    while (val) { buf[pos++] = hex[val & 0xF]; val >>= 4; }
-    for (int i = pos - 1; i >= 0; i--) {
-        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
-            __asm__ volatile ("pause");
-        outb(COM1_DATA, (uint8_t)buf[i]);
-    }
-}
-
-static void dbg_serial_dec(uint32_t val)
-{
-    char buf[11];
-    int pos = 0;
-    if (val == 0) { dbg_serial_str("0"); return; }
-    while (val) { buf[pos++] = '0' + (char)(val % 10); val /= 10; }
-    for (int i = pos - 1; i >= 0; i--) {
-        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
-            __asm__ volatile ("pause");
-        outb(COM1_DATA, (uint8_t)buf[i]);
-    }
-}
 
 hal_status_t hal_console_init(void)
 {
