@@ -838,7 +838,6 @@ static int md_read_line(const char *content, int clen, int *pos,
 {
     if (*pos >= clen) return -1;
 
-    int start = *pos;
     int i = 0;
     while (*pos < clen && content[*pos] != '\n' && i < buflen - 1) {
         buf[i++] = content[(*pos)++];

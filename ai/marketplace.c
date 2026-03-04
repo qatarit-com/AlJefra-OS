@@ -18,6 +18,9 @@
 #include "../net/tls.h"
 #endif
 
+/* Forward declarations */
+static void build_host_str(uint32_t ip, char *host_str);
+
 /* ── Integer to hex string ── */
 static void u16_to_hex(uint16_t v, char *out)
 {

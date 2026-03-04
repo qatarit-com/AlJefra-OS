@@ -1,37 +1,78 @@
 /* SPDX-License-Identifier: MIT */
 /* AlJefra OS — x86-64 Console HAL Implementation
- * Serial COM1 (0x3F8) output with minimal printf.
- * Falls back to kernel b_output() for non-serial output.
+ * Dual output: serial COM1 (0x3F8) + linear framebuffer (from multiboot).
+ * On real hardware (UEFI), serial may not be visible — the LFB provides
+ * on-screen text output using the bitmap font in drivers/display/lfb.c.
  */
 
 #include "../../hal/hal.h"
+#include "../../drivers/display/lfb.h"
 #include <stdarg.h>
 
-/* Stub fallbacks (not needed when serial is available) */
-static void b_output(const char *str, uint64_t nbr) { (void)str; (void)nbr; }
-static uint8_t b_input(void) { return 0; }
+/* -------------------------------------------------------------------------- */
+/* Multiboot info structure (subset of fields we need)                        */
+/* -------------------------------------------------------------------------- */
+
+/* Multiboot info flags bits */
+#define MB_INFO_FRAMEBUFFER  (1u << 12)
+
+/* Multiboot info structure layout (from multiboot spec) */
+typedef struct {
+    uint32_t flags;             /* 0 */
+    uint32_t mem_lower;         /* 4 */
+    uint32_t mem_upper;         /* 8 */
+    uint32_t boot_device;       /* 12 */
+    uint32_t cmdline;           /* 16 */
+    uint32_t mods_count;        /* 20 */
+    uint32_t mods_addr;         /* 24 */
+    uint32_t syms[4];           /* 28-40 */
+    uint32_t mmap_length;       /* 44 */
+    uint32_t mmap_addr;         /* 48 */
+    uint32_t drives_length;     /* 52 */
+    uint32_t drives_addr;       /* 56 */
+    uint32_t config_table;      /* 60 */
+    uint32_t boot_loader_name;  /* 64 */
+    uint32_t apm_table;         /* 68 */
+    /* VBE info */
+    uint32_t vbe_control_info;  /* 72 */
+    uint32_t vbe_mode_info;     /* 76 */
+    uint16_t vbe_mode;          /* 80 */
+    uint16_t vbe_interface_seg; /* 82 */
+    uint16_t vbe_interface_off; /* 84 */
+    uint16_t vbe_interface_len; /* 86 */
+    /* Framebuffer info (GRUB extension, flags bit 12) */
+    uint64_t framebuffer_addr;  /* 88 */
+    uint32_t framebuffer_pitch; /* 96 */
+    uint32_t framebuffer_width; /* 100 */
+    uint32_t framebuffer_height;/* 104 */
+    uint8_t  framebuffer_bpp;   /* 108 */
+    uint8_t  framebuffer_type;  /* 109: 0=indexed, 1=RGB, 2=EGA text */
+} __attribute__((packed)) multiboot_info_t;
+
+/* Saved by boot.S */
+extern uint64_t boot_mb_info_ptr;
+extern uint32_t boot_mb_magic;
 
 /* -------------------------------------------------------------------------- */
 /* Serial port (COM1) constants                                               */
 /* -------------------------------------------------------------------------- */
 
 #define COM1_BASE       0x3F8
-#define COM1_DATA       (COM1_BASE + 0)  /* Data register (R/W) */
-#define COM1_IER        (COM1_BASE + 1)  /* Interrupt Enable */
-#define COM1_FCR        (COM1_BASE + 2)  /* FIFO Control (write) */
-#define COM1_LCR        (COM1_BASE + 3)  /* Line Control */
-#define COM1_MCR        (COM1_BASE + 4)  /* Modem Control */
-#define COM1_LSR        (COM1_BASE + 5)  /* Line Status */
-#define COM1_MSR        (COM1_BASE + 6)  /* Modem Status */
-#define COM1_DLL        (COM1_BASE + 0)  /* Divisor Latch Low (DLAB=1) */
-#define COM1_DLH        (COM1_BASE + 1)  /* Divisor Latch High (DLAB=1) */
+#define COM1_DATA       (COM1_BASE + 0)
+#define COM1_IER        (COM1_BASE + 1)
+#define COM1_FCR        (COM1_BASE + 2)
+#define COM1_LCR        (COM1_BASE + 3)
+#define COM1_MCR        (COM1_BASE + 4)
+#define COM1_LSR        (COM1_BASE + 5)
+#define COM1_MSR        (COM1_BASE + 6)
+#define COM1_DLL        (COM1_BASE + 0)
+#define COM1_DLH        (COM1_BASE + 1)
 
-/* LSR bits */
 #define LSR_DATA_READY  (1u << 0)
 #define LSR_TX_EMPTY    (1u << 5)
 
 /* -------------------------------------------------------------------------- */
-/* Port I/O helpers (inlined, not dependent on io.c)                          */
+/* Port I/O helpers                                                           */
 /* -------------------------------------------------------------------------- */
 
 static inline uint8_t inb(uint16_t port)
@@ -53,6 +94,8 @@ static inline void outb(uint16_t port, uint8_t val)
 static hal_console_type_t current_type = HAL_CONSOLE_SERIAL;
 static bool console_initialized = false;
 static bool serial_available = false;
+static bool lfb_available = false;
+static lfb_console_t lfb_con;
 
 /* -------------------------------------------------------------------------- */
 /* Serial I/O                                                                 */
@@ -60,44 +103,27 @@ static bool serial_available = false;
 
 static void serial_init(void)
 {
-    /* Disable interrupts */
     outb(COM1_IER, 0x00);
-
-    /* Set DLAB to access divisor */
     outb(COM1_LCR, 0x80);
-
-    /* Set divisor to 1 (115200 baud) */
     outb(COM1_DLL, 0x01);
     outb(COM1_DLH, 0x00);
-
-    /* 8 data bits, no parity, 1 stop bit (8N1), clear DLAB */
     outb(COM1_LCR, 0x03);
-
-    /* Enable FIFO, clear TX/RX, 14-byte threshold */
     outb(COM1_FCR, 0xC7);
-
-    /* DTR + RTS + OUT2 (required for interrupts) */
     outb(COM1_MCR, 0x0B);
 
-    /* Test: set loopback mode and send 0xAE */
+    /* Loopback test */
     outb(COM1_MCR, 0x1E);
     outb(COM1_DATA, 0xAE);
-
-    /* Check if we get the byte back */
-    if (inb(COM1_DATA) == 0xAE) {
+    if (inb(COM1_DATA) == 0xAE)
         serial_available = true;
-    }
 
-    /* Restore normal operation: DTR + RTS + OUT2 */
     outb(COM1_MCR, 0x0B);
 }
 
 static void serial_putc(char c)
 {
-    /* Wait for TX buffer to be empty */
-    while (!(inb(COM1_LSR) & LSR_TX_EMPTY)) {
+    while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
         __asm__ volatile ("pause");
-    }
     outb(COM1_DATA, (uint8_t)c);
 }
 
@@ -112,17 +138,56 @@ static char serial_getc(void)
 }
 
 /* -------------------------------------------------------------------------- */
+/* Framebuffer init from multiboot info                                       */
+/* -------------------------------------------------------------------------- */
+
+static void framebuffer_init(void)
+{
+    if (boot_mb_magic != 0x2BADB002)
+        return;   /* Not booted via multiboot */
+
+    multiboot_info_t *mb = (multiboot_info_t *)(uintptr_t)boot_mb_info_ptr;
+    if (!mb)
+        return;
+
+    /* Check if framebuffer info is available (flags bit 12) */
+    if (!(mb->flags & MB_INFO_FRAMEBUFFER))
+        return;
+
+    /* Only support RGB direct color framebuffer (type 1) */
+    if (mb->framebuffer_type != 1)
+        return;
+
+    if (mb->framebuffer_addr == 0 || mb->framebuffer_width == 0 ||
+        mb->framebuffer_height == 0 || mb->framebuffer_bpp == 0)
+        return;
+
+    lfb_info_t fb;
+    fb.base      = (volatile void *)(uintptr_t)mb->framebuffer_addr;
+    fb.phys_base = mb->framebuffer_addr;
+    fb.width     = mb->framebuffer_width;
+    fb.height    = mb->framebuffer_height;
+    fb.pitch     = mb->framebuffer_pitch;
+    fb.bpp       = mb->framebuffer_bpp;
+
+    if (lfb_init(&lfb_con, &fb) == HAL_OK)
+        lfb_available = true;
+}
+
+/* -------------------------------------------------------------------------- */
 /* HAL Console API                                                            */
 /* -------------------------------------------------------------------------- */
 
 hal_status_t hal_console_init(void)
 {
     serial_init();
+    framebuffer_init();
 
-    if (serial_available) {
+    if (lfb_available) {
+        current_type = HAL_CONSOLE_LFB;
+    } else if (serial_available) {
         current_type = HAL_CONSOLE_SERIAL;
     } else {
-        /* Fall back to kernel b_output (could be VGA or framebuffer) */
         current_type = HAL_CONSOLE_VGA;
     }
 
@@ -132,15 +197,16 @@ hal_status_t hal_console_init(void)
 
 void hal_console_putc(char c)
 {
+    /* Always output to serial if available (for debugging) */
     if (serial_available) {
-        if (c == '\n') {
+        if (c == '\n')
             serial_putc('\r');
-        }
         serial_putc(c);
-    } else {
-        /* Use kernel b_output for single character */
-        char buf[2] = { c, 0 };
-        b_output(buf, 1);
+    }
+
+    /* Also output to framebuffer if available (for screen display) */
+    if (lfb_available) {
+        lfb_putc(&lfb_con, c);
     }
 }
 
@@ -148,19 +214,9 @@ void hal_console_puts(const char *s)
 {
     if (!s) return;
 
-    if (serial_available) {
-        while (*s) {
-            if (*s == '\n')
-                serial_putc('\r');
-            serial_putc(*s);
-            s++;
-        }
-    } else {
-        /* Count string length */
-        uint64_t len = 0;
-        const char *p = s;
-        while (*p++) len++;
-        b_output(s, len);
+    while (*s) {
+        hal_console_putc(*s);
+        s++;
     }
 }
 
@@ -168,17 +224,15 @@ void hal_console_write(const char *s, uint64_t len)
 {
     if (!s || len == 0) return;
 
-    for (uint64_t i = 0; i < len; i++) {
+    for (uint64_t i = 0; i < len; i++)
         hal_console_putc(s[i]);
-    }
 }
 
 /* -------------------------------------------------------------------------- */
 /* Minimal printf implementation                                              */
-/* Supports: %s, %d, %u, %x, %p, %l (as prefix for long), %%                */
+/* Supports: %s, %d, %u, %x, %p, %c, %l (as prefix for long), %%            */
 /* -------------------------------------------------------------------------- */
 
-/* Output a decimal number */
 static void print_decimal(int64_t val)
 {
     if (val < 0) {
@@ -186,7 +240,7 @@ static void print_decimal(int64_t val)
         val = -val;
     }
 
-    char buf[21]; /* max 20 digits for int64 + null */
+    char buf[21];
     int pos = 0;
 
     if (val == 0) {
@@ -199,13 +253,10 @@ static void print_decimal(int64_t val)
         val /= 10;
     }
 
-    /* Reverse and output */
-    for (int i = pos - 1; i >= 0; i--) {
+    for (int i = pos - 1; i >= 0; i--)
         hal_console_putc(buf[i]);
-    }
 }
 
-/* Output an unsigned decimal number */
 static void print_unsigned(uint64_t val)
 {
     char buf[21];
@@ -221,18 +272,15 @@ static void print_unsigned(uint64_t val)
         val /= 10;
     }
 
-    for (int i = pos - 1; i >= 0; i--) {
+    for (int i = pos - 1; i >= 0; i--)
         hal_console_putc(buf[i]);
-    }
 }
 
-/* Output a hex number */
 static void print_hex(uint64_t val, int width)
 {
     static const char hex_digits[] = "0123456789abcdef";
 
     if (width == 0) {
-        /* Auto-width: skip leading zeros */
         if (val == 0) {
             hal_console_putc('0');
             return;
@@ -246,10 +294,8 @@ static void print_hex(uint64_t val, int width)
         for (int i = pos - 1; i >= 0; i--)
             hal_console_putc(buf[i]);
     } else {
-        /* Fixed width, with leading zeros */
-        for (int i = (width - 1) * 4; i >= 0; i -= 4) {
+        for (int i = (width - 1) * 4; i >= 0; i -= 4)
             hal_console_putc(hex_digits[(val >> i) & 0xF]);
-        }
     }
 }
 
@@ -265,30 +311,26 @@ void hal_console_printf(const char *fmt, ...)
             continue;
         }
 
-        fmt++; /* Skip '%' */
+        fmt++;
 
-        /* Parse flags */
         int zero_pad = 0;
         if (*fmt == '0') {
             zero_pad = 1;
             fmt++;
         }
 
-        /* Parse width */
         int width = 0;
         while (*fmt >= '0' && *fmt <= '9') {
             width = width * 10 + (*fmt - '0');
             fmt++;
         }
 
-        /* Check for 'l' prefix (long) */
         int is_long = 0;
         if (*fmt == 'l') {
             is_long = 1;
             fmt++;
-            if (*fmt == 'l') {
-                fmt++; /* Skip second 'l' in %lld, %llu, etc. */
-            }
+            if (*fmt == 'l')
+                fmt++;
         }
 
         switch (*fmt) {
@@ -299,31 +341,28 @@ void hal_console_printf(const char *fmt, ...)
         }
         case 'd': {
             int64_t val;
-            if (is_long) {
+            if (is_long)
                 val = va_arg(args, int64_t);
-            } else {
+            else
                 val = va_arg(args, int);
-            }
             print_decimal(val);
             break;
         }
         case 'u': {
             uint64_t val;
-            if (is_long) {
+            if (is_long)
                 val = va_arg(args, uint64_t);
-            } else {
+            else
                 val = va_arg(args, unsigned int);
-            }
             print_unsigned(val);
             break;
         }
         case 'x': {
             uint64_t val;
-            if (is_long) {
+            if (is_long)
                 val = va_arg(args, uint64_t);
-            } else {
+            else
                 val = va_arg(args, unsigned int);
-            }
             print_hex(val, (zero_pad && width > 0) ? width : 0);
             break;
         }
@@ -342,10 +381,8 @@ void hal_console_printf(const char *fmt, ...)
             break;
         }
         case '\0':
-            /* Premature end of format string */
             goto done;
         default:
-            /* Unknown format specifier, output literally */
             hal_console_putc('%');
             hal_console_putc(*fmt);
             break;
@@ -360,20 +397,15 @@ done:
 
 char hal_console_getc(void)
 {
-    if (serial_available && serial_has_data()) {
+    if (serial_available && serial_has_data())
         return serial_getc();
-    }
-    /* Fall back to kernel input (blocking) */
-    return (char)b_input();
+    return 0;
 }
 
 int hal_console_has_input(void)
 {
-    if (serial_available) {
+    if (serial_available)
         return serial_has_data();
-    }
-    /* AlJefra's b_input is blocking; no non-blocking check available.
-     * Return 0 to indicate "we don't know". */
     return 0;
 }
 
@@ -384,9 +416,5 @@ hal_console_type_t hal_console_type(void)
 
 void hal_console_set_uart_base(uint64_t mmio_base)
 {
-    /* On x86-64, we use port I/O for COM1, not MMIO.
-     * This function is primarily for ARM/RISC-V platforms where
-     * UART is memory-mapped.  We acknowledge the call but don't change
-     * behavior. */
     (void)mmio_base;
 }

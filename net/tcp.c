@@ -162,7 +162,7 @@ static void send_tcp_frame(tcp_conn_t *conn, uint8_t flags,
     f->tcp_ack = htonl(conn->ack_num);
     f->tcp_data_off = (TCP_HDR_LEN / 4) << 4; /* 5 words = 20 bytes */
     f->tcp_flags = flags;
-    f->tcp_window = htons(TCP_RX_BUF_SIZE);
+    f->tcp_window = htons((uint16_t)(TCP_RX_BUF_SIZE > 65535 ? 65535 : TCP_RX_BUF_SIZE));
     f->tcp_urgent = 0;
 
     /* Copy payload after TCP header */

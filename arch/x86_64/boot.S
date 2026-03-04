@@ -20,8 +20,8 @@
 /* Multiboot1 constants */
 #define MULTIBOOT_MAGIC    0x1BADB002
 /* Flags: bit 0 = page-aligned modules, bit 1 = memory info,
- *        bit 16 = use header address fields (a.out kludge) */
-#define MULTIBOOT_FLAGS    0x00010003
+ *        bit 2 = video mode info, bit 16 = header address fields */
+#define MULTIBOOT_FLAGS    0x00010007
 #define MULTIBOOT_CHECKSUM (-(MULTIBOOT_MAGIC + MULTIBOOT_FLAGS))
 
 /* Multiboot1 bootloader magic (passed in EAX by bootloader) */
@@ -41,6 +41,11 @@ multiboot_header:
     .long _load_end             /* load_end_addr: end of data to load from file */
     .long _bss_end              /* bss_end_addr: end of BSS (zeroed by loader) */
     .long _boot32               /* entry_addr: entry point */
+    /* Video mode fields (used because flags bit 2 is set) */
+    .long 0                     /* mode_type: 0 = linear graphics */
+    .long 1024                  /* width: preferred 1024 */
+    .long 768                   /* height: preferred 768 */
+    .long 32                    /* depth: 32 bpp */
 
 /* ── 32-bit entry point ── */
 .section .text.boot32, "ax"
