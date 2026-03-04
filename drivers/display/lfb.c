@@ -136,26 +136,6 @@ static inline void lfb_write_pixel(volatile uint8_t *addr, uint32_t color,
     }
 }
 
-/* Fast 64-bit copy for framebuffer memory (8 bytes at a time) */
-static void fb_copy64(volatile void *dst, volatile const void *src, uint32_t bytes)
-{
-    volatile uint64_t *d = (volatile uint64_t *)dst;
-    volatile const uint64_t *s = (volatile const uint64_t *)src;
-    uint32_t qwords = bytes / 8;
-    for (uint32_t i = 0; i < qwords; i++)
-        d[i] = s[i];
-}
-
-/* Fast 64-bit fill for framebuffer memory */
-static void fb_fill64(volatile void *dst, uint32_t color32, uint32_t bytes)
-{
-    uint64_t fill = ((uint64_t)color32 << 32) | color32;
-    volatile uint64_t *d = (volatile uint64_t *)dst;
-    uint32_t qwords = bytes / 8;
-    for (uint32_t i = 0; i < qwords; i++)
-        d[i] = fill;
-}
-
 /* Scroll the screen up by one text row */
 static void lfb_scroll(lfb_console_t *con)
 {
@@ -163,12 +143,18 @@ static void lfb_scroll(lfb_console_t *con)
     uint32_t total_text_bytes = row_bytes * con->rows;
     volatile uint8_t *fb = (volatile uint8_t *)con->fb.base;
 
-    /* Move rows 1..n up to 0..n-1 (64-bit wide copies) */
-    fb_copy64(fb, fb + row_bytes, total_text_bytes - row_bytes);
+    /* Move rows 1..n up to 0..n-1 */
+    for (uint32_t i = 0; i < total_text_bytes - row_bytes; i++)
+        fb[i] = fb[i + row_bytes];
 
-    /* Clear last row with background color */
-    volatile uint8_t *last = fb + total_text_bytes - row_bytes;
-    fb_fill64(last, con->bg_color, row_bytes);
+    /* Clear last row */
+    uint32_t last_row_start = (con->rows - 1) * LFB_FONT_HEIGHT;
+    for (uint32_t y = last_row_start; y < last_row_start + LFB_FONT_HEIGHT; y++) {
+        volatile uint8_t *row = (volatile uint8_t *)con->fb.base + y * con->fb.pitch;
+        uint32_t bpp_bytes = con->fb.bpp / 8;
+        for (uint32_t x = 0; x < con->fb.width; x++)
+            lfb_write_pixel(row + x * bpp_bytes, con->bg_color, con->fb.bpp);
+    }
 }
 
 /* ── Public API ── */
@@ -213,17 +199,6 @@ void lfb_fill_rect(lfb_console_t *con, uint32_t x, uint32_t y,
     if (y_end > con->fb.height) y_end = con->fb.height;
 
     uint32_t bpp_bytes = con->fb.bpp / 8;
-    uint32_t fill_w = x_end - x;
-
-    /* Fast path: full-width 32bpp fill uses 64-bit writes */
-    if (bpp_bytes == 4 && x == 0 && fill_w == con->fb.width) {
-        for (uint32_t py = y; py < y_end; py++) {
-            volatile uint8_t *row = (volatile uint8_t *)con->fb.base + py * con->fb.pitch;
-            fb_fill64(row, color, fill_w * 4);
-        }
-        return;
-    }
-
     for (uint32_t py = y; py < y_end; py++) {
         volatile uint8_t *row = (volatile uint8_t *)con->fb.base + py * con->fb.pitch;
         for (uint32_t px = x; px < x_end; px++)
@@ -233,16 +208,7 @@ void lfb_fill_rect(lfb_console_t *con, uint32_t x, uint32_t y,
 
 void lfb_clear(lfb_console_t *con, uint32_t color)
 {
-    if (!con->initialized)
-        return;
-
-    /* Fast path: 32bpp full-screen clear in one bulk fill */
-    if (con->fb.bpp == 32) {
-        uint32_t total = con->fb.pitch * con->fb.height;
-        fb_fill64((volatile void *)con->fb.base, color, total);
-    } else {
-        lfb_fill_rect(con, 0, 0, con->fb.width, con->fb.height, color);
-    }
+    lfb_fill_rect(con, 0, 0, con->fb.width, con->fb.height, color);
     con->cursor_x = 0;
     con->cursor_y = 0;
 }
@@ -261,29 +227,6 @@ void lfb_draw_char(lfb_console_t *con, uint32_t px, uint32_t py,
         glyph = font_8x16[0]; /* Space for unknown chars */
 
     uint32_t bpp_bytes = con->fb.bpp / 8;
-
-    /* Fast path for 32bpp: direct uint32_t writes, no function calls */
-    if (bpp_bytes == 4) {
-        for (uint32_t row = 0; row < LFB_FONT_HEIGHT; row++) {
-            uint32_t sy = py + row;
-            if (sy >= con->fb.height) break;
-
-            volatile uint32_t *scanline =
-                (volatile uint32_t *)((volatile uint8_t *)con->fb.base + sy * con->fb.pitch);
-            uint8_t bits = glyph[row];
-
-            uint32_t sx = px;
-            scanline[sx]     = (bits & 0x80) ? fg : bg;
-            scanline[sx + 1] = (bits & 0x40) ? fg : bg;
-            scanline[sx + 2] = (bits & 0x20) ? fg : bg;
-            scanline[sx + 3] = (bits & 0x10) ? fg : bg;
-            scanline[sx + 4] = (bits & 0x08) ? fg : bg;
-            scanline[sx + 5] = (bits & 0x04) ? fg : bg;
-            scanline[sx + 6] = (bits & 0x02) ? fg : bg;
-            scanline[sx + 7] = (bits & 0x01) ? fg : bg;
-        }
-        return;
-    }
 
     for (uint32_t row = 0; row < LFB_FONT_HEIGHT; row++) {
         uint32_t sy = py + row;
