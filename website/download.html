@@ -49,16 +49,16 @@
         </div>
 
         <div class="download-box">
-            <h3>Bootable ISO (standalone) &mdash; v0.5.0</h3>
+            <h3>Bootable ISO (standalone) &mdash; v0.6.0</h3>
             <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                 GRUB2 bootable ISO image. Write to USB with Balena Etcher, Rufus, <code>dd</code>, or boot directly in QEMU.
             </p>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                <strong>Version:</strong> 0.5.0 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
+                <strong>Version:</strong> 0.6.0 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
             </p>
-            <a href="aljefra_os_v0.5.0.iso" class="btn btn-primary" download>Download aljefra_os_v0.5.0.iso</a>
+            <a href="aljefra_os_v0.6.0.iso" class="btn btn-primary" download>Download aljefra_os_v0.6.0.iso</a>
             <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-                MD5: 1a8753f82b4dbc034cc843d0db6d4a20 | Updated 2026-03-04
+                MD5: 49b7201b5d5f09e42b6bda1d144f7fbc | Updated 2026-03-04
             </p>
         </div>
     </section>
@@ -76,7 +76,7 @@
             <li>Download and install <a href="https://etcher.balena.io/" target="_blank">Balena Etcher</a></li>
             <li>Insert a USB drive (2 GB or larger)</li>
             <li>Open Balena Etcher and click <strong>"Flash from file"</strong></li>
-            <li>Select the downloaded <code>aljefra_os_v1.0.iso</code></li>
+            <li>Select the downloaded <code>aljefra_os_v0.6.0.iso</code></li>
             <li>Click <strong>"Select target"</strong> and choose your USB drive</li>
             <li>Click <strong>"Flash!"</strong> and wait for completion</li>
             <li>Eject the USB and plug it into the target machine</li>
@@ -90,7 +90,7 @@
             <li>Download <a href="https://rufus.ie/" target="_blank">Rufus</a> (portable version works fine)</li>
             <li>Insert a USB drive and open Rufus</li>
             <li>Select your USB drive under <strong>"Device"</strong></li>
-            <li>Click <strong>"SELECT"</strong> and choose <code>aljefra_os_v1.0.iso</code></li>
+            <li>Click <strong>"SELECT"</strong> and choose <code>aljefra_os_v0.6.0.iso</code></li>
             <li>Set <strong>Partition scheme</strong> to <strong>MBR</strong> (for BIOS) or <strong>GPT</strong> (for UEFI)</li>
             <li>Click <strong>"START"</strong> and wait for completion</li>
         </ol>
@@ -111,7 +111,7 @@ diskutil list
 diskutil unmountDisk /dev/diskN
 
 # Flash (use rdiskN for speed)
-sudo dd if=aljefra_os_v1.0.iso of=/dev/rdiskN bs=4m
+sudo dd if=aljefra_os_v0.6.0.iso of=/dev/rdiskN bs=4m
 
 # Eject
 diskutil eject /dev/diskN</code></pre>
@@ -121,7 +121,7 @@ diskutil eject /dev/diskN</code></pre>
 lsblk
 
 # Flash
-sudo dd if=aljefra_os_v1.0.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=aljefra_os_v0.6.0.iso of=/dev/sdX bs=4M status=progress
 sync</code></pre>
     </section>
 
@@ -220,7 +220,7 @@ make ARCH=riscv64    # ~996 KB kernel ELF</code></pre>
 
         <h3>x86-64 (Intel/AMD) &mdash; using the ISO</h3>
         <pre><code>qemu-system-x86_64 -m 256 \
-  -cdrom aljefra_os_v1.0.iso -boot d \
+  -cdrom aljefra_os_v0.6.0.iso -boot d \
   -serial mon:stdio -display none \
   -device e1000,netdev=n0 -netdev user,id=n0</code></pre>
 
@@ -340,6 +340,11 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
             </thead>
             <tbody>
                 <tr>
+                    <td><strong>v0.6.0</strong></td>
+                    <td>2026-03-04</td>
+                    <td>Interactive shell with keyboard input (PS/2 + USB HID). Commands: help, info, pci, mem, drivers, uptime, clear, reboot. SSE safety flags for real hardware.</td>
+                </tr>
+                <tr>
                     <td><strong>v0.5.0</strong></td>
                     <td>2026-03-04</td>
                     <td>UEFI framebuffer display, multiboot info preservation, 32GB identity mapping, automated BIOS+UEFI boot testing, universal GRUB config.</td>
@@ -360,7 +365,7 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 AlJefra OS v0.5.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p>&copy; 2026 AlJefra OS v0.6.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
         <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> — <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>

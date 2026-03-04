@@ -23,7 +23,7 @@ ifeq ($(ARCH),x86_64)
     LD      = $(CROSS_PREFIX)ld
     OBJCOPY = $(CROSS_PREFIX)objcopy
     ASFLAGS = -f elf64
-    CFLAGS  = -m64 -march=x86-64 -mno-red-zone
+    CFLAGS  = -m64 -march=x86-64 -mno-red-zone -mno-sse -mno-sse2 -mno-mmx
     LDFLAGS = -T arch/x86_64/linker.ld -nostdlib
     ARCH_DIR = arch/x86_64
     KERNEL_BIN = $(BIN_DIR)/kernel_x86_64.bin
@@ -79,7 +79,8 @@ KERNEL_SRCS = kernel/main.c kernel/sched.c kernel/syscall.c \
               kernel/driver_loader.c kernel/ai_bootstrap.c \
               kernel/fs.c kernel/ai_chat.c kernel/keyboard.c \
               kernel/dhcp.c kernel/ota.c kernel/panic.c \
-              kernel/klog.c kernel/memprotect.c kernel/secboot.c
+              kernel/klog.c kernel/memprotect.c kernel/secboot.c \
+              kernel/shell.c
 
 # Portable drivers
 DRIVER_SRCS = $(wildcard drivers/storage/*.c) \

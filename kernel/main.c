@@ -16,6 +16,8 @@
 #include "driver_loader.h"
 #include "ai_bootstrap.h"
 #include "secboot.h"
+#include "keyboard.h"
+#include "shell.h"
 
 /* Forward declarations for subsystem init */
 static void banner(void);
@@ -76,7 +78,14 @@ void kernel_main(void)
     /* Phase 6: Interactive — kernel is fully up */
     hal_console_puts("[kernel] AlJefra OS ready.\n");
 
-    /* Main loop: handle syscalls and interrupts */
+    /* Initialize keyboard input */
+    keyboard_init();
+
+    /* Start interactive shell */
+    shell_set_devices(g_devices, g_device_count);
+    shell_run();
+
+    /* Fallback: handle syscalls and interrupts */
     syscall_loop();
 
     /* Should never reach here */
