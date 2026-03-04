@@ -141,6 +141,51 @@ static char serial_getc(void)
 /* Framebuffer init from multiboot info                                       */
 /* -------------------------------------------------------------------------- */
 
+/* VGA text buffer at 0xB8000 (works on BIOS, no-op on UEFI) */
+#define VGA_TEXT_BUF  ((volatile uint16_t *)0xB8000)
+#define VGA_TEXT_COLS 80
+#define VGA_TEXT_ROWS 25
+static bool vga_text_available = false;
+static int  vga_text_pos = 0;
+
+static void vga_text_putc(char c)
+{
+    if (c == '\n') {
+        vga_text_pos = ((vga_text_pos / VGA_TEXT_COLS) + 1) * VGA_TEXT_COLS;
+    } else if (c == '\r') {
+        vga_text_pos = (vga_text_pos / VGA_TEXT_COLS) * VGA_TEXT_COLS;
+    } else {
+        if (vga_text_pos < VGA_TEXT_COLS * VGA_TEXT_ROWS)
+            VGA_TEXT_BUF[vga_text_pos] = (uint16_t)((0x0F << 8) | (uint8_t)c);
+        vga_text_pos++;
+    }
+    /* Simple scroll: wrap around */
+    if (vga_text_pos >= VGA_TEXT_COLS * VGA_TEXT_ROWS)
+        vga_text_pos = 0;
+}
+
+/* Raw framebuffer paint — writes directly to framebuffer memory to produce
+ * a visible splash before the full LFB driver initializes. Used as a
+ * diagnostic to confirm the framebuffer address is correct. */
+static void fb_raw_splash(volatile void *base, uint32_t pitch,
+                          uint32_t width, uint32_t height, uint8_t bpp)
+{
+    uint32_t bytes_per_pixel = bpp / 8;
+    /* Paint top 4 rows blue (0x000080 in BGR) as visual confirmation */
+    uint32_t rows = (height > 4) ? 4 : height;
+    for (uint32_t y = 0; y < rows; y++) {
+        volatile uint8_t *row = (volatile uint8_t *)base + y * pitch;
+        for (uint32_t x = 0; x < width; x++) {
+            volatile uint8_t *px = row + x * bytes_per_pixel;
+            if (bpp == 32) {
+                *(volatile uint32_t *)px = 0x004488FF; /* ARGB blue */
+            } else if (bpp == 24) {
+                px[0] = 0xFF; px[1] = 0x88; px[2] = 0x44;
+            }
+        }
+    }
+}
+
 static void framebuffer_init(void)
 {
     if (boot_mb_magic != 0x2BADB002)
@@ -154,12 +199,19 @@ static void framebuffer_init(void)
     if (!(mb->flags & MB_INFO_FRAMEBUFFER))
         return;
 
-    /* Only support RGB direct color framebuffer (type 1) */
-    if (mb->framebuffer_type != 1)
+    /* Type 2 = EGA text mode — use VGA text buffer instead */
+    if (mb->framebuffer_type == 2) {
+        vga_text_available = true;
         return;
+    }
 
+    /* Type 0 (indexed) or type 1 (RGB) — use LFB driver */
     if (mb->framebuffer_addr == 0 || mb->framebuffer_width == 0 ||
         mb->framebuffer_height == 0 || mb->framebuffer_bpp == 0)
+        return;
+
+    /* Boot.S identity-maps 0-32GB. Reject framebuffers beyond that. */
+    if (mb->framebuffer_addr >= 0x800000000ULL)  /* 32GB */
         return;
 
     lfb_info_t fb;
@@ -170,6 +222,9 @@ static void framebuffer_init(void)
     fb.pitch     = mb->framebuffer_pitch;
     fb.bpp       = mb->framebuffer_bpp;
 
+    /* Paint a raw diagnostic splash to confirm framebuffer works */
+    fb_raw_splash(fb.base, fb.pitch, fb.width, fb.height, fb.bpp);
+
     if (lfb_init(&lfb_con, &fb) == HAL_OK)
         lfb_available = true;
 }
@@ -178,13 +233,86 @@ static void framebuffer_init(void)
 /* HAL Console API                                                            */
 /* -------------------------------------------------------------------------- */
 
+/* Debug: unconditional serial print (doesn't require serial_available).
+ * Used during early boot to log framebuffer info for diagnostics. */
+static void dbg_serial_str(const char *s)
+{
+    while (*s) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        if (*s == '\n') outb(COM1_DATA, '\r');
+        outb(COM1_DATA, (uint8_t)*s++);
+    }
+}
+
+static void dbg_serial_hex(uint64_t val)
+{
+    static const char hex[] = "0123456789abcdef";
+    char buf[17];
+    int pos = 0;
+    if (val == 0) { dbg_serial_str("0"); return; }
+    while (val) { buf[pos++] = hex[val & 0xF]; val >>= 4; }
+    for (int i = pos - 1; i >= 0; i--) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        outb(COM1_DATA, (uint8_t)buf[i]);
+    }
+}
+
+static void dbg_serial_dec(uint32_t val)
+{
+    char buf[11];
+    int pos = 0;
+    if (val == 0) { dbg_serial_str("0"); return; }
+    while (val) { buf[pos++] = '0' + (char)(val % 10); val /= 10; }
+    for (int i = pos - 1; i >= 0; i--) {
+        while (!(inb(COM1_LSR) & LSR_TX_EMPTY))
+            __asm__ volatile ("pause");
+        outb(COM1_DATA, (uint8_t)buf[i]);
+    }
+}
+
 hal_status_t hal_console_init(void)
 {
     serial_init();
+
+    /* Log framebuffer info to serial for diagnostics */
+    dbg_serial_str("\n[fb] ");
+    if (boot_mb_magic == 0x2BADB002) {
+        multiboot_info_t *mb = (multiboot_info_t *)(uintptr_t)boot_mb_info_ptr;
+        if (mb->flags & MB_INFO_FRAMEBUFFER) {
+            dbg_serial_str("0x");
+            dbg_serial_hex(mb->framebuffer_addr);
+            dbg_serial_str(" ");
+            dbg_serial_dec(mb->framebuffer_width);
+            dbg_serial_str("x");
+            dbg_serial_dec(mb->framebuffer_height);
+            dbg_serial_str("x");
+            dbg_serial_dec(mb->framebuffer_bpp);
+            dbg_serial_str(" type=");
+            dbg_serial_dec(mb->framebuffer_type);
+        } else {
+            dbg_serial_str("no framebuffer in multiboot info");
+        }
+    } else {
+        dbg_serial_str("not multiboot");
+    }
+    dbg_serial_str("\n");
+
     framebuffer_init();
+
+    dbg_serial_str("[fb] lfb=");
+    dbg_serial_str(lfb_available ? "yes" : "no");
+    dbg_serial_str("\n");
+
+    /* Also try VGA text mode unconditionally as fallback (BIOS systems) */
+    if (!lfb_available && !vga_text_available)
+        vga_text_available = true;  /* Best-effort: may or may not be visible */
 
     if (lfb_available) {
         current_type = HAL_CONSOLE_LFB;
+    } else if (vga_text_available) {
+        current_type = HAL_CONSOLE_VGA;
     } else if (serial_available) {
         current_type = HAL_CONSOLE_SERIAL;
     } else {
@@ -204,9 +332,14 @@ void hal_console_putc(char c)
         serial_putc(c);
     }
 
-    /* Also output to framebuffer if available (for screen display) */
+    /* Output to framebuffer if available (for screen display) */
     if (lfb_available) {
         lfb_putc(&lfb_con, c);
+    }
+
+    /* Output to VGA text buffer (BIOS fallback) */
+    if (vga_text_available) {
+        vga_text_putc(c);
     }
 }
 

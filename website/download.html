@@ -49,16 +49,16 @@
         </div>
 
         <div class="download-box">
-            <h3>Bootable ISO (standalone) &mdash; v1.0.4</h3>
+            <h3>Bootable ISO (standalone) &mdash; v1.0.5</h3>
             <p style="color: var(--text-secondary); margin-bottom: 1rem;">
                 GRUB2 bootable ISO image. Write to USB with Balena Etcher, Rufus, <code>dd</code>, or boot directly in QEMU.
             </p>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                <strong>Version:</strong> 1.0.4 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
+                <strong>Version:</strong> 1.0.5 | <strong>Size:</strong> 9.3 MB | <strong>Format:</strong> ISO 9660 (El Torito + BIOS/EFI) | <strong>Architecture:</strong> x86-64
             </p>
-            <a href="aljefra_os_v1.0.4.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.4.iso</a>
+            <a href="aljefra_os_v1.0.5.iso" class="btn btn-primary" download>Download aljefra_os_v1.0.5.iso</a>
             <p style="margin-top: 1rem; font-size: 0.85rem; color: var(--text-muted);">
-                MD5: 26cf06bb528939acf4e54d95e1dab863 | Updated 2026-03-04
+                MD5: bc702f33c9229258db61a7b9ac2306a9 | Updated 2026-03-04
             </p>
         </div>
     </section>
@@ -172,7 +172,7 @@ sync</code></pre>
             The AlJefra OS boot menu provides four options:
         </p>
         <ul style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-            <li><strong>AlJefra OS v1.0.4</strong> &mdash; Text mode boot (default). Works on all hardware.</li>
+            <li><strong>AlJefra OS v1.0.5</strong> &mdash; Text mode boot (default). Works on all hardware.</li>
             <li><strong>Graphical 1024x768</strong> &mdash; Framebuffer mode at 1024x768 for graphical output.</li>
             <li><strong>Graphical 800x600</strong> &mdash; Lower resolution for laptops with display compatibility issues.</li>
             <li><strong>Serial Console</strong> &mdash; Headless mode for debugging via COM1 (115200 8N1).</li>
@@ -341,9 +341,9 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
             </thead>
             <tbody>
                 <tr>
-                    <td><strong>v1.0.4</strong></td>
+                    <td><strong>v1.0.5</strong></td>
                     <td>2026-03-04</td>
-                    <td>Framebuffer display output: kernel reads multiboot framebuffer info and renders text on screen via LFB driver. Dual output to both screen and serial. Fixes blank screen after GRUB on UEFI hardware.</td>
+                    <td>Fix blank screen on UEFI laptops: copy multiboot info before page table setup (GRUB places it at the same address), extend identity mapping to 32GB for high framebuffer addresses. Verified with QEMU UEFI (OVMF).</td>
                 </tr>
                 <tr>
                     <td><strong>v1.0.3</strong></td>
@@ -371,7 +371,7 @@ qemu-system-x86_64 -m 256 -cdrom aljefra.iso -boot d \
 
     <!-- Footer -->
     <footer>
-        <p>&copy; 2026 AlJefra OS v1.0.4 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p>&copy; 2026 AlJefra OS v1.0.5 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
         <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> — <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>
