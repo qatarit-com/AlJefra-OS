@@ -39,6 +39,9 @@ typedef struct {
     uint32_t rx_len;         /* Bytes available in rx_buf */
 } tcp_conn_t;
 
+/* Resolve an IP address to a MAC address via ARP */
+hal_status_t arp_resolve(uint32_t target_ip, uint8_t *target_mac);
+
 /* Initialize TCP subsystem with network config from DHCP */
 void tcp_init(uint32_t local_ip, uint32_t gateway, uint32_t netmask);
 

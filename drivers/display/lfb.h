@@ -35,6 +35,9 @@ typedef struct {
     uint8_t        bpp;        /* Bits per pixel (16, 24, or 32) */
 } lfb_info_t;
 
+/* Maximum back buffer size: up to 1920x1200 @ 32bpp (~9 MB) */
+#define LFB_BACKBUF_MAX  (1920 * 1200 * 4)
+
 /* ── Text console state (overlaid on framebuffer) ── */
 typedef struct {
     lfb_info_t     fb;
@@ -45,7 +48,14 @@ typedef struct {
     uint32_t       fg_color;      /* Foreground color */
     uint32_t       bg_color;      /* Background color */
     bool           initialized;
+    /* Back buffer: render to RAM, flush to VRAM on demand */
+    uint8_t       *backbuf;        /* NULL if direct mode */
+    uint32_t       backbuf_size;
+    bool           dirty;          /* Needs flush to VRAM */
 } lfb_console_t;
+
+/* Flush back buffer to VRAM (no-op if no back buffer) */
+void lfb_flush(lfb_console_t *con);
 
 /* ── Public API ── */
 

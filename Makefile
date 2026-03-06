@@ -90,7 +90,7 @@ DRIVER_SRCS = $(wildcard drivers/storage/*.c) \
               $(wildcard drivers/bus/*.c)
 
 # Network stack
-NET_SRCS = net/dhcp.c net/tcp.c
+NET_SRCS = net/dhcp.c net/tcp.c net/dns.c
 
 # AI / Marketplace
 AI_SRCS = ai/marketplace.c

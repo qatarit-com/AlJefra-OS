@@ -19,14 +19,14 @@
 #include "../kernel/ai_bootstrap.h"
 
 /* Use local server by default (gateway IP, plain HTTP) */
-#define MARKETPLACE_USE_LOCAL  1
+#define MARKETPLACE_USE_LOCAL  0
 
 #if MARKETPLACE_USE_LOCAL
 #define MARKETPLACE_PORT   8081
 #else
-#define MARKETPLACE_HOST   "api.aljefra.com"
-#define MARKETPLACE_PORT   443
-#define MARKETPLACE_USE_TLS  1
+#define MARKETPLACE_HOST   "os.aljefra.com"
+#define MARKETPLACE_PORT   80
+/* TLS disabled for now due to libc dependencies */
 #endif
 
 /* API paths */

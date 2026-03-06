@@ -1,9 +1,17 @@
 /* SPDX-License-Identifier: MIT */
 /* AlJefra OS — Linear Framebuffer Display Driver Implementation
  * Architecture-independent bitmap font text console over framebuffer.
+ *
+ * Performance optimizations:
+ *   - Back buffer in RAM: all rendering targets regular memory, flushed
+ *     to VRAM once per operation (avoids slow uncached VRAM writes)
+ *   - memmove for scroll (word-optimized in lib/string.c)
+ *   - memset for clears (word-optimized)
+ *   - 32-bit word writes for 32bpp pixels
  */
 
 #include "lfb.h"
+#include "../../lib/string.h"
 
 /* ── Built-in 8x16 bitmap font (printable ASCII 0x20 - 0x7E) ──
  * Each character is 16 bytes (one byte per row, 8 pixels wide).
@@ -108,53 +116,67 @@ static const uint8_t font_8x16[95][16] = {
     /* 0x7E '~' */ {0x00,0x00,0x76,0xDC,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00},
 };
 
+/* ── Static back buffer (BSS, zeroed at boot) ── */
+static uint8_t g_backbuf[LFB_BACKBUF_MAX];
+
 /* ── Helpers ── */
 
-/* Get pointer to pixel at (x, y) */
-static inline volatile uint8_t *lfb_pixel_addr(lfb_console_t *con,
-                                                 uint32_t x, uint32_t y)
+/* Get the render target: back buffer if available, otherwise VRAM */
+static inline uint8_t *lfb_render_base(lfb_console_t *con)
 {
-    return (volatile uint8_t *)con->fb.base + y * con->fb.pitch + x * (con->fb.bpp / 8);
+    return con->backbuf ? con->backbuf : (uint8_t *)con->fb.base;
 }
 
 /* Write a color to a pixel address based on bpp */
-static inline void lfb_write_pixel(volatile uint8_t *addr, uint32_t color,
-                                    uint8_t bpp)
+static inline void lfb_write_pixel(uint8_t *addr, uint32_t color, uint8_t bpp)
 {
     if (bpp == 32) {
-        *(volatile uint32_t *)addr = color;
+        *(uint32_t *)addr = color;
     } else if (bpp == 24) {
-        addr[0] = (uint8_t)(color & 0xFF);         /* Blue */
-        addr[1] = (uint8_t)((color >> 8) & 0xFF);  /* Green */
-        addr[2] = (uint8_t)((color >> 16) & 0xFF); /* Red */
+        addr[0] = (uint8_t)(color & 0xFF);
+        addr[1] = (uint8_t)((color >> 8) & 0xFF);
+        addr[2] = (uint8_t)((color >> 16) & 0xFF);
     } else if (bpp == 16) {
-        /* RGB565 */
         uint16_t r5 = (uint16_t)(((color >> 16) & 0xFF) >> 3);
         uint16_t g6 = (uint16_t)(((color >> 8) & 0xFF) >> 2);
         uint16_t b5 = (uint16_t)((color & 0xFF) >> 3);
-        *(volatile uint16_t *)addr = (r5 << 11) | (g6 << 5) | b5;
+        *(uint16_t *)addr = (r5 << 11) | (g6 << 5) | b5;
     }
 }
 
 /* Scroll the screen up by one text row */
 static void lfb_scroll(lfb_console_t *con)
 {
+    uint8_t *base = lfb_render_base(con);
     uint32_t row_bytes = con->fb.pitch * LFB_FONT_HEIGHT;
     uint32_t total_text_bytes = row_bytes * con->rows;
-    volatile uint8_t *fb = (volatile uint8_t *)con->fb.base;
 
-    /* Move rows 1..n up to 0..n-1 */
-    for (uint32_t i = 0; i < total_text_bytes - row_bytes; i++)
-        fb[i] = fb[i + row_bytes];
+    /* Move rows 1..n up to 0..n-1 using word-optimized memmove */
+    memmove(base, base + row_bytes, total_text_bytes - row_bytes);
 
     /* Clear last row */
-    uint32_t last_row_start = (con->rows - 1) * LFB_FONT_HEIGHT;
-    for (uint32_t y = last_row_start; y < last_row_start + LFB_FONT_HEIGHT; y++) {
-        volatile uint8_t *row = (volatile uint8_t *)con->fb.base + y * con->fb.pitch;
+    uint8_t *last_row = base + (total_text_bytes - row_bytes);
+    if (con->fb.bpp == 32 && con->bg_color == 0) {
+        /* Fast path: black background = zero fill */
+        memset(last_row, 0, row_bytes);
+    } else if (con->fb.bpp == 32) {
+        /* 32bpp non-black: fill with 32-bit words */
+        uint32_t *p = (uint32_t *)last_row;
+        uint32_t count = row_bytes / 4;
+        for (uint32_t i = 0; i < count; i++)
+            p[i] = con->bg_color;
+    } else {
+        /* Generic: pixel-by-pixel (16/24 bpp) */
         uint32_t bpp_bytes = con->fb.bpp / 8;
-        for (uint32_t x = 0; x < con->fb.width; x++)
-            lfb_write_pixel(row + x * bpp_bytes, con->bg_color, con->fb.bpp);
+        uint32_t last_row_start = (con->rows - 1) * LFB_FONT_HEIGHT;
+        for (uint32_t y = last_row_start; y < last_row_start + LFB_FONT_HEIGHT; y++) {
+            uint8_t *row = base + y * con->fb.pitch;
+            for (uint32_t x = 0; x < con->fb.width; x++)
+                lfb_write_pixel(row + x * bpp_bytes, con->bg_color, con->fb.bpp);
+        }
     }
+
+    con->dirty = true;
 }
 
 /* ── Public API ── */
@@ -171,6 +193,18 @@ hal_status_t lfb_init(lfb_console_t *con, lfb_info_t *fb)
     con->cursor_y = 0;
     con->fg_color = LFB_COLOR_WHITE;
     con->bg_color = LFB_COLOR_BLACK;
+    con->dirty = false;
+
+    /* Set up back buffer if framebuffer fits */
+    uint32_t fb_size = fb->pitch * fb->height;
+    if (fb_size <= LFB_BACKBUF_MAX) {
+        con->backbuf = g_backbuf;
+        con->backbuf_size = fb_size;
+    } else {
+        con->backbuf = NULL;
+        con->backbuf_size = 0;
+    }
+
     con->initialized = true;
 
     /* Clear screen */
@@ -179,12 +213,24 @@ hal_status_t lfb_init(lfb_console_t *con, lfb_info_t *fb)
     return HAL_OK;
 }
 
+void lfb_flush(lfb_console_t *con)
+{
+    if (!con->initialized || !con->backbuf || !con->dirty)
+        return;
+
+    /* Bulk copy back buffer → VRAM */
+    memcpy((void *)con->fb.base, con->backbuf, con->backbuf_size);
+    con->dirty = false;
+}
+
 void lfb_putpixel(lfb_console_t *con, uint32_t x, uint32_t y, uint32_t color)
 {
     if (!con->initialized || x >= con->fb.width || y >= con->fb.height)
         return;
-    volatile uint8_t *addr = lfb_pixel_addr(con, x, y);
+    uint8_t *base = lfb_render_base(con);
+    uint8_t *addr = base + y * con->fb.pitch + x * (con->fb.bpp / 8);
     lfb_write_pixel(addr, color, con->fb.bpp);
+    con->dirty = true;
 }
 
 void lfb_fill_rect(lfb_console_t *con, uint32_t x, uint32_t y,
@@ -198,12 +244,29 @@ void lfb_fill_rect(lfb_console_t *con, uint32_t x, uint32_t y,
     if (x_end > con->fb.width)  x_end = con->fb.width;
     if (y_end > con->fb.height) y_end = con->fb.height;
 
+    uint8_t *base = lfb_render_base(con);
     uint32_t bpp_bytes = con->fb.bpp / 8;
-    for (uint32_t py = y; py < y_end; py++) {
-        volatile uint8_t *row = (volatile uint8_t *)con->fb.base + py * con->fb.pitch;
-        for (uint32_t px = x; px < x_end; px++)
-            lfb_write_pixel(row + px * bpp_bytes, color, con->fb.bpp);
+
+    if (con->fb.bpp == 32 && x == 0 && x_end == con->fb.width && color == 0) {
+        /* Full-width black fill: fast memset */
+        uint8_t *start = base + y * con->fb.pitch;
+        memset(start, 0, (y_end - y) * con->fb.pitch);
+    } else if (con->fb.bpp == 32) {
+        /* 32bpp: word-level fill per row */
+        for (uint32_t py = y; py < y_end; py++) {
+            uint32_t *row = (uint32_t *)(base + py * con->fb.pitch);
+            for (uint32_t px = x; px < x_end; px++)
+                row[px] = color;
+        }
+    } else {
+        for (uint32_t py = y; py < y_end; py++) {
+            uint8_t *row = base + py * con->fb.pitch;
+            for (uint32_t px = x; px < x_end; px++)
+                lfb_write_pixel(row + px * bpp_bytes, color, con->fb.bpp);
+        }
     }
+
+    con->dirty = true;
 }
 
 void lfb_clear(lfb_console_t *con, uint32_t color)
@@ -211,6 +274,7 @@ void lfb_clear(lfb_console_t *con, uint32_t color)
     lfb_fill_rect(con, 0, 0, con->fb.width, con->fb.height, color);
     con->cursor_x = 0;
     con->cursor_y = 0;
+    lfb_flush(con);
 }
 
 void lfb_draw_char(lfb_console_t *con, uint32_t px, uint32_t py,
@@ -219,13 +283,13 @@ void lfb_draw_char(lfb_console_t *con, uint32_t px, uint32_t py,
     if (!con->initialized)
         return;
 
-    /* Get glyph data */
     const uint8_t *glyph;
     if (c >= 0x20 && c <= 0x7E)
         glyph = font_8x16[c - 0x20];
     else
-        glyph = font_8x16[0]; /* Space for unknown chars */
+        glyph = font_8x16[0];
 
+    uint8_t *base = lfb_render_base(con);
     uint32_t bpp_bytes = con->fb.bpp / 8;
 
     for (uint32_t row = 0; row < LFB_FONT_HEIGHT; row++) {
@@ -233,8 +297,7 @@ void lfb_draw_char(lfb_console_t *con, uint32_t px, uint32_t py,
         if (sy >= con->fb.height)
             break;
 
-        volatile uint8_t *scanline =
-            (volatile uint8_t *)con->fb.base + sy * con->fb.pitch;
+        uint8_t *scanline = base + sy * con->fb.pitch;
         uint8_t bits = glyph[row];
 
         for (uint32_t col = 0; col < LFB_FONT_WIDTH; col++) {
@@ -300,12 +363,14 @@ void lfb_puts(lfb_console_t *con, const char *s)
 {
     while (*s)
         lfb_putc(con, *s++);
+    lfb_flush(con);
 }
 
 void lfb_write(lfb_console_t *con, const char *s, uint64_t len)
 {
     for (uint64_t i = 0; i < len; i++)
         lfb_putc(con, s[i]);
+    lfb_flush(con);
 }
 
 void lfb_set_colors(lfb_console_t *con, uint32_t fg, uint32_t bg)

@@ -159,9 +159,20 @@ static void vga_text_putc(char c)
             VGA_TEXT_BUF[vga_text_pos] = (uint16_t)((0x0F << 8) | (uint8_t)c);
         vga_text_pos++;
     }
-    /* Simple scroll: wrap around */
-    if (vga_text_pos >= VGA_TEXT_COLS * VGA_TEXT_ROWS)
-        vga_text_pos = 0;
+
+    /* Scroll: if we hit or exceed the end of the buffer */
+    if (vga_text_pos >= VGA_TEXT_COLS * VGA_TEXT_ROWS) {
+        /* Move rows 1..N up to 0..(N-1) */
+        for (int i = 0; i < VGA_TEXT_COLS * (VGA_TEXT_ROWS - 1); i++) {
+            VGA_TEXT_BUF[i] = VGA_TEXT_BUF[i + VGA_TEXT_COLS];
+        }
+        /* Clear the last row */
+        for (int i = VGA_TEXT_COLS * (VGA_TEXT_ROWS - 1); i < VGA_TEXT_COLS * VGA_TEXT_ROWS; i++) {
+            VGA_TEXT_BUF[i] = (uint16_t)((0x0F << 8) | ' ');
+        }
+        /* Set position to the beginning of the last row */
+        vga_text_pos = VGA_TEXT_COLS * (VGA_TEXT_ROWS - 1);
+    }
 }
 
 /* Raw framebuffer paint — writes directly to framebuffer memory to produce
@@ -351,6 +362,10 @@ void hal_console_puts(const char *s)
         hal_console_putc(*s);
         s++;
     }
+
+    /* Flush back buffer to VRAM after complete string */
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 void hal_console_write(const char *s, uint64_t len)
@@ -359,6 +374,9 @@ void hal_console_write(const char *s, uint64_t len)
 
     for (uint64_t i = 0; i < len; i++)
         hal_console_putc(s[i]);
+
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 /* -------------------------------------------------------------------------- */
@@ -526,6 +544,9 @@ void hal_console_printf(const char *fmt, ...)
 
 done:
     va_end(args);
+
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 char hal_console_getc(void)

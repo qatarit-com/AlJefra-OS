@@ -38,6 +38,7 @@ extern void ufs_register(void);
 extern void intel_wifi_register(void);
 extern void xhci_register(void);
 extern void bcm_wifi_register(void);
+extern void usb_net_register(void);
 
 /* ── Hardware manifest (filled by bus scan) ── */
 static hal_device_t g_devices[HAL_BUS_MAX_DEVICES];
@@ -170,6 +171,7 @@ static void register_builtin_drivers(void)
     intel_wifi_register();
     xhci_register();
     bcm_wifi_register();
+    usb_net_register();
 }
 
 /* ── Load built-in (compiled-in) drivers ── */
@@ -244,7 +246,12 @@ static void load_builtin_drivers(void)
         if (d->class_code == PCI_CLASS_SERIAL_BUS && d->subclass == PCI_SUBCLASS_USB) {
             if (d->prog_if == 0x30) { /* xHCI */
                 rc = driver_load_builtin("xhci", d);
-                if (rc == HAL_OK) loaded++;
+                if (rc == HAL_OK) {
+                    loaded++;
+                    /* After xHCI init, probe for USB network adapters */
+                    rc = driver_load_builtin("usb-net", d);
+                    if (rc == HAL_OK) loaded++;
+                }
             }
         }
 

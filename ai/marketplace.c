@@ -12,6 +12,8 @@
 #include "marketplace.h"
 #include "../hal/hal.h"
 #include "../net/tcp.h"
+#include "../net/dhcp.h"
+#include "../net/dns.h"
 #include "../lib/string.h"
 
 #ifdef MARKETPLACE_USE_TLS
@@ -318,8 +320,18 @@ hal_status_t marketplace_connect(void)
         server_ip = 0x0A000202; /* 10.0.2.2 */
     }
 #else
-    /* TODO: DNS resolve api.aljefra.com */
-    server_ip = 0x0A000202; /* placeholder */
+    const dhcp_lease_t *lease = dhcp_get_lease();
+    uint32_t dns_server = lease->dns_server;
+    if (dns_server == 0) {
+        /* Fallback to Google DNS if DHCP didn't provide one */
+        dns_server = 0x08080808; /* 8.8.8.8 */
+    }
+    hal_console_printf("[marketplace] Resolving %s...\n", MARKETPLACE_HOST);
+    hal_status_t r = dns_resolve(MARKETPLACE_HOST, dns_server, &server_ip);
+    if (r != HAL_OK) {
+        hal_console_puts("[marketplace] DNS resolution failed\n");
+        return r;
+    }
 #endif
 
     hal_console_printf("[marketplace] Connecting to %u.%u.%u.%u:%u...\n",

@@ -855,6 +855,227 @@ hal_status_t xhci_poll_interrupt(xhci_controller_t *hc, uint8_t slot_id,
     return HAL_ERROR;
 }
 
+/* ── Bulk endpoint configuration ── */
+
+hal_status_t xhci_configure_bulk_eps(xhci_controller_t *hc, uint8_t slot_id,
+                                      uint8_t in_ep_num, uint16_t in_max_pkt,
+                                      uint8_t out_ep_num, uint16_t out_max_pkt)
+{
+    if (slot_id == 0 || slot_id > hc->max_slots)
+        return HAL_ERROR;
+    xhci_slot_t *slot = &hc->slots[slot_id - 1];
+    if (!slot->active)
+        return HAL_ERROR;
+
+    /* DCI for IN endpoint = ep_num * 2 + 1, OUT = ep_num * 2 */
+    uint8_t in_dci  = in_ep_num * 2 + 1;
+    uint8_t out_dci = out_ep_num * 2;
+    uint8_t max_dci = in_dci > out_dci ? in_dci : out_dci;
+
+    slot->bulk_in_ep_num  = in_ep_num;
+    slot->bulk_in_dci     = in_dci;
+    slot->bulk_out_ep_num = out_ep_num;
+    slot->bulk_out_dci    = out_dci;
+
+    /* Allocate transfer rings */
+    uint64_t ring_sz = (uint64_t)XHCI_XFER_RING_SIZE * sizeof(xhci_trb_t);
+
+    slot->bulk_in_ring = (xhci_trb_t *)hal_dma_alloc(ring_sz, &slot->bulk_in_ring_phys);
+    if (!slot->bulk_in_ring) return HAL_NO_MEMORY;
+    memset(slot->bulk_in_ring, 0, ring_sz);
+    slot->bulk_in_enqueue = 0;
+    slot->bulk_in_cycle = 1;
+
+    slot->bulk_out_ring = (xhci_trb_t *)hal_dma_alloc(ring_sz, &slot->bulk_out_ring_phys);
+    if (!slot->bulk_out_ring) return HAL_NO_MEMORY;
+    memset(slot->bulk_out_ring, 0, ring_sz);
+    slot->bulk_out_enqueue = 0;
+    slot->bulk_out_cycle = 1;
+
+    /* Build Input Context for Configure Endpoint */
+    uint64_t ictx_phys;
+    uint8_t *ictx = (uint8_t *)hal_dma_alloc(4096, &ictx_phys);
+    if (!ictx) return HAL_NO_MEMORY;
+    memset(ictx, 0, 4096);
+
+    xhci_input_ctrl_ctx_t *icctx = (xhci_input_ctrl_ctx_t *)ictx;
+    icctx->add_flags = (1u << 0) | (1u << in_dci) | (1u << out_dci);
+
+    /* Slot Context */
+    xhci_slot_ctx_t *sctx = (xhci_slot_ctx_t *)(ictx + XHCI_CONTEXT_SIZE);
+    sctx->field1 = ((uint32_t)max_dci << 27) | ((uint32_t)slot->speed << 20);
+    sctx->field2 = ((uint32_t)slot->port << 16);
+
+    /* Bulk IN endpoint context */
+    xhci_ep_ctx_t *in_ctx = (xhci_ep_ctx_t *)(ictx + (1 + in_dci) * XHCI_CONTEXT_SIZE);
+    in_ctx->field2 = (3u << 1) | (XHCI_EP_BULK_IN << 3) |
+                     ((uint32_t)in_max_pkt << 16);
+    in_ctx->dequeue = slot->bulk_in_ring_phys | 1;
+    in_ctx->field4 = in_max_pkt;
+
+    /* Bulk OUT endpoint context */
+    xhci_ep_ctx_t *out_ctx = (xhci_ep_ctx_t *)(ictx + (1 + out_dci) * XHCI_CONTEXT_SIZE);
+    out_ctx->field2 = (3u << 1) | (XHCI_EP_BULK_OUT << 3) |
+                      ((uint32_t)out_max_pkt << 16);
+    out_ctx->dequeue = slot->bulk_out_ring_phys | 1;
+    out_ctx->field4 = out_max_pkt;
+
+    /* Configure Endpoint command */
+    xhci_trb_t cmd, result;
+    memset(&cmd, 0, sizeof(cmd));
+    cmd.param = ictx_phys;
+    cmd.control = XHCI_TRB_TYPE(XHCI_TRB_CONFIG_EP) |
+                  ((uint32_t)slot_id << 24);
+
+    hal_status_t st = xhci_send_command(hc, &cmd, &result);
+    hal_dma_free(ictx, 4096);
+
+    return st;
+}
+
+hal_status_t xhci_bulk_send(xhci_controller_t *hc, uint8_t slot_id,
+                             const void *data, uint16_t length)
+{
+    if (slot_id == 0 || slot_id > hc->max_slots)
+        return HAL_ERROR;
+    xhci_slot_t *slot = &hc->slots[slot_id - 1];
+    if (!slot->active || !slot->bulk_out_ring)
+        return HAL_ERROR;
+
+    uint64_t buf_phys;
+    void *buf = hal_dma_alloc(length, &buf_phys);
+    if (!buf) return HAL_NO_MEMORY;
+    memcpy(buf, data, length);
+
+    xhci_trb_t normal;
+    memset(&normal, 0, sizeof(normal));
+    normal.param = buf_phys;
+    normal.status = length;
+    normal.control = XHCI_TRB_TYPE(XHCI_TRB_NORMAL) | XHCI_TRB_IOC;
+
+    xhci_xfer_enqueue(slot->bulk_out_ring, slot->bulk_out_ring_phys,
+                       &slot->bulk_out_enqueue, &slot->bulk_out_cycle,
+                       &normal, XHCI_XFER_RING_SIZE);
+
+    hal_mmio_barrier();
+    xhci_ring_doorbell(hc, slot_id, slot->bulk_out_dci);
+
+    xhci_trb_t event;
+    hal_status_t st = xhci_poll_event(hc, &event, XHCI_TIMEOUT_MS);
+    hal_dma_free(buf, length);
+
+    if (st != HAL_OK) return st;
+
+    uint8_t cc = (event.status >> 24) & 0xFF;
+    if (cc != XHCI_CC_SUCCESS && cc != XHCI_CC_SHORT_PKT)
+        return HAL_ERROR;
+
+    return HAL_OK;
+}
+
+hal_status_t xhci_bulk_recv(xhci_controller_t *hc, uint8_t slot_id,
+                             void *buf, uint16_t buf_len, uint16_t *length)
+{
+    if (slot_id == 0 || slot_id > hc->max_slots)
+        return HAL_ERROR;
+    xhci_slot_t *slot = &hc->slots[slot_id - 1];
+    if (!slot->active || !slot->bulk_in_ring)
+        return HAL_ERROR;
+
+    uint64_t recv_phys;
+    void *recv_buf = hal_dma_alloc(buf_len, &recv_phys);
+    if (!recv_buf) return HAL_NO_MEMORY;
+    memset(recv_buf, 0, buf_len);
+
+    xhci_trb_t normal;
+    memset(&normal, 0, sizeof(normal));
+    normal.param = recv_phys;
+    normal.status = buf_len;
+    normal.control = XHCI_TRB_TYPE(XHCI_TRB_NORMAL) | XHCI_TRB_IOC;
+
+    xhci_xfer_enqueue(slot->bulk_in_ring, slot->bulk_in_ring_phys,
+                       &slot->bulk_in_enqueue, &slot->bulk_in_cycle,
+                       &normal, XHCI_XFER_RING_SIZE);
+
+    hal_mmio_barrier();
+    xhci_ring_doorbell(hc, slot_id, slot->bulk_in_dci);
+
+    xhci_trb_t event;
+    hal_status_t st = xhci_poll_event(hc, &event, XHCI_TIMEOUT_MS);
+
+    if (st != HAL_OK) {
+        hal_dma_free(recv_buf, buf_len);
+        return st;
+    }
+
+    uint8_t cc = (event.status >> 24) & 0xFF;
+    uint16_t residual = (uint16_t)(event.status & 0xFFFFFF);
+    uint16_t actual = buf_len - residual;
+
+    if (cc == XHCI_CC_SUCCESS || cc == XHCI_CC_SHORT_PKT) {
+        if (actual > 0 && buf)
+            memcpy(buf, recv_buf, actual);
+        if (length)
+            *length = actual;
+        hal_dma_free(recv_buf, buf_len);
+        return HAL_OK;
+    }
+
+    hal_dma_free(recv_buf, buf_len);
+    return HAL_ERROR;
+}
+
+/* ── Identify all addressed USB devices — read descriptors and log class ── */
+
+void xhci_identify_devices(xhci_controller_t *hc)
+{
+    for (uint8_t i = 0; i < hc->max_slots; i++) {
+        if (!hc->slots[i].active)
+            continue;
+
+        uint8_t sid = hc->slots[i].slot_id;
+        usb_device_desc_t desc;
+
+        if (xhci_get_device_desc(hc, sid, &desc) != HAL_OK) {
+            hal_console_printf("[xhci] Slot %u: failed to read device descriptor\n", sid);
+            continue;
+        }
+
+        hal_console_printf("[xhci] Slot %u: USB %04x:%04x class=%02x sub=%02x proto=%02x\n",
+                           sid, desc.idVendor, desc.idProduct,
+                           desc.bDeviceClass, desc.bDeviceSubClass,
+                           desc.bDeviceProtocol);
+
+        /* Read configuration descriptor to discover interfaces */
+        uint8_t cfg_buf[256];
+        if (xhci_get_config_desc(hc, sid, cfg_buf, sizeof(cfg_buf)) == HAL_OK) {
+            usb_config_desc_t *cfg = (usb_config_desc_t *)cfg_buf;
+            uint16_t total = cfg->wTotalLength;
+            if (total > sizeof(cfg_buf)) total = sizeof(cfg_buf);
+
+            /* Walk descriptors */
+            uint16_t off = cfg->bLength;
+            while (off + 2 <= total) {
+                uint8_t dlen = cfg_buf[off];
+                uint8_t dtype = cfg_buf[off + 1];
+                if (dlen < 2) break;
+
+                if (dtype == USB_DESC_INTERFACE && dlen >= 9) {
+                    usb_interface_desc_t *iface = (usb_interface_desc_t *)&cfg_buf[off];
+                    hal_console_printf("[xhci]   iface %u: class=%02x sub=%02x proto=%02x eps=%u\n",
+                                       iface->bInterfaceNumber,
+                                       iface->bInterfaceClass,
+                                       iface->bInterfaceSubClass,
+                                       iface->bInterfaceProtocol,
+                                       iface->bNumEndpoints);
+                }
+
+                off += dlen;
+            }
+        }
+    }
+}
+
 /* ── driver_ops_t wrapper for built-in driver registration ── */
 #include "usb_hid.h"
 #include "../../kernel/driver_loader.h"
@@ -862,6 +1083,11 @@ hal_status_t xhci_poll_interrupt(xhci_controller_t *hc, uint8_t slot_id,
 static xhci_controller_t g_xhci_ctrl;
 static usb_hid_dev_t     g_usb_kbd;
 static bool              g_kbd_found;
+
+xhci_controller_t *xhci_get_controller(void)
+{
+    return g_xhci_ctrl.initialized ? &g_xhci_ctrl : NULL;
+}
 
 static hal_status_t xhci_drv_init(hal_device_t *dev)
 {
@@ -876,6 +1102,9 @@ static hal_status_t xhci_drv_init(hal_device_t *dev)
 
     /* Enumerate ports and address devices */
     xhci_enumerate_ports(&g_xhci_ctrl);
+
+    /* Identify all connected USB devices (log class/subclass) */
+    xhci_identify_devices(&g_xhci_ctrl);
 
     /* Look for a HID keyboard among addressed slots */
     for (uint8_t i = 0; i < g_xhci_ctrl.max_slots; i++) {
