@@ -352,6 +352,10 @@ void hal_console_putc(char c)
     if (vga_text_available) {
         vga_text_putc(c);
     }
+
+    /* Flush after each character so typed text is immediately visible */
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 void hal_console_puts(const char *s)

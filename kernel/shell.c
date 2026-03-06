@@ -9,6 +9,7 @@
 #include "shell.h"
 #include "keyboard.h"
 #include "driver_loader.h"
+#include "dhcp.h"
 #include "sched.h"
 #include "../hal/hal.h"
 #include "../lib/string.h"
@@ -35,6 +36,7 @@ static void cmd_drivers(void);
 static void cmd_uptime(void);
 static void cmd_reboot(void);
 static void cmd_ver(void);
+static void cmd_net(void);
 
 /* ── String comparison (simple, no libc) ── */
 static int sh_streq(const char *a, const char *b)
@@ -79,10 +81,12 @@ static void shell_exec(const char *cmd)
         cmd_reboot();
     else if (sh_streq(cmd, "version") || sh_streq(cmd, "ver"))
         cmd_ver();
+    else if (sh_streq(cmd, "net") || sh_streq(cmd, "network") || sh_streq(cmd, "ip"))
+        cmd_net();
     else {
-        hal_console_puts("Unknown command: ");
+        hal_console_puts("I don't recognize '");
         hal_console_puts(cmd);
-        hal_console_puts("\nType 'help' for available commands.\n");
+        hal_console_puts("'. Type 'help' to see what I can do.\n");
     }
 }
 
@@ -93,7 +97,8 @@ void shell_run(void)
     g_line_pos = 0;
 
     hal_console_puts("\n");
-    hal_console_puts("Type 'help' for available commands.\n\n");
+    hal_console_puts("Welcome! AlJefra OS is ready.\n");
+    hal_console_puts("Type 'help' to see what you can do, or 'net' to check your connection.\n\n");
     shell_prompt();
 
     for (;;) {
@@ -132,16 +137,18 @@ void shell_set_devices(hal_device_t *devs, uint32_t count)
 
 static void cmd_help(void)
 {
-    hal_console_puts("Available commands:\n");
-    hal_console_puts("  help      Show this help\n");
-    hal_console_puts("  info      System information\n");
-    hal_console_puts("  pci       List PCI devices\n");
-    hal_console_puts("  mem       Memory usage\n");
-    hal_console_puts("  drivers   List loaded drivers\n");
-    hal_console_puts("  uptime    System uptime\n");
-    hal_console_puts("  clear     Clear screen\n");
-    hal_console_puts("  version   Show OS version\n");
-    hal_console_puts("  reboot    Reboot system\n");
+    hal_console_puts("Here's what you can do:\n\n");
+    hal_console_puts("  help      - Show this guide\n");
+    hal_console_puts("  info      - About this computer (CPU, RAM, architecture)\n");
+    hal_console_puts("  net       - Check internet connection and IP address\n");
+    hal_console_puts("  pci       - Show connected hardware devices\n");
+    hal_console_puts("  mem       - How much memory is available\n");
+    hal_console_puts("  drivers   - What hardware drivers are running\n");
+    hal_console_puts("  uptime    - How long the system has been on\n");
+    hal_console_puts("  clear     - Clear the screen\n");
+    hal_console_puts("  version   - AlJefra OS version info\n");
+    hal_console_puts("  reboot    - Restart the computer\n");
+    hal_console_puts("\nExample: type 'net' and press Enter to see your IP address.\n");
 }
 
 static void cmd_info(void)
@@ -149,29 +156,29 @@ static void cmd_info(void)
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
 
-    hal_console_puts("AlJefra OS v0.6.0\n");
+    hal_console_puts("AlJefra OS v0.7.0\n");
     hal_console_puts("Architecture: ");
     switch (hal_arch()) {
     case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
     case HAL_ARCH_AARCH64: hal_console_puts("AArch64\n"); break;
     case HAL_ARCH_RISCV64: hal_console_puts("RISC-V 64\n"); break;
     }
-    hal_console_puts("CPU: ");
+    hal_console_puts("Processor:    ");
     hal_console_puts(cpu.model);
     hal_console_puts("\n");
-    hal_console_printf("Cores: %u\n", cpu.cores_logical);
-    hal_console_printf("RAM: %u MB\n",
+    hal_console_printf("CPU cores:    %u\n", cpu.cores_logical);
+    hal_console_printf("Memory:       %u MB\n",
         (uint32_t)(hal_mmu_total_ram() / (1024 * 1024)));
 }
 
 static void cmd_pci(void)
 {
     if (!g_devices || g_device_count == 0) {
-        hal_console_puts("No PCI devices found.\n");
+        hal_console_puts("No hardware devices detected.\n");
         return;
     }
 
-    hal_console_printf("PCI devices (%u total):\n", g_device_count);
+    hal_console_printf("Found %u hardware devices:\n", g_device_count);
     for (uint32_t i = 0; i < g_device_count; i++) {
         hal_device_t *d = &g_devices[i];
         if (d->bus_type == HAL_BUS_PCIE) {
@@ -200,9 +207,9 @@ static void cmd_mem(void)
     uint64_t free  = hal_mmu_free_ram();
     uint64_t used  = total - free;
 
-    hal_console_printf("Total:  %u MB\n", (uint32_t)(total / (1024 * 1024)));
-    hal_console_printf("Used:   %u MB\n", (uint32_t)(used / (1024 * 1024)));
-    hal_console_printf("Free:   %u MB\n", (uint32_t)(free / (1024 * 1024)));
+    hal_console_printf("Total memory:     %u MB\n", (uint32_t)(total / (1024 * 1024)));
+    hal_console_printf("In use:           %u MB\n", (uint32_t)(used / (1024 * 1024)));
+    hal_console_printf("Available:        %u MB\n", (uint32_t)(free / (1024 * 1024)));
 }
 
 static void cmd_clear(void)
@@ -219,22 +226,22 @@ static void cmd_drivers(void)
     uint32_t count = driver_list(list, MAX_DRIVERS);
 
     if (count == 0) {
-        hal_console_puts("No drivers loaded.\n");
+        hal_console_puts("No hardware drivers are running yet.\n");
         return;
     }
 
-    hal_console_printf("Loaded drivers (%u):\n", count);
+    hal_console_printf("%u drivers active:\n", count);
     for (uint32_t i = 0; i < count; i++) {
         hal_console_puts("  ");
         hal_console_puts(list[i]->name);
         switch (list[i]->category) {
-        case DRIVER_CAT_STORAGE:  hal_console_puts(" [storage]");  break;
-        case DRIVER_CAT_NETWORK:  hal_console_puts(" [network]");  break;
-        case DRIVER_CAT_INPUT:    hal_console_puts(" [input]");    break;
-        case DRIVER_CAT_DISPLAY:  hal_console_puts(" [display]");  break;
-        case DRIVER_CAT_GPU:      hal_console_puts(" [gpu]");      break;
-        case DRIVER_CAT_BUS:      hal_console_puts(" [bus]");      break;
-        default:                  hal_console_puts(" [other]");    break;
+        case DRIVER_CAT_STORAGE:  hal_console_puts("  (disk/storage)");  break;
+        case DRIVER_CAT_NETWORK:  hal_console_puts("  (network)");       break;
+        case DRIVER_CAT_INPUT:    hal_console_puts("  (input device)");  break;
+        case DRIVER_CAT_DISPLAY:  hal_console_puts("  (display)");       break;
+        case DRIVER_CAT_GPU:      hal_console_puts("  (graphics)");      break;
+        case DRIVER_CAT_BUS:      hal_console_puts("  (bus controller)");break;
+        default:                  hal_console_puts("  (other)");         break;
         }
         hal_console_putc('\n');
     }
@@ -251,7 +258,7 @@ static void cmd_uptime(void)
     secs %= 60;
     mins %= 60;
 
-    hal_console_printf("Up %u:%02u:%02u\n", hrs, mins, secs);
+    hal_console_printf("System has been running for %u hours, %u minutes, %u seconds.\n", hrs, mins, secs);
 }
 
 static void cmd_reboot(void)
@@ -270,6 +277,53 @@ static void cmd_reboot(void)
 
 static void cmd_ver(void)
 {
-    hal_console_puts("AlJefra OS v0.6.0\n");
-    hal_console_puts("Built by Qatar IT (www.QatarIT.com)\n");
+    hal_console_puts("AlJefra OS v0.7.0\n");
+    hal_console_puts("An AI-native operating system by Qatar IT (www.QatarIT.com)\n");
+}
+
+static void cmd_net(void)
+{
+    const driver_ops_t *net = driver_get_network();
+    const dhcp_config_t *cfg = dhcp_get_config();
+
+    hal_console_puts("Network Status\n");
+    hal_console_puts("--------------\n");
+
+    if (!net) {
+        hal_console_puts("Network:      Not connected (no network driver found)\n");
+        hal_console_puts("\nTip: Connect a USB Ethernet adapter or use a supported WiFi card.\n");
+        return;
+    }
+
+    hal_console_puts("Network card: ");
+    hal_console_puts(net->name);
+    hal_console_puts("\n");
+
+    /* Show MAC address if available */
+    if (net->net_get_mac) {
+        uint8_t mac[6];
+        net->net_get_mac(mac);
+        hal_console_printf("MAC address:  %02x:%02x:%02x:%02x:%02x:%02x\n",
+                           mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    }
+
+    if (!cfg || cfg->ip == 0) {
+        hal_console_puts("IP address:   Not assigned (DHCP may not have completed)\n");
+        hal_console_puts("Internet:     Not connected\n");
+        return;
+    }
+
+    hal_console_printf("IP address:   %u.%u.%u.%u\n",
+                       (cfg->ip >> 24) & 0xFF, (cfg->ip >> 16) & 0xFF,
+                       (cfg->ip >> 8) & 0xFF, cfg->ip & 0xFF);
+    hal_console_printf("Gateway:      %u.%u.%u.%u\n",
+                       (cfg->gateway >> 24) & 0xFF, (cfg->gateway >> 16) & 0xFF,
+                       (cfg->gateway >> 8) & 0xFF, cfg->gateway & 0xFF);
+    hal_console_printf("DNS server:   %u.%u.%u.%u\n",
+                       (cfg->dns >> 24) & 0xFF, (cfg->dns >> 16) & 0xFF,
+                       (cfg->dns >> 8) & 0xFF, cfg->dns & 0xFF);
+    hal_console_printf("Subnet mask:  %u.%u.%u.%u\n",
+                       (cfg->netmask >> 24) & 0xFF, (cfg->netmask >> 16) & 0xFF,
+                       (cfg->netmask >> 8) & 0xFF, cfg->netmask & 0xFF);
+    hal_console_puts("Internet:     Connected\n");
 }

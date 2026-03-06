@@ -85,7 +85,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
 {
     hal_status_t rc;
 
-    hal_console_puts("[bootstrap] === AI Bootstrap Starting ===\n");
+    hal_console_puts("  Checking if any hardware needs additional drivers...\n");
 
     /* Step 0: Set trusted public key for driver signature verification.
      * If the key is all-zeros (dev mode), verification is skipped. */
@@ -103,7 +103,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
 
     ai_bootstrap_build_manifest(devices, count, &manifest);
 
-    hal_console_printf("[bootstrap] Manifest: %u devices, %u MB RAM\n",
+    hal_console_printf("  Detected %u devices, %u MB RAM\n",
                        manifest.entry_count,
                        (uint32_t)(manifest.ram_bytes / (1024 * 1024)));
 
@@ -115,35 +115,35 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     }
 
     if (need_drivers == 0) {
-        hal_console_puts("[bootstrap] All devices have drivers, skipping download\n");
+        hal_console_puts("  All hardware is supported — no extra drivers needed.\n");
         g_state = BOOTSTRAP_COMPLETE;
         return HAL_OK;
     }
 
-    hal_console_printf("[bootstrap] %u devices need drivers\n", need_drivers);
+    hal_console_printf("  %u devices need drivers — will try to download them.\n", need_drivers);
 
     /* Step 2: Check network availability */
     const driver_ops_t *net = driver_get_network();
     if (!net) {
-        hal_console_puts("[bootstrap] No network driver available!\n");
-        hal_console_puts("[bootstrap] Cannot download drivers — using built-in only\n");
+        hal_console_puts("  No network connection available.\n");
+        hal_console_puts("  Using built-in drivers only. Connect a network adapter for more.\n");
         g_state = BOOTSTRAP_FAILED;
         return HAL_NO_DEVICE;
     }
 
     /* Step 3: DHCP to get network configuration */
-    hal_console_puts("[bootstrap] Running DHCP...\n");
+    hal_console_puts("  Getting network address (DHCP)...\n");
     uint32_t ip = 0, gateway = 0, dns = 0;
     rc = dhcp_discover(&ip, &gateway, &dns);
     if (rc != HAL_OK) {
-        hal_console_puts("[bootstrap] DHCP failed, trying static config\n");
+        hal_console_puts("  Could not get address automatically, using default.\n");
         /* Fall back to static IP if configured */
         ip = 0x0A000002;       /* 10.0.0.2 */
         gateway = 0x0A000001;  /* 10.0.0.1 */
         dns = 0x08080808;      /* 8.8.8.8 */
     }
 
-    hal_console_printf("[bootstrap] IP: %u.%u.%u.%u\n",
+    hal_console_printf("  Your IP address: %u.%u.%u.%u\n",
                        (ip >> 24) & 0xFF, (ip >> 16) & 0xFF,
                        (ip >> 8) & 0xFF, ip & 0xFF);
 
@@ -154,20 +154,20 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     g_state = BOOTSTRAP_NET_UP;
 
     /* Step 4: Connect to marketplace */
-    hal_console_puts("[bootstrap] Connecting to AlJefra Store...\n");
+    hal_console_puts("  Connecting to AlJefra Store...\n");
     rc = marketplace_connect();
     if (rc != HAL_OK) {
-        hal_console_puts("[bootstrap] Marketplace connection failed\n");
+        hal_console_puts("  Could not reach AlJefra Store. Continuing with built-in drivers.\n");
         g_state = BOOTSTRAP_FAILED;
         return rc;
     }
     g_state = BOOTSTRAP_CONNECTED;
 
     /* Step 5: Send manifest, get driver recommendations */
-    hal_console_puts("[bootstrap] Sending hardware manifest...\n");
+    hal_console_puts("  Sending your hardware info to find matching drivers...\n");
     rc = marketplace_send_manifest(&manifest);
     if (rc != HAL_OK) {
-        hal_console_puts("[bootstrap] Manifest send failed\n");
+        hal_console_puts("  Could not send hardware info. Continuing with built-in drivers.\n");
         marketplace_disconnect();
         g_state = BOOTSTRAP_FAILED;
         return rc;
@@ -184,14 +184,14 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
         if (e->has_driver)
             continue; /* Already have a driver */
 
-        hal_console_printf("[bootstrap] Downloading driver for %04x:%04x...\n",
+        hal_console_printf("  Downloading driver for device %04x:%04x...\n",
                            e->vendor_id, e->device_id);
 
         void *drv_data = NULL;
         uint64_t drv_size = 0;
         rc = marketplace_get_driver(e->vendor_id, e->device_id, &drv_data, &drv_size);
         if (rc != HAL_OK) {
-            hal_console_printf("[bootstrap] No driver available for %04x:%04x\n",
+            hal_console_printf("  No driver found for device %04x:%04x (skipping)\n",
                                e->vendor_id, e->device_id);
             continue;
         }
@@ -211,10 +211,10 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
         if (rc == HAL_OK) {
             downloaded++;
             e->has_driver = 1;
-            hal_console_printf("[bootstrap] Installed driver for %04x:%04x\n",
+            hal_console_printf("  Installed driver for device %04x:%04x\n",
                                e->vendor_id, e->device_id);
         } else {
-            hal_console_printf("[bootstrap] Failed to load driver for %04x:%04x\n",
+            hal_console_printf("  Could not install driver for device %04x:%04x\n",
                                e->vendor_id, e->device_id);
         }
 
@@ -229,17 +229,15 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
         update_url[0] = '\0';
         rc = marketplace_check_updates("0.1.0", update_url, sizeof(update_url));
         if (rc == HAL_OK && update_url[0]) {
-            hal_console_printf("[bootstrap] OS update: %s\n", update_url);
+            hal_console_printf("  OS update available: %s\n", update_url);
             /* OTA update download/apply deferred to next reboot cycle */
         }
     }
 
     marketplace_disconnect();
 
-    hal_console_printf("[bootstrap] Downloaded %u drivers\n", downloaded);
+    hal_console_printf("  Downloaded and installed %u additional drivers.\n", downloaded);
     g_state = BOOTSTRAP_COMPLETE;
-
-    hal_console_puts("[bootstrap] === AI Bootstrap Complete ===\n");
     return HAL_OK;
 }
 

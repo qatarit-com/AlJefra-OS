@@ -57,27 +57,26 @@ void kernel_main(void)
     register_builtin_drivers();
 
     /* Phase 1: Hardware discovery */
-    hal_console_puts("[kernel] Scanning buses...\n");
+    hal_console_puts("Looking for hardware...\n");
     detect_hardware();
 
     /* Phase 2: Load built-in drivers (compiled into kernel image) */
-    hal_console_puts("[kernel] Loading built-in drivers...\n");
+    hal_console_puts("Setting up hardware drivers...\n");
     load_builtin_drivers();
 
     /* Phase 3: Initialize scheduler */
-    hal_console_puts("[kernel] Starting scheduler...\n");
     sched_init();
 
     /* Phase 4: Bring up network */
-    hal_console_puts("[kernel] Starting network...\n");
+    hal_console_puts("Preparing network...\n");
     start_network();
 
     /* Phase 5: AI bootstrap — connect to marketplace, download drivers */
-    hal_console_puts("[kernel] Starting AI bootstrap...\n");
+    hal_console_puts("Connecting to AlJefra AI services...\n");
     ai_bootstrap(g_devices, g_device_count);
 
     /* Phase 6: Interactive — kernel is fully up */
-    hal_console_puts("[kernel] AlJefra OS ready.\n");
+    hal_console_puts("\nAll set! AlJefra OS is ready.\n");
 
     /* Initialize keyboard input */
     keyboard_init();
@@ -90,7 +89,7 @@ void kernel_main(void)
     syscall_loop();
 
     /* Should never reach here */
-    hal_console_puts("[kernel] PANIC: syscall_loop returned\n");
+    hal_console_puts("Something went wrong. Please restart your computer.\n");
     for (;;)
         hal_cpu_halt();
 }
@@ -100,30 +99,25 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS — Universal Boot\n");
-    hal_console_puts("  Architecture: ");
-
-    switch (hal_arch()) {
-    case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
-    case HAL_ARCH_AARCH64: hal_console_puts("AArch64\n"); break;
-    case HAL_ARCH_RISCV64: hal_console_puts("RISC-V 64\n"); break;
-    }
+    hal_console_puts("  AlJefra OS v0.7.0 is starting up...\n");
+    hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
-    hal_console_puts("  CPU: ");
+    hal_console_puts("Your computer:\n");
+    hal_console_puts("  Processor:    ");
     hal_console_puts(cpu.model);
     hal_console_puts("\n");
-    hal_console_printf("  Cores: %u\n", cpu.cores_logical);
-    hal_console_printf("  RAM: %u MB\n", (uint32_t)(hal_mmu_total_ram() / (1024 * 1024)));
-    hal_console_puts("==============================================\n\n");
+    hal_console_printf("  CPU cores:    %u\n", cpu.cores_logical);
+    hal_console_printf("  Memory:       %u MB\n", (uint32_t)(hal_mmu_total_ram() / (1024 * 1024)));
+    hal_console_puts("\n");
 }
 
 /* ── Hardware discovery ── */
 static void detect_hardware(void)
 {
     g_device_count = hal_bus_scan(g_devices, HAL_BUS_MAX_DEVICES);
-    hal_console_printf("[kernel] Found %u devices\n", g_device_count);
+    hal_console_printf("  Found %u devices\n", g_device_count);
 
     for (uint32_t i = 0; i < g_device_count; i++) {
         hal_device_t *d = &g_devices[i];
@@ -293,12 +287,12 @@ static void load_builtin_drivers(void)
         }
     }
 
-    hal_console_printf("[kernel] Loaded %u built-in drivers\n", loaded);
+    hal_console_printf("  %u drivers loaded\n", loaded);
 
     /* Quick storage test — write a pattern then read it back */
     const driver_ops_t *stor = driver_get_storage();
     if (stor && stor->read && stor->write) {
-        hal_console_printf("[kernel] Testing storage driver '%s'...\n", stor->name);
+        hal_console_printf("  Testing storage (%s)...\n", stor->name);
 
         uint64_t phys;
         uint8_t *buf = (uint8_t *)hal_dma_alloc(512, &phys);
@@ -322,18 +316,18 @@ static void load_builtin_drivers(void)
                     for (int i = 0; i < 512; i++) {
                         if (buf2[i] != (uint8_t)(0xA5 ^ i)) {
                             ok = 0;
-                            hal_console_printf("[kernel] Storage MISMATCH at byte %d: got 0x%02x expected 0x%02x\n",
+                            hal_console_printf("  Storage mismatch at byte %d: got 0x%02x expected 0x%02x\n",
                                                i, buf2[i], (uint8_t)(0xA5 ^ i));
                             break;
                         }
                     }
                     if (ok)
-                        hal_console_puts("[kernel] Storage READ/WRITE test PASSED\n");
+                        hal_console_puts("  Storage is working correctly\n");
                 } else {
-                    hal_console_puts("[kernel] Storage read failed\n");
+                    hal_console_puts("  Storage read failed\n");
                 }
             } else {
-                hal_console_puts("[kernel] Storage write failed\n");
+                hal_console_puts("  Storage write failed\n");
             }
         }
     }
@@ -343,5 +337,4 @@ static void load_builtin_drivers(void)
 static void start_network(void)
 {
     /* The AI bootstrap module handles DHCP + full network bringup */
-    hal_console_puts("[kernel] Network will be configured by AI bootstrap\n");
 }
