@@ -156,7 +156,7 @@ static void cmd_info(void)
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
 
-    hal_console_puts("AlJefra OS v0.7.0\n");
+    hal_console_puts("AlJefra OS v0.7.1\n");
     hal_console_puts("Architecture: ");
     switch (hal_arch()) {
     case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
@@ -277,7 +277,7 @@ static void cmd_reboot(void)
 
 static void cmd_ver(void)
 {
-    hal_console_puts("AlJefra OS v0.7.0\n");
+    hal_console_puts("AlJefra OS v0.7.1\n");
     hal_console_puts("An AI-native operating system by Qatar IT (www.QatarIT.com)\n");
 }
 
