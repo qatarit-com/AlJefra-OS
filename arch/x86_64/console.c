@@ -383,6 +383,28 @@ void hal_console_write(const char *s, uint64_t len)
         lfb_flush(&lfb_con);
 }
 
+void hal_console_clear(void)
+{
+    if (serial_available) {
+        serial_putc('\x1B');
+        serial_putc('[');
+        serial_putc('2');
+        serial_putc('J');
+        serial_putc('\x1B');
+        serial_putc('[');
+        serial_putc('H');
+    }
+
+    if (lfb_available)
+        lfb_clear(&lfb_con, LFB_COLOR_BLACK);
+
+    if (vga_text_available) {
+        for (int i = 0; i < VGA_TEXT_COLS * VGA_TEXT_ROWS; i++)
+            VGA_TEXT_BUF[i] = (uint16_t)((0x0F << 8) | ' ');
+        vga_text_pos = 0;
+    }
+}
+
 /* -------------------------------------------------------------------------- */
 /* Minimal printf implementation                                              */
 /* Supports: %s, %d, %u, %x, %p, %c, %l (as prefix for long), %%            */

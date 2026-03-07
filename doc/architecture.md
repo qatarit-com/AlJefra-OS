@@ -81,9 +81,10 @@ Drivers can be loaded and unloaded at runtime without rebooting. The driver mode
 Instead of requiring the user to know their hardware and manually install drivers, AlJefra OS uses an AI agent to:
 
 1. Scan all buses (PCI, USB, platform) and build a hardware manifest.
-2. Connect to the AlJefra Driver Marketplace over the network.
-3. Send the manifest and receive a list of matching drivers.
-4. Download, verify, load, and configure each driver automatically.
+2. Connect to the AlJefra Driver Marketplace over the first working network path.
+3. Register the machine and queue missing drivers/apps.
+4. Send the manifest and receive a list of matching drivers.
+5. Download, verify, load, and configure each driver automatically.
 
 The user experience is: plug in, power on, wait, done.
 
@@ -247,7 +248,7 @@ The boot process differs per architecture at the firmware and early assembly lev
          |
          v
 +------------------+
-| AI Bootstrap     |   Build manifest -> connect store -> download drivers
+| AI Bootstrap     |   Build manifest -> sync machine -> connect store -> download drivers
 +--------+---------+
          |
          v

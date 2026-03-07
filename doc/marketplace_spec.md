@@ -34,6 +34,49 @@ otherwise noted. HTTP status codes follow standard REST conventions.
 Send a hardware manifest describing the target machine. The server returns a prioritized
 list of driver recommendations for every detected device.
 
+### POST /v1/system/sync
+
+Register a machine with the marketplace, persist its hardware profile, submit
+desired app requests, and queue unmet work for later publication.
+
+**Request**
+
+```http
+POST /v1/system/sync HTTP/1.1
+Content-Type: application/json
+```
+
+```json
+{
+  "os_version": "0.7.4",
+  "desired_apps": ["browser", "terminal", "office"],
+  "manifest": {
+    "arch": "x86_64",
+    "cpu_vendor": "GenuineIntel",
+    "cpu_model": "Intel(R) Core(TM)...",
+    "ram_mb": 16384,
+    "devices": [
+      {"v": "8086", "d": "2725", "c": 2, "s": 128, "has_drv": true},
+      {"v": "0bda", "d": "8153", "c": 2, "s": 0, "has_drv": false}
+    ]
+  }
+}
+```
+
+**Response (201 Created)**
+
+```json
+{
+  "status": "queued",
+  "system_id": "ab12cd34ef56ab78",
+  "ready_driver_count": 3,
+  "missing_driver_count": 1,
+  "app_request_count": 3,
+  "recommendations": [],
+  "sync_message": "Hardware registered and marketplace queue updated"
+}
+```
+
 **Request**
 
 ```http
@@ -521,18 +564,14 @@ python3 tools/ajdrv_builder.py --verify \
 
 The AlJefra OS kernel integrates with the marketplace through the following workflow:
 
-1. **Boot**: The kernel enumerates PCI devices and builds a hardware manifest.
-2. **Connect**: If a network driver is available (seed drivers), the kernel connects to
-   `store.aljefra.com` over TLS 1.2.
-3. **Submit manifest**: The kernel sends `POST /v1/manifest` with the detected hardware.
-4. **Download**: Critical and recommended drivers are downloaded via
-   `GET /v1/drivers/{vendor}/{device}/{arch}`.
-5. **Verify**: Each `.ajdrv` package is verified against the embedded root public key
-   (see `security_model.md`).
-6. **Load**: Verified drivers are loaded into kernel memory and their entry points are
-   called to initialize hardware.
-7. **Update check**: Periodically, the kernel queries `GET /v1/updates/{version}` to
-   check for OS-level updates.
+1. **Boot**: The kernel enumerates PCI/USB/platform devices and builds a hardware manifest.
+2. **Connect**: If a network driver is available, the kernel brings up Ethernet, USB Ethernet, or Wi-Fi and connects to the marketplace.
+3. **System sync**: The kernel sends `POST /v1/system/sync` with hardware, OS version, and desired app requests.
+4. **Submit manifest**: The kernel sends `POST /v1/manifest` with the detected hardware.
+5. **Download**: Critical and recommended drivers are downloaded via `GET /v1/drivers/{vendor}/{device}/{arch}`.
+6. **Verify**: Each `.ajdrv` package is verified against the embedded root public key.
+7. **Load**: Verified drivers are loaded into kernel memory and their entry points are called to initialize hardware.
+8. **Update check**: Periodically, the kernel queries `GET /v1/updates/{version}` to check for OS-level updates.
 
 ---
 

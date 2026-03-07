@@ -58,6 +58,7 @@ static void cmd_df(void);
 static void cmd_log(void);
 static void cmd_sync(void);
 static void cmd_status(void);
+static void print_detected_network_hardware(void);
 
 static void fs_list_print_cb(const char *name, uint64_t size, void *ctx);
 static void fs_list_stats_cb(const char *name, uint64_t size, void *ctx);
@@ -324,8 +325,7 @@ static void cmd_mem(void)
 
 static void cmd_clear(void)
 {
-    for (int i = 0; i < 50; i++)
-        hal_console_putc('\n');
+    hal_console_clear();
 }
 
 static void cmd_drivers(void)
@@ -398,7 +398,8 @@ static void cmd_net(void)
     hal_console_puts("--------------\n");
 
     if (!net) {
-        hal_console_puts("Network:      Not connected (no network driver found)\n");
+        hal_console_puts("Network:      No active network driver\n");
+        print_detected_network_hardware();
         return;
     }
 
@@ -416,6 +417,7 @@ static void cmd_net(void)
     if (!cfg || cfg->ip == 0) {
         hal_console_puts("IP address:   Not assigned (DHCP may not have completed)\n");
         hal_console_puts("Internet:     Not connected\n");
+        print_detected_network_hardware();
         return;
     }
 
@@ -429,6 +431,34 @@ static void cmd_net(void)
                        (cfg->dns >> 24) & 0xFF, (cfg->dns >> 16) & 0xFF,
                        (cfg->dns >> 8) & 0xFF, cfg->dns & 0xFF);
     hal_console_puts("Internet:     Connected\n");
+}
+
+static void print_detected_network_hardware(void)
+{
+    uint32_t found = 0;
+
+    if (!g_devices || g_device_count == 0) {
+        hal_console_puts("Detected NICs: hardware scan unavailable\n");
+        return;
+    }
+
+    for (uint32_t i = 0; i < g_device_count; i++) {
+        hal_device_t *d = &g_devices[i];
+        if (d->class_code != 0x02)
+            continue;
+
+        if (found == 0)
+            hal_console_puts("Detected NICs:\n");
+
+        hal_console_printf("  %02x:%02x.%x  %04x:%04x  class %02x:%02x\n",
+                           d->bus, d->dev, d->func,
+                           d->vendor_id, d->device_id,
+                           d->class_code, d->subclass);
+        found++;
+    }
+
+    if (found == 0)
+        hal_console_puts("Detected NICs: none\n");
 }
 
 static void fs_list_print_cb(const char *name, uint64_t size, void *ctx)

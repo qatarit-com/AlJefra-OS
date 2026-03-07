@@ -36,6 +36,8 @@ static int load_wifi_credentials(char *ssid, uint32_t ssid_max,
 static int parse_wifi_line(const char *line, const char *key,
                            char *out, uint32_t out_max);
 static int count_prefix_len(const char *a, const char *b);
+static int is_detected_network_device(const hal_device_t *dev);
+static void log_unsupported_network_device(const hal_device_t *dev);
 
 /* Forward declarations for built-in driver registration */
 extern void e1000_register(void);
@@ -208,31 +210,43 @@ static void load_builtin_drivers(void)
             if (rc == HAL_OK) loaded++;
         }
 
-        /* Network: Intel e1000/e1000e */
-        if (d->class_code == PCI_CLASS_NETWORK && d->subclass == PCI_SUBCLASS_ETHERNET) {
-            if (d->vendor_id == 0x8086) {
-                rc = driver_load_builtin("e1000", d);
-                if (rc == HAL_OK) loaded++;
-            }
-        }
+        if (d->class_code == PCI_CLASS_NETWORK) {
+            int matched = 0;
 
-        /* Network: Realtek RTL8169/RTL8168/RTL8111/RTL8101E */
-        if (d->class_code == PCI_CLASS_NETWORK && d->subclass == PCI_SUBCLASS_ETHERNET) {
-            if (d->vendor_id == 0x10EC &&
+            /* Intel Ethernet and Wi-Fi/CNVi controllers */
+            if (d->vendor_id == 0x8086) {
+                matched = 1;
+                if (d->subclass == PCI_SUBCLASS_ETHERNET) {
+                    rc = driver_load_builtin("e1000", d);
+                } else {
+                    rc = driver_load_builtin("intel_wifi", d);
+                }
+                if (rc == HAL_OK)
+                    loaded++;
+            }
+
+            /* Realtek RTL8169/RTL8168/RTL8111/RTL8101E */
+            if (!matched && d->subclass == PCI_SUBCLASS_ETHERNET &&
+                d->vendor_id == 0x10EC &&
                 (d->device_id == 0x8136 || d->device_id == 0x8161 ||
                  d->device_id == 0x8168 || d->device_id == 0x8169)) {
+                matched = 1;
                 rc = driver_load_builtin("rtl8169", d);
-                if (rc == HAL_OK) loaded++;
+                if (rc == HAL_OK)
+                    loaded++;
             }
-        }
 
-        /* Network: VirtIO-Net (legacy 0x1000 + modern 0x1041) */
-        if (d->vendor_id == 0x1AF4 &&
-            (d->device_id == 0x1000 || d->device_id == 0x1041)) {
-            if (d->class_code == PCI_CLASS_NETWORK) {
+            /* VirtIO-Net (legacy 0x1000 + modern 0x1041) */
+            if (!matched && d->vendor_id == 0x1AF4 &&
+                (d->device_id == 0x1000 || d->device_id == 0x1041)) {
+                matched = 1;
                 rc = driver_load_builtin("virtio-net", d);
-                if (rc == HAL_OK) loaded++;
+                if (rc == HAL_OK)
+                    loaded++;
             }
+
+            if (!matched || rc != HAL_OK)
+                log_unsupported_network_device(d);
         }
 
         /* Storage: VirtIO-Blk (legacy 0x1001 + modern 0x1042) */
@@ -245,14 +259,6 @@ static void load_builtin_drivers(void)
         /* Storage: UFS */
         if (d->class_code == PCI_CLASS_STORAGE && d->subclass == PCI_SUBCLASS_UFS) {
             rc = driver_load_builtin("ufs", d);
-            if (rc == HAL_OK) loaded++;
-        }
-
-        /* Network: Intel WiFi (AX200/AX210) */
-        if (d->class_code == PCI_CLASS_NETWORK && d->vendor_id == 0x8086 &&
-            (d->device_id == 0x2723 || d->device_id == 0x2725 ||
-             d->device_id == 0x4DF0)) {
-            rc = driver_load_builtin("intel_wifi", d);
             if (rc == HAL_OK) loaded++;
         }
 
@@ -363,6 +369,12 @@ static void start_network(void)
     int wifi_cfg = load_wifi_credentials(wifi_ssid, sizeof(wifi_ssid),
                                          wifi_pass, sizeof(wifi_pass));
     int wifi_ready = 0;
+    uint32_t detected_network_hw = 0;
+
+    for (uint32_t i = 0; i < g_device_count; i++) {
+        if (is_detected_network_device(&g_devices[i]))
+            detected_network_hw++;
+    }
 
     if (driver_find_by_name("intel_wifi")) {
         hal_console_puts("WiFi hardware detected\n");
@@ -383,10 +395,12 @@ static void start_network(void)
     }
 
     uint32_t count = driver_list(drivers, MAX_DRIVERS);
+    uint32_t network_candidates = 0;
     for (uint32_t i = 0; i < count; i++) {
         const driver_ops_t *drv = drivers[i];
         if (drv->category != DRIVER_CAT_NETWORK)
             continue;
+        network_candidates++;
 
         if (str_eq(drv->name, "intel_wifi") && !wifi_ready)
             continue;
@@ -399,6 +413,11 @@ static void start_network(void)
             klog(KLOG_INFO, "kernel: network configured successfully");
             return;
         }
+    }
+
+    if (network_candidates == 0 && detected_network_hw > 0) {
+        hal_console_puts("  Network hardware was detected, but no compatible driver became active\n");
+        klog(KLOG_WARN, "kernel: detected network hardware but no driver became active");
     }
 
     hal_console_puts("  No network link available yet\n");
@@ -485,4 +504,19 @@ static int count_prefix_len(const char *a, const char *b)
         i++;
     }
     return i;
+}
+
+static int is_detected_network_device(const hal_device_t *dev)
+{
+    return dev && dev->class_code == PCI_CLASS_NETWORK;
+}
+
+static void log_unsupported_network_device(const hal_device_t *dev)
+{
+    if (!is_detected_network_device(dev))
+        return;
+
+    hal_console_printf("  [net] Detected controller %04x:%04x class %02x:%02x\n",
+                       dev->vendor_id, dev->device_id,
+                       dev->class_code, dev->subclass);
 }

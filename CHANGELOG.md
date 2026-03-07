@@ -78,7 +78,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transfer encoding.
 - **AI-Native Chat Interface:** Claude API integration with interactive REPL,
   SAX-style JSON parser, and HTTP client for AI communication.
-- **Driver Marketplace:** Flask REST API (9 endpoints) with .ajdrv package
+- **Driver Marketplace:** Flask REST API (10 endpoints) with .ajdrv package
   format, runtime driver loading, Ed25519 signature verification (full RFC 8032
   implementation, 1,550 lines), OTA update system with CRC32 verification.
 - **Self-Evolving Kernel:** 11 evolution generations with 200+ optimizations

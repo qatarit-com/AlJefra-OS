@@ -13,6 +13,7 @@
 #include "../hal/hal.h"
 #include "../store/verify.h"
 #include "../lib/string.h"
+#include "fs.h"
 
 /* Network/marketplace modules (from net/ and ai/) */
 extern hal_status_t dhcp_discover(uint32_t *ip, uint32_t *gateway, uint32_t *dns);
@@ -25,6 +26,44 @@ extern void tcp_init(uint32_t local_ip, uint32_t gateway, uint32_t netmask);
 static const uint8_t ALJEFRA_STORE_PUBKEY[32] = {0};
 
 static bootstrap_state_t g_state = BOOTSTRAP_INIT;
+
+static int load_desired_apps(char *out, uint32_t out_max)
+{
+    int fd = fs_open("desired-apps.conf");
+    if (fd < 0) {
+        out[0] = '\0';
+        return -1;
+    }
+
+    int64_t rd = fs_read(fd, out, 0, out_max - 1);
+    fs_close(fd);
+    if (rd <= 0) {
+        out[0] = '\0';
+        return -1;
+    }
+
+    out[rd] = '\0';
+    return 0;
+}
+
+static void persist_sync_report(const char *report)
+{
+    if (!report || !report[0])
+        return;
+
+    int fd = fs_open("marketplace-sync.txt");
+    if (fd < 0) {
+        if (fs_create("marketplace-sync.txt", 1) < 0)
+            return;
+        fd = fs_open("marketplace-sync.txt");
+        if (fd < 0)
+            return;
+    }
+
+    fs_write(fd, report, 0, str_len(report));
+    fs_close(fd);
+    fs_sync();
+}
 
 /* ── Helpers ── */
 
@@ -163,7 +202,18 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     }
     g_state = BOOTSTRAP_CONNECTED;
 
-    /* Step 5: Send manifest, get driver recommendations */
+    /* Step 5a: Register this machine and request a machine-specific sync plan */
+    {
+        char desired_apps[256];
+        char sync_report[192];
+        load_desired_apps(desired_apps, sizeof(desired_apps));
+        if (marketplace_sync_system(&manifest, "0.7.4", desired_apps,
+                                    sync_report, sizeof(sync_report)) == HAL_OK) {
+            persist_sync_report(sync_report);
+        }
+    }
+
+    /* Step 5b: Send manifest, get driver recommendations */
     hal_console_puts("  Sending your hardware info to find matching drivers...\n");
     rc = marketplace_send_manifest(&manifest);
     if (rc != HAL_OK) {

@@ -29,13 +29,13 @@
     <!-- Page Header -->
     <section class="page-header">
         <h1>AlJefra Store</h1>
-        <p>AI-powered driver marketplace with verified, signed packages</p>
+        <p>AI-powered driver and app marketplace with verified, signed packages</p>
     </section>
 
     <!-- How It Works Section -->
     <section class="section">
         <h2>How It Works</h2>
-        <p>AlJefra Store is an intelligent driver marketplace that boots with your OS. When the system starts, it automatically detects your hardware and intelligently downloads the right drivers from the store.</p>
+        <p>AlJefra Store is an intelligent system marketplace that boots with your OS. When the system starts, it detects your hardware, registers the machine, queues unmet drivers and apps, and downloads the packages that are already available.</p>
 
         <h3>AI Bootstrap Flow</h3>
         <p>The AI bootstrap process works as follows:</p>
@@ -47,24 +47,29 @@
    ├─ Discover devices
    └─ Collect hardware manifest (vendor IDs, device IDs, arch)
 
-3. Send Manifest to Store
+3. Register Machine + Sync Plan
+   ├─ HTTPS POST to /v1/system/sync
+   ├─ Include: CPU architecture, devices found, OS version, desired apps
+   └─ Receive: per-machine queue summary and work plan
+
+4. Send Manifest to Store
    ├─ HTTPS POST to /v1/manifest
-   ├─ Include: CPU architecture, devices found, OS version
+   ├─ Include: hardware manifest with current driver coverage
    └─ Receive: list of recommended drivers
 
-4. Download Drivers
+5. Download Drivers
    ├─ Retrieve .ajdrv packages from store
    ├─ Verify Ed25519 signatures
    └─ Check device compatibility
 
-5. Install Drivers
+6. Install Drivers
    ├─ Unpack signed package
    ├─ Load driver binary
    ├─ Initialize driver via HAL interface
    └─ Enable device
 
-6. System Ready
-   └─ All hardware available, applications can launch</code></pre>
+7. System Ready
+   └─ Hardware ready, sync report stored, future boots can pull queued work</code></pre>
 
         <p>This approach ensures that you get the exact drivers you need, optimized for your specific hardware configuration, without manual intervention.</p>
     </section>
@@ -82,6 +87,11 @@
                 </tr>
             </thead>
             <tbody>
+                <tr>
+                    <td><code>POST</code></td>
+                    <td><code>/v1/system/sync</code></td>
+                    <td>Register a machine, queue missing drivers/apps, return sync summary</td>
+                </tr>
                 <tr>
                     <td><code>POST</code></td>
                     <td><code>/v1/manifest</code></td>

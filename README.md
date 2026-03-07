@@ -23,15 +23,17 @@
 
 ## Overview
 
-AlJefra OS v0.7.4 is a ground-up operating system written in **65,502 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, then uses an onboard AI agent to detect hardware, connect to the AlJefra Driver Marketplace, and automatically download, install, and configure every driver the machine needs -- all without human intervention.
+AlJefra OS v0.7.4 is a ground-up operating system written in **65,502 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, brings up the first working network path it can find, activates Intel Wi-Fi from `wifi.conf` when available, registers the machine with the AlJefra Marketplace, and then pulls a machine-specific sync plan for drivers and apps.
 
 A single portable codebase compiles for all three supported architectures.
 
 ## Key Features
 
 - **Universal Boot** -- One codebase compiles for x86-64, ARM64, and RISC-V 64, producing architecture-specific kernel ELFs.
-- **AI Bootstrap** -- An embedded AI agent scans hardware at boot, builds a manifest, and fetches matching drivers from the cloud.
-- **Driver Marketplace** -- Over-the-air driver store where vendors publish signed `.ajdrv` packages that the OS downloads at runtime.
+- **AI Bootstrap** -- An embedded AI agent scans hardware at boot, builds a manifest, registers the machine, and syncs with the marketplace queue.
+- **Driver Marketplace** -- Over-the-air driver store where vendors publish signed `.ajdrv` packages and each machine can request missing drivers or apps through a per-system sync plan.
+- **Machine-Specific Sync** -- After network comes up, the OS posts hardware, OS version, and desired app requests, then stores a local sync report for later boots.
+- **Wi-Fi + USB Networking** -- Intel AX200/AX210 Wi-Fi activation from `wifi.conf`, USB Ethernet via xHCI, and active network-driver selection during DHCP bring-up.
 - **Hardware Abstraction Layer (HAL)** -- A clean, portable HAL lets every driver and kernel subsystem compile once and run on all three architectures.
 - **22 Portable Drivers** -- Storage (NVMe, AHCI, VirtIO-blk), networking (e1000, VirtIO-net, RTL8169), display (Bochs VBE, serial console), input (PS/2, USB HID), and more.
 - **Full Network Stack** -- Ethernet, ARP, IPv4, UDP, DHCP, DNS, and TCP. TLS 1.2 provided by vendored BearSSL library.

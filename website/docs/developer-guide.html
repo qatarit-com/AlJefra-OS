@@ -140,8 +140,9 @@ AlJefra-OS/
                         <li>Register built-in driver ops tables</li>
                         <li>Bus scan (PCIe on x86, Device Tree on ARM/RISC-V)</li>
                         <li>Match devices to drivers, init matched drivers</li>
-                        <li>DHCP → TCP init → Connect to marketplace</li>
-                        <li>Send hardware manifest → download recommended .ajdrv drivers</li>
+                        <li>DHCP → select active NIC/Wi-Fi path → connect to marketplace</li>
+                        <li>POST machine sync → queue missing drivers/apps → send manifest</li>
+                        <li>Download recommended .ajdrv drivers</li>
                         <li>Load runtime drivers → system ready</li>
                     </ul>
                 </li>
@@ -353,6 +354,11 @@ python3 server/ajdrv_builder.py sign my_driver.ajdrv --key private_key.pem
                         <td style="padding: 0.5rem;"><code>/v1/manifest</code></td>
                         <td style="padding: 0.5rem;">POST</td>
                         <td style="padding: 0.5rem;">Send hardware manifest, get driver recommendations</td>
+                    </tr>
+                    <tr style="border-bottom: 1px solid #eee;">
+                        <td style="padding: 0.5rem;"><code>/v1/system/sync</code></td>
+                        <td style="padding: 0.5rem;">POST</td>
+                        <td style="padding: 0.5rem;">Register a machine, queue missing drivers/apps, return sync summary</td>
                     </tr>
                     <tr style="border-bottom: 1px solid #eee;">
                         <td style="padding: 0.5rem;"><code>/v1/drivers/{vendor}/{device}/{arch}</code></td>

@@ -156,7 +156,7 @@ Kernel Main
 Bus Enumeration
   ├─ Scan PCIe/USB/Device Tree
   ├─ Discover available devices
-  └─ Load device drivers via driver marketplace
+  └─ Sync machine state and load device drivers via marketplace
   ↓
 Network Initialization
   ├─ Initialize NIC driver
@@ -164,8 +164,9 @@ Network Initialization
   └─ Join network
   ↓
 AI Bootstrap
+  ├─ Register machine + desired apps with AlJefra Store
   ├─ Send hardware manifest to AlJefra Store
-  ├─ Receive driver recommendations
+  ├─ Receive driver recommendations and queued work
   ├─ Download optimized drivers
   ├─ Verify signatures (Ed25519)
   └─ Install drivers
