@@ -102,7 +102,7 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] Plugin SDK documentation (doc/plugin-sdk.md, 541 lines)
 - [x] Hardware compatibility database (doc/hardware-compatibility.md, 169 lines)
 - [x] Release process (doc/release-process.md, 179 lines)
-- [x] CHANGELOG.md (113 lines — v1.0.0 initial release)
+- [x] CHANGELOG.md (130 lines — v1.0.0 initial release)
 - [x] CODE_OF_CONDUCT.md (137 lines — Contributor Covenant)
 
 ---
@@ -145,7 +145,7 @@ Power On → HAL Init → Device Scan → Driver Load
 │ 📄 conf │ AI: AlJefra OS v0.7.5             │
 │ 📦 drv  │ CPU: x86-64 (4 cores)            │
 │ 📄 logs │ RAM: 256 MB, Disk: 128 MB        │
-│         │ Network: 1113.168.1.105            │
+│         │ Network: 192.168.1.105             │
 │ [+] New ├────────────────────────────────────┤
 │         │ > Ask anything...           [Send] │
 └─────────┴────────────────────────────────────┘
