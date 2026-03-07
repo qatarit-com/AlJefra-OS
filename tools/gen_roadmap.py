@@ -163,10 +163,10 @@ def generate_html(sections, metrics, hw_tiers):
     # Status label
     if all_done:
         status_word = "shipped"
-        status_note = "Everything shipped in one release. No half measures."
+        status_note = "Everything shipped in one release. No half measures"
     else:
         status_word = "ships"
-        status_note = "Everything ships in one release. No half measures."
+        status_note = "Everything ships in one release. No half measures"
 
     lines = []
     lines.append("""<!DOCTYPE html>
@@ -182,7 +182,7 @@ def generate_html(sections, metrics, hw_tiers):
     <nav>
         <div class="nav-inner">
             <div class="logo">AlJefra OS</div>
-            <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active');this.classList.toggle('active')"><span></span><span></span><span></span></button>
+            <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
             <ul class="nav-links">
                 <li><a href="index.html">Home</a></li>
                 <li><a href="docs.html">Docs</a></li>
@@ -195,10 +195,10 @@ def generate_html(sections, metrics, hw_tiers):
         </div>
     </nav>
 
-    <div class="page-header">
+    <section class="page-header">
         <h1>v0.7.2 Production Roadmap</h1>
         <p>""" + esc(status_note) + """</p>
-    </div>""")
+    </section>""")
 
     # Status cards
     arch_count = '3'
