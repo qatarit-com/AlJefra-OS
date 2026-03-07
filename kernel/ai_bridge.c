@@ -4,6 +4,8 @@
 #include "ai_bridge.h"
 #include "fs.h"
 #include "dhcp.h"
+#include "driver_loader.h"
+#include "ai_bootstrap.h"
 #include "../net/tcp.h"
 #include "../net/dns.h"
 #include "../lib/string.h"
@@ -40,6 +42,33 @@ static int ci_eq(const char *a, const char *b)
             return 0;
     }
     return *a == '\0' && *b == '\0';
+}
+
+static char to_lower_ascii(char c)
+{
+    if (c >= 'A' && c <= 'Z')
+        return (char)(c + 32);
+    return c;
+}
+
+static const char *ci_strstr_local(const char *haystack, const char *needle)
+{
+    uint32_t nlen = str_len(needle);
+    uint32_t hlen = str_len(haystack);
+    if (nlen == 0)
+        return haystack;
+    if (nlen > hlen)
+        return (const char *)0;
+
+    for (uint32_t i = 0; i <= hlen - nlen; i++) {
+        uint32_t j = 0;
+        while (j < nlen &&
+               to_lower_ascii(haystack[i + j]) == to_lower_ascii(needle[j]))
+            j++;
+        if (j == nlen)
+            return &haystack[i];
+    }
+    return (const char *)0;
 }
 
 static const char *skip_spaces(const char *s)
@@ -293,6 +322,75 @@ static uint32_t resolve_host_ip(void)
     return 0;
 }
 
+static int message_is_greeting(const char *msg)
+{
+    return ci_strstr_local(msg, "hi") || ci_strstr_local(msg, "hello") ||
+           ci_strstr_local(msg, "hey") || ci_strstr_local(msg, "salam");
+}
+
+static int message_mentions_network(const char *msg)
+{
+    return ci_strstr_local(msg, "network") || ci_strstr_local(msg, "internet") ||
+           ci_strstr_local(msg, "wifi") || ci_strstr_local(msg, "wi-fi") ||
+           ci_strstr_local(msg, "ethernet") || ci_strstr_local(msg, "connect");
+}
+
+static void build_offline_reply(const char *user_message,
+                                char *response,
+                                uint32_t response_max)
+{
+    const driver_ops_t *net = driver_get_network();
+    const char *sync_status = ai_bootstrap_status_message();
+
+    response[0] = '\0';
+
+    if (message_is_greeting(user_message)) {
+        str_copy(response,
+                 "Hi. I am in offline helper mode right now, so I cannot call the tiny local model yet. "
+                 "Still, I can help with setup without making you babysit the machine.\n\n",
+                 response_max);
+    } else {
+        str_copy(response,
+                 "I am running in offline helper mode at the moment. "
+                 "The tiny local AI backend is not reachable yet, so I will stay practical.\n\n",
+                 response_max);
+    }
+
+    if (!net) {
+        str_copy(response + str_len(response),
+                 "What is happening now:\n"
+                 "1. The OS does not have an active network driver yet.\n"
+                 "2. That means machine registration and the tiny AI backend are both unavailable.\n"
+                 "3. The fastest path is to get the USB or Wi-Fi network path working first.\n\n",
+                 response_max - str_len(response));
+    } else {
+        str_copy(response + str_len(response),
+                 "Good news: a network driver is active. The missing part is the local AI server backend, not the terminal.\n\n",
+                 response_max - str_len(response));
+    }
+
+    str_copy(response + str_len(response),
+             "Try these next:\n"
+             "- `net` to inspect connection status\n"
+             "- `registry` to inspect machine sync and hardware profile\n"
+             "- `status` for the high-level system picture\n"
+             "- `help` for direct commands\n\n",
+             response_max - str_len(response));
+
+    if (message_mentions_network(user_message)) {
+        str_copy(response + str_len(response),
+                 "You asked about networking, so here is the short version: once the machine gets online, I can register hardware, sync drivers, and reach the tiny AI backend. Until then, I am basically a mechanic with good manners and no spare parts.\n\n",
+                 response_max - str_len(response));
+    }
+
+    str_copy(response + str_len(response),
+             "Current sync state: ",
+             response_max - str_len(response));
+    str_copy(response + str_len(response),
+             sync_status,
+             response_max - str_len(response));
+}
+
 int ai_bridge_init(void)
 {
     str_copy(g_cfg.host, "gateway", sizeof(g_cfg.host));
@@ -331,24 +429,20 @@ int ai_bridge_send(const char *system_prompt,
 
     if (!ci_eq(g_cfg.backend, "ollama")) {
         bridge_set_status("unsupported AI backend");
-        str_copy(response, "Local AI backend is not supported yet.", response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
 
     remote_ip = resolve_host_ip();
     if (remote_ip == 0) {
         bridge_set_status("local AI server unresolved");
-        str_copy(response,
-                 "Local tiny AI is not reachable yet. Connect networking or set ai.conf.",
-                 response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
 
     if (tcp_connect(&conn, remote_ip, g_cfg.port) != HAL_OK) {
         bridge_set_status("local AI server offline");
-        str_copy(response,
-                 "Local tiny AI server is offline. Start the Ollama-compatible backend.",
-                 response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
 
@@ -380,7 +474,7 @@ int ai_bridge_send(const char *system_prompt,
     if (sent < 0) {
         tcp_close(&conn);
         bridge_set_status("AI request failed");
-        str_copy(response, "I could not reach the local AI backend.", response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
 
@@ -388,7 +482,7 @@ int ai_bridge_send(const char *system_prompt,
     tcp_close(&conn);
     if (got <= 0) {
         bridge_set_status("AI response timeout");
-        str_copy(response, "The local AI backend did not answer in time.", response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
     http_response[got] = '\0';
@@ -396,14 +490,14 @@ int ai_bridge_send(const char *system_prompt,
     status = parse_http_status(http_response, (uint32_t)got);
     if (status != 200) {
         bridge_set_status("AI backend HTTP error");
-        str_copy(response, "The local AI backend returned an error.", response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
 
     resp_body = find_http_body(http_response, (uint32_t)got);
     if (!resp_body) {
         bridge_set_status("AI backend malformed");
-        str_copy(response, "The local AI backend response was malformed.", response_max);
+        build_offline_reply(user_message, response, response_max);
         return (int)str_len(response);
     }
 

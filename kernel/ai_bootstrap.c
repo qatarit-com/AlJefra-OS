@@ -27,6 +27,7 @@ static const uint8_t ALJEFRA_STORE_PUBKEY[32] = {0};
 
 static bootstrap_state_t g_state = BOOTSTRAP_INIT;
 static char g_status_message[160] = "Waiting for network and marketplace";
+static int g_persist_dirty = 0;
 
 static void append_u16_hex(char **p, char *end, uint16_t value)
 {
@@ -72,6 +73,7 @@ static void persist_text_file(const char *name, const char *text)
 
     fs_write(fd, text, 0, str_len(text));
     fs_close(fd);
+    g_persist_dirty = 1;
 }
 
 static int load_desired_apps(char *out, uint32_t out_max)
@@ -99,7 +101,6 @@ static void persist_sync_report(const char *report)
         return;
 
     persist_text_file("marketplace-sync.txt", report);
-    fs_sync();
 }
 
 static void persist_hardware_profile(const hardware_manifest_t *manifest)
@@ -166,6 +167,14 @@ static void persist_hardware_profile(const hardware_manifest_t *manifest)
 
     #undef APPENDC
     #undef APPENDU
+}
+
+static void flush_persisted_state(void)
+{
+    if (!g_persist_dirty)
+        return;
+    fs_sync();
+    g_persist_dirty = 0;
 }
 
 /* ── Helpers ── */
@@ -269,6 +278,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
         hal_console_puts("  No network connection available.\n");
         hal_console_puts("  Using built-in drivers only. Connect a network adapter for more.\n");
         persist_sync_report("Offline: machine not yet registered. Connect to the network and reboot to sync drivers and apps.\n");
+        flush_persisted_state();
         set_status(BOOTSTRAP_FAILED, "Offline: connect to the network to register this machine");
         return HAL_NO_DEVICE;
     }
@@ -301,6 +311,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     if (rc != HAL_OK) {
         hal_console_puts("  Could not reach AlJefra Store. Continuing with built-in drivers.\n");
         persist_sync_report("Online network available, but the marketplace could not be reached.\n");
+        flush_persisted_state();
         set_status(BOOTSTRAP_FAILED, "Network is up, but the marketplace is unreachable");
         return rc;
     }
@@ -311,7 +322,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
         char desired_apps[256];
         char sync_report[192];
         load_desired_apps(desired_apps, sizeof(desired_apps));
-        if (marketplace_sync_system(&manifest, "0.7.6", desired_apps,
+        if (marketplace_sync_system(&manifest, "0.7.7", desired_apps,
                                     sync_report, sizeof(sync_report)) == HAL_OK) {
             persist_sync_report(sync_report);
             set_status(BOOTSTRAP_CONNECTED, sync_report);
@@ -323,6 +334,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     if (need_drivers == 0) {
         hal_console_puts("  Machine registered. No extra drivers were needed.\n");
         marketplace_disconnect();
+        flush_persisted_state();
         set_status(BOOTSTRAP_COMPLETE, "Registered and ready: no extra drivers needed");
         return HAL_OK;
     }
@@ -333,6 +345,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     if (rc != HAL_OK) {
         hal_console_puts("  Could not send hardware info. Continuing with built-in drivers.\n");
         marketplace_disconnect();
+        flush_persisted_state();
         set_status(BOOTSTRAP_FAILED, "Registered, but driver recommendations could not be fetched");
         return rc;
     }
@@ -402,6 +415,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
 
     hal_console_printf("  Downloaded and installed %u additional drivers.\n", downloaded);
     persist_sync_report("Registered and synchronized successfully.\n");
+    flush_persisted_state();
     set_status(BOOTSTRAP_COMPLETE, "Registered and synchronized successfully");
     return HAL_OK;
 }

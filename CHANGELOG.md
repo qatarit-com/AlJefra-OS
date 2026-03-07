@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.7] - 2026-03-07
+
+### Changed
+
+- The offline assistant now responds like a helper instead of a dead backend,
+  giving practical next steps when the tiny local AI server is unavailable.
+- Boot-time persistence now batches filesystem syncing to reduce the extra
+  delay introduced by hardware-profile and sync-status writes.
+
+### Fixed
+
+- Replaced blunt local-AI bridge error text with human-friendly offline helper
+  responses that explain what is blocked and what to try next.
+
 ## [0.7.6] - 2026-03-07
 
 ### Added
