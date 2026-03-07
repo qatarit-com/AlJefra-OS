@@ -48,7 +48,7 @@ Content-Type: application/json
 
 ```json
 {
-  "os_version": "0.7.4",
+  "os_version": "0.7.5",
   "desired_apps": ["browser", "terminal", "office"],
   "manifest": {
     "arch": "x86_64",

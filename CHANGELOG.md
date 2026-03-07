@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.5] - 2026-03-07
+
+### Changed
+
+- `clear` now performs a true console reset on the visible framebuffer/VGA
+  console instead of scrolling the shell off the bottom of the screen.
+- The shell network status path now reports detected NIC hardware when no
+  driver or DHCP lease is active, making unsupported laptops diagnosable from
+  the booted OS.
+
+### Fixed
+
+- Broadened x86 network bring-up so Intel network-class controllers are
+  attempted during boot instead of relying only on a narrow hardcoded subset.
+- Eliminated the stale-release mismatch where the website was still serving an
+  older ISO than the code on `main`.
+
 ## [0.7.4] - 2026-03-07
 
 ### Added

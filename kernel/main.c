@@ -120,7 +120,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.4 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.5 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;

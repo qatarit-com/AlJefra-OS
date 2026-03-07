@@ -207,7 +207,7 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
         char desired_apps[256];
         char sync_report[192];
         load_desired_apps(desired_apps, sizeof(desired_apps));
-        if (marketplace_sync_system(&manifest, "0.7.4", desired_apps,
+        if (marketplace_sync_system(&manifest, "0.7.5", desired_apps,
                                     sync_report, sizeof(sync_report)) == HAL_OK) {
             persist_sync_report(sync_report);
         }

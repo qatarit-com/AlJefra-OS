@@ -1,18 +1,18 @@
-# AlJefra OS v0.7.4 — Production Launch Roadmap
+# AlJefra OS v0.7.5 — Production Launch Roadmap
 
 **Updated:** 2026-02-27
 **Owner:** Qatar IT (www.QatarIT.com)
-**Target:** Complete v0.7.4 production launch — ALL features in a single release
+**Target:** Complete v0.7.5 production launch — ALL features in a single release
 
 ---
 
 ## Vision
 
-AlJefra OS is the world's first AI-native, self-evolving operating system — built in Qatar for the world. Users interact through natural language. The OS understands intent, translates to system actions, and evolves itself through AI. Everything ships in v0.7.4.
+AlJefra OS is the world's first AI-native, self-evolving operating system — built in Qatar for the world. Users interact through natural language. The OS understands intent, translates to system actions, and evolves itself through AI. Everything ships in v0.7.5.
 
 ---
 
-## v0.7.4 Feature Set (All Included)
+## v0.7.5 Feature Set (All Included)
 
 ### A. Core Kernel (DONE)
 - [x] x86-64 ASM kernel (20 KB, 9,126 lines)
@@ -142,7 +142,7 @@ Power On → HAL Init → Device Scan → Driver Load
 ├─────────┬────────────────────────────────────┤
 │  FILES  │        AI ASSISTANT                │
 │ 📄 kern │ You: Show me system info           │
-│ 📄 conf │ AI: AlJefra OS v0.7.4             │
+│ 📄 conf │ AI: AlJefra OS v0.7.5             │
 │ 📦 drv  │ CPU: x86-64 (4 cores)            │
 │ 📄 logs │ RAM: 256 MB, Disk: 128 MB        │
 │         │ Network: 1113.168.1.105            │

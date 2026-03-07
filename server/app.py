@@ -170,7 +170,7 @@ def system_sync():
 
     Body:
         {
-            "os_version": "0.7.4",
+            "os_version": "0.7.5",
             "desired_apps": ["browser", "terminal"],
             "manifest": { ... same payload as /v1/manifest ... }
         }
