@@ -4,7 +4,7 @@
 
 AlJefra OS is a **self-evolving exokernel** that boots on any device -- desktops, laptops, tablets, single-board computers, and servers -- across x86-64, ARM64, and RISC-V 64 architectures. The core insight is simple: we only need enough built-in drivers to establish network connectivity, then an AI agent handles everything else by downloading and installing drivers from the AlJefra Driver Marketplace.
 
-This document describes the architecture of AlJefra OS v1.0, covering the layer model, design principles, directory structure, supported platforms, boot sequence, driver model, and AI bootstrap flow.
+This document describes the architecture of AlJefra OS v0.7.2, covering the layer model, design principles, directory structure, supported platforms, boot sequence, driver model, and AI bootstrap flow.
 
 ---
 
@@ -374,4 +374,4 @@ If the network is unavailable, the system continues with built-in drivers only a
 
 ---
 
-*AlJefra OS v1.0 -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*
+*AlJefra OS v0.7.2 -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*

@@ -13,7 +13,7 @@
  *   Tab       = Cycle focus between chat input and file list
  *
  * Boot welcome messages:
- *   English: "Welcome to AlJefra OS v1.0. How can I help you?"
+ *   English: "Welcome to AlJefra OS v0.7.2. How can I help you?"
  *   Arabic:  "mrhba bk fy nzam aljfrt" (transliterated)
  *
  * All state is static.  No malloc.  Runs in kernel space.
@@ -282,7 +282,7 @@ static void on_terminal_command(const char *cmd)
     if (len >= 5 && cmd[0] == 'u' && cmd[1] == 'n' && cmd[2] == 'a' &&
         cmd[3] == 'm' && cmd[4] == 'e') {
         terminal_puts(g_terminal,
-            "AlJefra OS v1.0 (x86-64/ARM64/RISC-V)\n");
+            "AlJefra OS v0.7.2 (x86-64/ARM64/RISC-V)\n");
         return;
     }
 
@@ -291,7 +291,7 @@ static void on_terminal_command(const char *cmd)
         cmd[3] == 't' && cmd[4] == 'u' && cmd[5] == 's') {
         terminal_puts(g_terminal,
             "\033[1;36mSystem Status\033[0m\n"
-            "  OS:      AlJefra OS v1.0\n"
+            "  OS:      AlJefra OS v0.7.2\n"
             "  Arch:    x86-64 / ARM64 / RISC-V\n"
             "  GUI:     Active (framebuffer)\n");
         if (g_desktop.net_connected)
@@ -398,7 +398,7 @@ int desktop_init(void)
     panel_add_child(g_root_panel, g_topbar);
 
     g_lbl_os_name = widget_label(10, 0, 200, DESKTOP_TOPBAR_H,
-                                  "AlJefra OS v1.0");
+                                  "AlJefra OS v0.7.2");
     if (g_lbl_os_name) {
         g_lbl_os_name->fg_color = GUI_BLUE;
         panel_add_child(g_topbar, g_lbl_os_name);
@@ -534,7 +534,7 @@ int desktop_init(void)
 
     /* Welcome messages */
     chatview_add(g_chat_view,
-        "Welcome to AlJefra OS v1.0. How can I help you?", 0);
+        "Welcome to AlJefra OS v0.7.2. How can I help you?", 0);
     chatview_add(g_chat_view,
         "mrhba bk fy nzam aljfrt", 0);
     chatview_add(g_chat_view,
@@ -922,7 +922,7 @@ void desktop_send_message(const char *text)
         else if (len >= 6 && text[0] == 's' && text[1] == 't' &&
                  text[2] == 'a' && text[3] == 't' && text[4] == 'u' &&
                  text[5] == 's') {
-            response = "AlJefra OS v1.0 running.\n"
+            response = "AlJefra OS v0.7.2 running.\n"
                        "Architecture: Universal (x86-64/ARM64/RISC-V)\n"
                        "GUI: Active\n"
                        "Widgets: Panel, Label, Button, TextInput, "
@@ -1056,7 +1056,7 @@ void desktop_toggle_terminal(void)
             terminal_data_t *td = &g_terminal->data.term;
             if (td->buf_used <= 1 && td->cursor_col == 0)
                 terminal_puts(g_terminal,
-                    "\033[1;36mAlJefra OS Terminal v1.0\033[0m\n"
+                    "\033[1;36mAlJefra OS Terminal v0.7.2\033[0m\n"
                     "Type '\033[32mhelp\033[0m' for commands.  "
                     "Press F2 to switch to AI chat.\n\n");
         }
@@ -1074,7 +1074,7 @@ widget_t *desktop_get_terminal(void)
 
 /* Default help document (Markdown) */
 static const char g_help_doc[] =
-    "# AlJefra OS v1.0\n"
+    "# AlJefra OS v0.7.2\n"
     "\n"
     "The **first AI-native operating system** built in Qatar.\n"
     "\n"

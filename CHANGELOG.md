@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.2] - 2026-03-07
+
+### Added
+
+- Boot-time initialization for persistent platform services after storage
+  drivers load, including BMFS filesystem mounting and kernel log startup in
+  the main kernel path.
+- A substantially more capable interactive shell with `status`, `ls`, `cat`,
+  `touch`, `write`, `rm`, `df`, `log`, and `sync` commands.
+
+### Changed
+
+- Improved the x86-64 console workflow so the OS can inspect, create, modify,
+  delete, and flush BMFS files without relying on the GUI or AI chat path.
+- Added shell-to-kernel-log reporting for file operations and reboot requests
+  to make persistent diagnostics more useful across boots.
+
 ## [1.0.0] - 2026-02-27
 
 ### Added

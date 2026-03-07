@@ -516,5 +516,5 @@ See `doc/security_model.md` for the full trust chain documentation.
 
 ---
 
-*AlJefra OS Plugin SDK v1.0*
+*AlJefra OS Plugin SDK v0.7.2*
 *Qatar IT -- www.QatarIT.com*

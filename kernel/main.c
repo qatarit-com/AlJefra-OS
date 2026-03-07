@@ -18,6 +18,8 @@
 #include "secboot.h"
 #include "keyboard.h"
 #include "shell.h"
+#include "fs.h"
+#include "klog.h"
 
 /* Forward declarations for subsystem init */
 static void banner(void);
@@ -25,6 +27,7 @@ static void detect_hardware(void);
 static void register_builtin_drivers(void);
 static void load_builtin_drivers(void);
 static void start_network(void);
+static void init_platform_services(void);
 
 /* Forward declarations for built-in driver registration */
 extern void e1000_register(void);
@@ -48,6 +51,8 @@ static uint32_t     g_device_count;
 void kernel_main(void)
 {
     banner();
+    klog_init();
+    klog(KLOG_INFO, "kernel: boot sequence started");
 
     /* Phase 0a: Secure boot — verify kernel integrity */
     secboot_init();
@@ -64,8 +69,12 @@ void kernel_main(void)
     hal_console_puts("Setting up hardware drivers...\n");
     load_builtin_drivers();
 
+    /* Phase 2b: Bring up kernel services that depend on loaded drivers */
+    init_platform_services();
+
     /* Phase 3: Initialize scheduler */
     sched_init();
+    klog(KLOG_INFO, "kernel: scheduler initialized");
 
     /* Phase 4: Bring up network */
     hal_console_puts("Preparing network...\n");
@@ -74,9 +83,11 @@ void kernel_main(void)
     /* Phase 5: AI bootstrap — connect to marketplace, download drivers */
     hal_console_puts("Connecting to AlJefra AI services...\n");
     ai_bootstrap(g_devices, g_device_count);
+    klog(KLOG_INFO, "kernel: AI bootstrap completed");
 
     /* Phase 6: Interactive — kernel is fully up */
     hal_console_puts("\nAll set! AlJefra OS is ready.\n");
+    klog(KLOG_INFO, "kernel: entering interactive shell");
 
     /* Initialize keyboard input */
     keyboard_init();
@@ -99,7 +110,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.1 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.2 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;
@@ -337,4 +348,25 @@ static void load_builtin_drivers(void)
 static void start_network(void)
 {
     /* The AI bootstrap module handles DHCP + full network bringup */
+}
+
+/* ── Filesystem / persistent services startup ── */
+static void init_platform_services(void)
+{
+    const driver_ops_t *stor = driver_get_storage();
+
+    if (!stor) {
+        hal_console_puts("Persistent storage: unavailable\n");
+        klog(KLOG_WARN, "kernel: no storage driver available for BMFS");
+        return;
+    }
+
+    hal_console_puts("Mounting BMFS filesystem...\n");
+    if (fs_init_default() == 0) {
+        hal_console_puts("  BMFS filesystem ready\n");
+        klog(KLOG_INFO, "kernel: BMFS filesystem mounted");
+    } else {
+        hal_console_puts("  BMFS mount failed; continuing without persistent files\n");
+        klog(KLOG_WARN, "kernel: BMFS mount failed");
+    }
 }
