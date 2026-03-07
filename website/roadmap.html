@@ -11,7 +11,7 @@
     <nav>
         <div class="nav-inner">
             <div class="logo">AlJefra OS</div>
-            <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active');this.classList.toggle('active')"><span></span><span></span><span></span></button>
+            <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
             <ul class="nav-links">
                 <li><a href="index.html">Home</a></li>
                 <li><a href="docs.html">Docs</a></li>
@@ -24,17 +24,17 @@
         </div>
     </nav>
 
-    <div class="page-header">
+    <section class="page-header">
         <h1>v0.7.2 Production Roadmap</h1>
-        <p>Everything shipped in one release. No half measures.</p>
-    </div>
+        <p>Everything shipped in one release. No half measures</p>
+    </section>
 
     <!-- Status Overview (auto-generated from ROADMAP.md) -->
     <section class="section">
         <h2>Launch Status</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
-                <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">87,603</div>
+                <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">87,773</div>
                 <div style="color: var(--text-secondary); font-size: 0.85rem;">Lines of Code</div>
             </div>
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
@@ -200,7 +200,7 @@
                 <tr><td>Plugin SDK documentation</td><td>doc/plugin-sdk.md, 541 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Hardware compatibility database</td><td>doc/hardware-compatibility.md, 169 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Release process</td><td>doc/release-process.md, 179 lines</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>CHANGELOG.md (60 lines</td><td>v1.0.0 initial release)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>CHANGELOG.md (77 lines</td><td>v1.0.0 initial release)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>CODE_OF_CONDUCT.md (137 lines</td><td>Contributor Covenant)</td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
@@ -224,7 +224,7 @@
                 <tr><td>Boot to AI chat</td><td>&lt; 10 seconds</td><td style="color: var(--accent-green);">Achieved</td></tr>
                 <tr><td>Marketplace drivers</td><td>50+</td><td style="color: var(--text-secondary);">In Progress</td></tr>
                 <tr><td>Tested hardware</td><td>100+ devices</td><td style="color: var(--text-secondary);">In Progress</td></tr>
-                <tr><td>Total codebase</td><td>~87,603 lines</td><td style="color: var(--accent-green);">87,603 lines</td></tr>
+                <tr><td>Total codebase</td><td>~87,773 lines</td><td style="color: var(--accent-green);">87,773 lines</td></tr>
                 <tr><td>Architectures</td><td>3 (x86-64, ARM64, RISC-V)</td><td style="color: var(--accent-green);">All 3 boot</td></tr>
                 <tr><td>AI Chat (English + Arabic)</td><td>69+ command patterns</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Desktop GUI</td><td>Framebuffer-based</td><td style="color: var(--accent-green);">Done</td></tr>
