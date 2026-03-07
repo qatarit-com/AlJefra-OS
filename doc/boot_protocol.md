@@ -306,7 +306,7 @@ void kernel_main(void) {
     /* 1. Print boot banner */
     hal_console_printf("\n");
     hal_console_printf("=======================================\n");
-    hal_console_printf("  AlJefra OS v0.7.2\n");
+    hal_console_printf("  AlJefra OS v0.7.3\n");
     hal_console_printf("  The AI-Native Operating System\n");
     hal_console_printf("  Architecture: %s\n", arch_name());
     hal_console_printf("  Built in Qatar\n");
@@ -585,4 +585,4 @@ gdb -ex "target remote :1234" -ex "symbol-file build/aljefra-x86_64.elf"
 
 ---
 
-*AlJefra OS v0.7.2 -- Boot Protocol -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*
+*AlJefra OS v0.7.3 -- Boot Protocol -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*

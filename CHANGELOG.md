@@ -7,6 +7,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.3] - 2026-03-07
+
+### Changed
+
+- Simplified the GRUB boot path for real hardware by removing broad video
+  backend probing on startup, preferring the minimum UEFI GOP setup needed for
+  laptop boot.
+- Reduced the default bootloader wait to a hidden 1-second timeout so release
+  media hands off to the kernel faster on real machines.
+
+### Fixed
+
+- Mitigated long pre-kernel boot stalls seen on some ASUS UEFI laptops before
+  AlJefra OS started.
+
 ## [0.7.2] - 2026-03-07
 
 ### Added

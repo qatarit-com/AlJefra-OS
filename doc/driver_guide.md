@@ -817,4 +817,4 @@ static void my_nic_irq(uint32_t irq, void *data) {
 
 ---
 
-*AlJefra OS v0.7.2 -- Driver Development Guide -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*
+*AlJefra OS v0.7.3 -- Driver Development Guide -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*

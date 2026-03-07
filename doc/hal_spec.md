@@ -675,7 +675,7 @@ void hal_console_printf(const char *fmt, ...);
 ### Usage Example
 
 ```c
-hal_console_printf("AlJefra OS v0.7.2 booting on %s\n",
+hal_console_printf("AlJefra OS v0.7.3 booting on %s\n",
                    hal_arch() == HAL_ARCH_X86_64  ? "x86-64"  :
                    hal_arch() == HAL_ARCH_AARCH64  ? "ARM64"   :
                    hal_arch() == HAL_ARCH_RISCV64  ? "RISC-V"  : "unknown");
@@ -741,4 +741,4 @@ Functions that cannot fail (e.g., `hal_cpu_halt()`, `hal_console_putc()`) return
 
 ---
 
-*AlJefra OS v0.7.2 -- HAL Specification -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*
+*AlJefra OS v0.7.3 -- HAL Specification -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*
