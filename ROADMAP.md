@@ -166,7 +166,7 @@ AMD GPU, Intel GPU, Audio HDA, Bluetooth
 | Boot to AI chat | < 10 seconds | Achieved |
 | Marketplace drivers | 50+ | In Progress |
 | Tested hardware | 100+ devices | In Progress |
-| Total codebase | ~87,1133 lines | 87,1133 lines |
+| Total codebase | ~89,911 lines | 89,911 lines |
 | Architectures | 3 (x86-64, ARM64, RISC-V) | All 3 boot |
 | AI Chat (English + Arabic) | 69+ command patterns | Done |
 | Desktop GUI | Framebuffer-based | Done |
