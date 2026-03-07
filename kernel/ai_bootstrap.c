@@ -26,6 +26,53 @@ extern void tcp_init(uint32_t local_ip, uint32_t gateway, uint32_t netmask);
 static const uint8_t ALJEFRA_STORE_PUBKEY[32] = {0};
 
 static bootstrap_state_t g_state = BOOTSTRAP_INIT;
+static char g_status_message[160] = "Waiting for network and marketplace";
+
+static void append_u16_hex(char **p, char *end, uint16_t value)
+{
+    static const char hex[] = "0123456789abcdef";
+    if (*p >= end)
+        return;
+    *(*p)++ = hex[(value >> 12) & 0xF];
+    if (*p >= end)
+        return;
+    *(*p)++ = hex[(value >> 8) & 0xF];
+    if (*p >= end)
+        return;
+    *(*p)++ = hex[(value >> 4) & 0xF];
+    if (*p >= end)
+        return;
+    *(*p)++ = hex[value & 0xF];
+}
+
+static void set_status(bootstrap_state_t state, const char *message)
+{
+    g_state = state;
+    if (!message)
+        return;
+
+    str_copy(g_status_message, message, sizeof(g_status_message));
+}
+
+static void persist_text_file(const char *name, const char *text)
+{
+    int fd;
+
+    if (!name || !text)
+        return;
+
+    fd = fs_open(name);
+    if (fd < 0) {
+        if (fs_create(name, 2) < 0)
+            return;
+        fd = fs_open(name);
+        if (fd < 0)
+            return;
+    }
+
+    fs_write(fd, text, 0, str_len(text));
+    fs_close(fd);
+}
 
 static int load_desired_apps(char *out, uint32_t out_max)
 {
@@ -51,18 +98,74 @@ static void persist_sync_report(const char *report)
     if (!report || !report[0])
         return;
 
-    int fd = fs_open("marketplace-sync.txt");
-    if (fd < 0) {
-        if (fs_create("marketplace-sync.txt", 1) < 0)
-            return;
-        fd = fs_open("marketplace-sync.txt");
-        if (fd < 0)
-            return;
+    persist_text_file("marketplace-sync.txt", report);
+    fs_sync();
+}
+
+static void persist_hardware_profile(const hardware_manifest_t *manifest)
+{
+    char buf[4096];
+    char *p = buf;
+    char *end = buf + sizeof(buf) - 1;
+
+    if (!manifest)
+        return;
+
+    #define APPENDC(s) do { \
+        const char *_s = (s); \
+        while (*_s && p < end) *p++ = *_s++; \
+    } while (0)
+    #define APPENDU(v) do { \
+        char _n[16]; \
+        int _i = 0; \
+        uint32_t _v = (uint32_t)(v); \
+        if (_v == 0) { \
+            if (p < end) *p++ = '0'; \
+        } else { \
+            while (_v > 0 && _i < (int)sizeof(_n)) { \
+                _n[_i++] = '0' + (_v % 10); \
+                _v /= 10; \
+            } \
+            while (_i > 0 && p < end) *p++ = _n[--_i]; \
+        } \
+    } while (0)
+
+    APPENDC("AlJefra OS Hardware Profile\n");
+    APPENDC("==========================\n");
+    APPENDC("Architecture: ");
+    switch (manifest->arch) {
+    case HAL_ARCH_X86_64: APPENDC("x86_64"); break;
+    case HAL_ARCH_AARCH64: APPENDC("aarch64"); break;
+    case HAL_ARCH_RISCV64: APPENDC("riscv64"); break;
+    }
+    APPENDC("\nCPU Vendor: ");
+    APPENDC(manifest->cpu_vendor);
+    APPENDC("\nCPU Model: ");
+    APPENDC(manifest->cpu_model);
+    APPENDC("\nMemory MB: ");
+    APPENDU((uint32_t)(manifest->ram_bytes / (1024 * 1024)));
+    APPENDC("\nDevices:\n");
+
+    for (uint32_t i = 0; i < manifest->entry_count; i++) {
+        const manifest_entry_t *e = &manifest->entries[i];
+        APPENDC("  ");
+        append_u16_hex(&p, end, e->vendor_id);
+        APPENDC(":");
+        append_u16_hex(&p, end, e->device_id);
+        APPENDC(" class ");
+        APPENDU(e->class_code);
+        APPENDC(":");
+        APPENDU(e->subclass);
+        APPENDC(" driver=");
+        APPENDC(e->has_driver ? "yes" : "no");
+        APPENDC("\n");
     }
 
-    fs_write(fd, report, 0, str_len(report));
-    fs_close(fd);
-    fs_sync();
+    *p = '\0';
+    persist_text_file("hardware-profile.txt", buf);
+
+    #undef APPENDC
+    #undef APPENDU
 }
 
 /* ── Helpers ── */
@@ -153,20 +256,20 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
             need_drivers++;
     }
 
-    if (need_drivers == 0) {
-        hal_console_puts("  All hardware is supported — no extra drivers needed.\n");
-        g_state = BOOTSTRAP_COMPLETE;
-        return HAL_OK;
-    }
+    persist_hardware_profile(&manifest);
 
-    hal_console_printf("  %u devices need drivers — will try to download them.\n", need_drivers);
+    if (need_drivers == 0)
+        hal_console_puts("  All hardware is supported — registering this machine anyway.\n");
+    else
+        hal_console_printf("  %u devices need drivers — will try to download them.\n", need_drivers);
 
     /* Step 2: Check network availability */
     const driver_ops_t *net = driver_get_network();
     if (!net) {
         hal_console_puts("  No network connection available.\n");
         hal_console_puts("  Using built-in drivers only. Connect a network adapter for more.\n");
-        g_state = BOOTSTRAP_FAILED;
+        persist_sync_report("Offline: machine not yet registered. Connect to the network and reboot to sync drivers and apps.\n");
+        set_status(BOOTSTRAP_FAILED, "Offline: connect to the network to register this machine");
         return HAL_NO_DEVICE;
     }
 
@@ -190,27 +293,38 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     tcp_init(ip, gateway, 0xFFFFFF00); /* /24 netmask */
     marketplace_set_gateway(gateway);
 
-    g_state = BOOTSTRAP_NET_UP;
+    set_status(BOOTSTRAP_NET_UP, "Network connected; preparing marketplace sync");
 
     /* Step 4: Connect to marketplace */
     hal_console_puts("  Connecting to AlJefra Store...\n");
     rc = marketplace_connect();
     if (rc != HAL_OK) {
         hal_console_puts("  Could not reach AlJefra Store. Continuing with built-in drivers.\n");
-        g_state = BOOTSTRAP_FAILED;
+        persist_sync_report("Online network available, but the marketplace could not be reached.\n");
+        set_status(BOOTSTRAP_FAILED, "Network is up, but the marketplace is unreachable");
         return rc;
     }
-    g_state = BOOTSTRAP_CONNECTED;
+    set_status(BOOTSTRAP_CONNECTED, "Connected to marketplace; registering hardware");
 
     /* Step 5a: Register this machine and request a machine-specific sync plan */
     {
         char desired_apps[256];
         char sync_report[192];
         load_desired_apps(desired_apps, sizeof(desired_apps));
-        if (marketplace_sync_system(&manifest, "0.7.5", desired_apps,
+        if (marketplace_sync_system(&manifest, "0.7.6", desired_apps,
                                     sync_report, sizeof(sync_report)) == HAL_OK) {
             persist_sync_report(sync_report);
+            set_status(BOOTSTRAP_CONNECTED, sync_report);
+        } else {
+            persist_sync_report("Connected, but hardware registration did not finish.\n");
         }
+    }
+
+    if (need_drivers == 0) {
+        hal_console_puts("  Machine registered. No extra drivers were needed.\n");
+        marketplace_disconnect();
+        set_status(BOOTSTRAP_COMPLETE, "Registered and ready: no extra drivers needed");
+        return HAL_OK;
     }
 
     /* Step 5b: Send manifest, get driver recommendations */
@@ -219,13 +333,13 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     if (rc != HAL_OK) {
         hal_console_puts("  Could not send hardware info. Continuing with built-in drivers.\n");
         marketplace_disconnect();
-        g_state = BOOTSTRAP_FAILED;
+        set_status(BOOTSTRAP_FAILED, "Registered, but driver recommendations could not be fetched");
         return rc;
     }
-    g_state = BOOTSTRAP_MANIFEST_SENT;
+    set_status(BOOTSTRAP_MANIFEST_SENT, "Hardware registered; downloading missing drivers");
 
     /* Step 6: Download and install each recommended driver */
-    g_state = BOOTSTRAP_DOWNLOADING;
+    set_status(BOOTSTRAP_DOWNLOADING, "Downloading machine-specific drivers");
     uint32_t downloaded = 0;
 
     for (uint32_t i = 0; i < manifest.entry_count; i++) {
@@ -287,11 +401,17 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count)
     marketplace_disconnect();
 
     hal_console_printf("  Downloaded and installed %u additional drivers.\n", downloaded);
-    g_state = BOOTSTRAP_COMPLETE;
+    persist_sync_report("Registered and synchronized successfully.\n");
+    set_status(BOOTSTRAP_COMPLETE, "Registered and synchronized successfully");
     return HAL_OK;
 }
 
 bootstrap_state_t ai_bootstrap_state(void)
 {
     return g_state;
+}
+
+const char *ai_bootstrap_status_message(void)
+{
+    return g_status_message;
 }

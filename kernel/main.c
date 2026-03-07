@@ -21,6 +21,8 @@
 #include "fs.h"
 #include "klog.h"
 #include "dhcp.h"
+#include "ai_chat.h"
+#include "ai_bridge.h"
 #include "../lib/string.h"
 #include "../drivers/network/intel_wifi.h"
 
@@ -101,6 +103,9 @@ void kernel_main(void)
 
     /* Initialize keyboard input */
     keyboard_init();
+    ai_chat_init();
+    ai_bridge_init();
+    ai_chat_set_llm_callback(ai_bridge_send);
 
     /* Start interactive shell */
     shell_set_devices(g_devices, g_device_count);
@@ -120,7 +125,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.5 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.6 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;

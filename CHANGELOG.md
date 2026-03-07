@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.6] - 2026-03-07
+
+### Added
+
+- A local-first AI bridge that targets an Ollama-compatible tiny model server
+  and defaults to `qwen2.5:0.5b` for laptop-friendly assistance.
+- `ai.conf.example` documenting the local assistant endpoint and model
+  override format.
+
+### Changed
+
+- The text terminal is now AI-first: plain-language requests are routed
+  through the chat engine before falling back to direct command usage.
+- Machine registration now runs for any connected system, even if all current
+  hardware already has built-in drivers.
+
+### Fixed
+
+- Registration and sync state are now persisted in plain files so users can
+  inspect hardware profile and marketplace status without manual debugging.
+
 ## [0.7.5] - 2026-03-07
 
 ### Changed

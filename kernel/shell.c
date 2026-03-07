@@ -13,6 +13,8 @@
 #include "sched.h"
 #include "fs.h"
 #include "klog.h"
+#include "ai_bootstrap.h"
+#include "ai_chat.h"
 #include "../hal/hal.h"
 #include "../lib/string.h"
 
@@ -25,6 +27,7 @@
 static char g_line[SHELL_LINE_MAX];
 static uint32_t g_line_pos;
 static char g_read_buf[SHELL_READ_MAX + 1];
+static char g_ai_buf[AI_CHAT_RESPONSE_MAX];
 
 /* ── Boot timestamp (set when shell starts) ── */
 static uint64_t g_boot_ms;
@@ -58,7 +61,10 @@ static void cmd_df(void);
 static void cmd_log(void);
 static void cmd_sync(void);
 static void cmd_status(void);
+static void cmd_registry(void);
 static void print_detected_network_hardware(void);
+static void print_bootstrap_status(void);
+static void print_text_file_or_hint(const char *name, const char *missing_hint);
 
 static void fs_list_print_cb(const char *name, uint64_t size, void *ctx);
 static void fs_list_stats_cb(const char *name, uint64_t size, void *ctx);
@@ -66,7 +72,7 @@ static void fs_list_stats_cb(const char *name, uint64_t size, void *ctx);
 /* ── Prompt ── */
 static void shell_prompt(void)
 {
-    hal_console_puts("aljefra> ");
+    hal_console_puts("aljefra ai> ");
 }
 
 static const char *skip_spaces(const char *s)
@@ -163,6 +169,9 @@ static void shell_exec(char *cmdline)
         cmd_net();
     else if (str_eq(argv[0], "status"))
         cmd_status();
+    else if (str_eq(argv[0], "registry") || str_eq(argv[0], "sync-status") ||
+             str_eq(argv[0], "assistant"))
+        cmd_registry();
     else if (str_eq(argv[0], "ls") || str_eq(argv[0], "dir"))
         cmd_ls();
     else if (str_eq(argv[0], "cat") || str_eq(argv[0], "read")) {
@@ -193,9 +202,15 @@ static void shell_exec(char *cmdline)
     else if (str_eq(argv[0], "sync"))
         cmd_sync();
     else {
-        hal_console_puts("Unknown command: ");
-        hal_console_puts(argv[0]);
-        hal_console_puts("\nType 'help' to see available commands.\n");
+        int ai_len = ai_chat_process(cmdline, g_ai_buf, sizeof(g_ai_buf));
+        if (ai_len > 0 && g_ai_buf[0] != '\0') {
+            hal_console_puts(g_ai_buf);
+            if (g_ai_buf[ai_len - 1] != '\n')
+                hal_console_putc('\n');
+        } else {
+            hal_console_puts("I could not understand that yet.\n");
+            hal_console_puts("Type 'help' for direct commands or ask in plain language.\n");
+        }
     }
 }
 
@@ -207,7 +222,8 @@ void shell_run(void)
 
     hal_console_puts("\n");
     hal_console_puts("Welcome! AlJefra OS is ready.\n");
-    hal_console_puts("Type 'help' for commands, 'status' for a system summary, or 'ls' to inspect files.\n\n");
+    hal_console_puts("Ask naturally for help, networking, files, or system actions.\n");
+    hal_console_puts("Direct commands still work: help, status, net, ls, registry.\n\n");
     shell_prompt();
 
     for (;;) {
@@ -249,6 +265,7 @@ static void cmd_help(void)
     hal_console_puts("  status         - High-level system summary\n");
     hal_console_puts("  info           - CPU, RAM, architecture\n");
     hal_console_puts("  net            - Network status and IP address\n");
+    hal_console_puts("  registry       - AI registration and sync status\n");
     hal_console_puts("  pci            - Enumerate detected hardware devices\n");
     hal_console_puts("  mem            - Memory usage\n");
     hal_console_puts("  drivers        - Loaded hardware drivers\n");
@@ -271,7 +288,7 @@ static void cmd_info(void)
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
 
-    hal_console_puts("AlJefra OS v0.7.5\n");
+    hal_console_puts("AlJefra OS v0.7.6\n");
     hal_console_puts("Architecture: ");
     switch (hal_arch()) {
     case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
@@ -385,7 +402,7 @@ static void cmd_reboot(void)
 
 static void cmd_ver(void)
 {
-    hal_console_puts("AlJefra OS v0.7.5\n");
+    hal_console_puts("AlJefra OS v0.7.6\n");
     hal_console_puts("AI-native operating system project by Qatar IT\n");
 }
 
@@ -641,4 +658,53 @@ static void cmd_status(void)
         hal_console_puts("Driver loaded\n");
     else
         hal_console_puts("No driver\n");
+    hal_console_puts("AI sync:          ");
+    print_bootstrap_status();
+}
+
+static void cmd_registry(void)
+{
+    hal_console_puts("AI Registration\n");
+    hal_console_puts("---------------\n");
+    hal_console_puts("Status: ");
+    print_bootstrap_status();
+    hal_console_puts("\nHardware Profile\n");
+    hal_console_puts("----------------\n");
+    print_text_file_or_hint("hardware-profile.txt",
+                            "Hardware profile is not saved yet.\n");
+    hal_console_puts("\nMarketplace Sync\n");
+    hal_console_puts("----------------\n");
+    print_text_file_or_hint("marketplace-sync.txt",
+                            "Marketplace sync has not completed yet.\n");
+}
+
+static void print_bootstrap_status(void)
+{
+    hal_console_puts(ai_bootstrap_status_message());
+    hal_console_putc('\n');
+}
+
+static void print_text_file_or_hint(const char *name, const char *missing_hint)
+{
+    int fd;
+    int64_t rd;
+    char buf[640];
+
+    fd = fs_open(name);
+    if (fd < 0) {
+        hal_console_puts(missing_hint);
+        return;
+    }
+
+    rd = fs_read(fd, buf, 0, sizeof(buf) - 1);
+    fs_close(fd);
+    if (rd <= 0) {
+        hal_console_puts(missing_hint);
+        return;
+    }
+
+    buf[rd] = '\0';
+    hal_console_puts(buf);
+    if (buf[rd - 1] != '\n')
+        hal_console_putc('\n');
 }

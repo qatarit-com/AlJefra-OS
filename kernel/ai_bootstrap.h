@@ -56,6 +56,9 @@ hal_status_t ai_bootstrap(hal_device_t *devices, uint32_t count);
 /* Get current bootstrap state */
 bootstrap_state_t ai_bootstrap_state(void);
 
+/* Human-readable bootstrap summary for shell/UI status output. */
+const char *ai_bootstrap_status_message(void);
+
 /* Build a hardware manifest from detected devices */
 void ai_bootstrap_build_manifest(hal_device_t *devices, uint32_t count,
                                   hardware_manifest_t *manifest);
