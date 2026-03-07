@@ -400,6 +400,9 @@ static hal_status_t usb_net_drv_init(hal_device_t *pci_dev)
         uint8_t sid = hc->slots[i].slot_id;
         usb_device_desc_t *dd = &hc->slots[i].dev_desc;
 
+        if (dd->idVendor == 0 && dd->idProduct == 0)
+            xhci_get_device_desc(hc, sid, dd);
+
         /* Check if this is a potential network adapter:
          * - CDC class (0x02)
          * - Per-interface class (0x00) — need to check interfaces

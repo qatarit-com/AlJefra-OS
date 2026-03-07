@@ -183,17 +183,12 @@ static void lfb_scroll(lfb_console_t *con)
 
 hal_status_t lfb_init(lfb_console_t *con, lfb_info_t *fb)
 {
-    uint32_t rows;
-
     if (!fb->base || fb->width == 0 || fb->height == 0 || fb->bpp == 0)
         return HAL_ERROR;
 
     con->fb = *fb;
     con->cols = fb->width / LFB_FONT_WIDTH;
-    rows = fb->height / LFB_FONT_HEIGHT;
-    if (rows > 3)
-        rows -= 2;
-    con->rows = rows;
+    con->rows = fb->height / LFB_FONT_HEIGHT;
     con->cursor_x = 0;
     con->cursor_y = 0;
     con->fg_color = LFB_COLOR_WHITE;

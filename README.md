@@ -23,7 +23,7 @@
 
 ## Overview
 
-AlJefra OS v0.7.8 is a ground-up operating system written in **65,502 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, brings up the first working network path it can find, activates Intel Wi-Fi from `wifi.conf` when available, registers the machine with the AlJefra Marketplace, and then pulls a machine-specific sync plan for drivers and apps.
+AlJefra OS v0.7.9 is a ground-up operating system written in **65,502 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, brings up the first working network path it can find, activates Intel Wi-Fi from `wifi.conf` when available, registers the machine with the AlJefra Marketplace, and then pulls a machine-specific sync plan for drivers and apps.
 
 A single portable codebase compiles for all three supported architectures.
 
@@ -174,7 +174,7 @@ Download the latest pre-built image from **[os.aljefra.com](https://os.aljefra.c
 
 ```bash
 # Linux / macOS
-sudo dd if=aljefra_os_v0.7.8.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=aljefra_os_v0.7.9.iso of=/dev/sdX bs=4M status=progress
 sync
 ```
 

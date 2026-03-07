@@ -75,6 +75,8 @@ static void print_bootstrap_status(void);
 static void print_text_file_or_hint(const char *name, const char *missing_hint);
 static void shell_print_ai_reply(const char *text);
 static void shell_print_statusline(void);
+static const char *shell_ai_status_short(void);
+static const char *shell_ci_strstr(const char *haystack, const char *needle);
 static void shell_read_line(char *buf, uint32_t max, int secret);
 static int shell_load_wifi_credentials(char *ssid, uint32_t ssid_max,
                                        char *pass, uint32_t pass_max);
@@ -110,9 +112,26 @@ static void shell_print_statusline(void)
     else
         hal_console_puts("net:off");
     hal_console_puts(" | ai:");
-    hal_console_puts(ai_bootstrap_status_message());
+    hal_console_puts(shell_ai_status_short());
     hal_console_puts("]\n");
     hal_console_reset_colors();
+}
+
+static const char *shell_ai_status_short(void)
+{
+    const char *msg = ai_bootstrap_status_message();
+
+    if (!msg)
+        return "idle";
+    if (shell_ci_strstr(msg, "success") || shell_ci_strstr(msg, "registered"))
+        return "ready";
+    if (shell_ci_strstr(msg, "connected"))
+        return "sync";
+    if (shell_ci_strstr(msg, "offline"))
+        return "offline";
+    if (shell_ci_strstr(msg, "unreachable"))
+        return "remote";
+    return "wait";
 }
 
 static const char *skip_spaces(const char *s)
@@ -131,6 +150,36 @@ static int count_prefix_len(const char *a, const char *b)
         i++;
     }
     return i;
+}
+
+static const char *shell_ci_strstr(const char *haystack, const char *needle)
+{
+    uint32_t nlen = str_len(needle);
+    uint32_t hlen = str_len(haystack);
+
+    if (nlen == 0)
+        return haystack;
+    if (nlen > hlen)
+        return (const char *)0;
+
+    for (uint32_t i = 0; i <= hlen - nlen; i++) {
+        uint32_t j = 0;
+        while (j < nlen) {
+            char a = haystack[i + j];
+            char b = needle[j];
+            if (a >= 'A' && a <= 'Z')
+                a = (char)(a + 32);
+            if (b >= 'A' && b <= 'Z')
+                b = (char)(b + 32);
+            if (a != b)
+                break;
+            j++;
+        }
+        if (j == nlen)
+            return &haystack[i];
+    }
+
+    return (const char *)0;
 }
 
 static void trim_trailing_spaces(char *s)
@@ -470,7 +519,7 @@ static void cmd_info(void)
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
 
-    hal_console_puts("AlJefra OS v0.7.8\n");
+    hal_console_puts("AlJefra OS v0.7.9\n");
     hal_console_puts("Architecture: ");
     switch (hal_arch()) {
     case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
@@ -584,7 +633,7 @@ static void cmd_reboot(void)
 
 static void cmd_ver(void)
 {
-    hal_console_puts("AlJefra OS v0.7.8\n");
+    hal_console_puts("AlJefra OS v0.7.9\n");
     hal_console_puts("AI-native operating system project by Qatar IT\n");
 }
 
@@ -773,6 +822,7 @@ static void print_detected_usb_network_hardware(void)
 
     for (uint8_t i = 0; i < hc->max_slots; i++) {
         xhci_slot_t *slot = &hc->slots[i];
+        usb_device_desc_t desc;
         usb_device_desc_t *dd;
         int maybe_net;
 
@@ -780,6 +830,15 @@ static void print_detected_usb_network_hardware(void)
             continue;
 
         dd = &slot->dev_desc;
+        if (dd->idVendor == 0 && dd->idProduct == 0) {
+            if (xhci_get_device_desc(hc, slot->slot_id, &desc) != HAL_OK)
+                continue;
+            dd = &desc;
+        }
+
+        if (dd->idVendor == 0 && dd->idProduct == 0)
+            continue;
+
         maybe_net = (dd->idVendor == 0x0B95 || dd->idVendor == 0x0BDA ||
                      dd->bDeviceClass == USB_CLASS_CDC ||
                      dd->bDeviceClass == USB_CLASS_PER_IFACE);

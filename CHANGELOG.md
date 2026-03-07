@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.9] - 2026-03-07
+
+### Fixed
+
+- Restored full framebuffer text height and fixed the prompt/status interaction
+  so the `aljefra ai>` line stays visible while typing.
+- Stopped USB NIC status from reporting bogus `0000:0000` xHCI slots by forcing
+  real descriptor reads before matching or printing candidate adapters.
+
 ## [0.7.8] - 2026-03-07
 
 ### Added
