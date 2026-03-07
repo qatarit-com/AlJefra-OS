@@ -107,6 +107,9 @@ const driver_ops_t *driver_find_by_name(const char *name);
 /* Get the active network driver (first loaded network driver) */
 const driver_ops_t *driver_get_network(void);
 
+/* Select which loaded network driver should be treated as active. */
+hal_status_t driver_set_active_network(const char *name);
+
 /* Get the active storage driver (first loaded storage driver) */
 const driver_ops_t *driver_get_storage(void);
 

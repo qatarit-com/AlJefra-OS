@@ -629,6 +629,7 @@ uint32_t     iwl_scan(iwl_dev_t *nic, const uint8_t *channels,
                         uint32_t n_chan, uint32_t dwell_ms);
 hal_status_t iwl_connect(iwl_dev_t *nic, const char *ssid,
                            const char *passphrase);
+hal_status_t intel_wifi_connect_saved(const char *ssid, const char *passphrase);
 hal_status_t iwl_disconnect(iwl_dev_t *nic);
 hal_status_t iwl_send(iwl_dev_t *nic, const void *frame, uint32_t len);
 hal_status_t iwl_recv(iwl_dev_t *nic, void *buf, uint32_t *len);

@@ -7,6 +7,27 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.4] - 2026-03-07
+
+### Added
+
+- Automatic Wi-Fi activation from `wifi.conf` on BMFS for Intel AX200/AX210
+  systems, using `ssid=` and `passphrase=` entries when present.
+
+### Changed
+
+- Network bring-up now tries the loaded interfaces instead of getting stuck on
+  the first registered network driver.
+- USB Ethernet adapters loaded through xHCI can now become the active boot
+  network path during DHCP if they are the working link.
+
+### Fixed
+
+- Corrected the Intel Wi-Fi built-in driver name mismatch that prevented the
+  kernel from loading supported Intel wireless hardware at boot.
+- Added Intel AX210 alternate PCI ID `8086:4DF0` to the built-in auto-load
+  path.
+
 ## [0.7.3] - 2026-03-07
 
 ### Changed

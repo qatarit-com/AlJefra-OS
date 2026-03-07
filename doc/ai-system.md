@@ -188,7 +188,7 @@ The user does not need to know what hardware they have, what drivers are require
 
 ### Online Backends (Planned)
 
-The architecture is designed to support external LLM backends when internet connectivity is available. These are not yet implemented in v0.7.3:
+The architecture is designed to support external LLM backends when internet connectivity is available. These are not yet implemented in v0.7.4:
 
 | Backend | Endpoint | Purpose | Status |
 |---------|----------|---------|--------|
@@ -197,9 +197,9 @@ The architecture is designed to support external LLM backends when internet conn
 
 When implemented, online backends would receive the full conversation history, hardware context, and system state, returning structured action descriptions that the action resolver can execute directly.
 
-### Current Backend (v0.7.3)
+### Current Backend (v0.7.4)
 
-The v0.7.3 release uses a fully local NLP pattern matcher:
+The v0.7.4 release uses a fully local NLP pattern matcher:
 
 - Handles command classification without internet access using 69 hand-crafted patterns (37 English, 32 Arabic)
 - Supports the 20 core action types

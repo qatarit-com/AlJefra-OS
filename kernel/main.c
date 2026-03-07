@@ -20,6 +20,9 @@
 #include "shell.h"
 #include "fs.h"
 #include "klog.h"
+#include "dhcp.h"
+#include "../lib/string.h"
+#include "../drivers/network/intel_wifi.h"
 
 /* Forward declarations for subsystem init */
 static void banner(void);
@@ -28,6 +31,11 @@ static void register_builtin_drivers(void);
 static void load_builtin_drivers(void);
 static void start_network(void);
 static void init_platform_services(void);
+static int load_wifi_credentials(char *ssid, uint32_t ssid_max,
+                                 char *pass, uint32_t pass_max);
+static int parse_wifi_line(const char *line, const char *key,
+                           char *out, uint32_t out_max);
+static int count_prefix_len(const char *a, const char *b);
 
 /* Forward declarations for built-in driver registration */
 extern void e1000_register(void);
@@ -110,7 +118,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.3 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.4 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;
@@ -242,8 +250,9 @@ static void load_builtin_drivers(void)
 
         /* Network: Intel WiFi (AX200/AX210) */
         if (d->class_code == PCI_CLASS_NETWORK && d->vendor_id == 0x8086 &&
-            (d->device_id == 0x2723 || d->device_id == 0x2725)) {
-            rc = driver_load_builtin("intel-wifi", d);
+            (d->device_id == 0x2723 || d->device_id == 0x2725 ||
+             d->device_id == 0x4DF0)) {
+            rc = driver_load_builtin("intel_wifi", d);
             if (rc == HAL_OK) loaded++;
         }
 
@@ -347,7 +356,53 @@ static void load_builtin_drivers(void)
 /* ── Network startup ── */
 static void start_network(void)
 {
-    /* The AI bootstrap module handles DHCP + full network bringup */
+    const driver_ops_t *drivers[MAX_DRIVERS];
+    dhcp_config_t cfg;
+    char wifi_ssid[33];
+    char wifi_pass[65];
+    int wifi_cfg = load_wifi_credentials(wifi_ssid, sizeof(wifi_ssid),
+                                         wifi_pass, sizeof(wifi_pass));
+    int wifi_ready = 0;
+
+    if (driver_find_by_name("intel_wifi")) {
+        hal_console_puts("WiFi hardware detected\n");
+        if (wifi_cfg == 0) {
+            hal_console_printf("Activating WiFi on SSID '%s'...\n", wifi_ssid);
+            if (intel_wifi_connect_saved(wifi_ssid, wifi_pass) == HAL_OK) {
+                driver_set_active_network("intel_wifi");
+                wifi_ready = 1;
+                klog(KLOG_INFO, "kernel: Intel WiFi activated from wifi.conf");
+            } else {
+                hal_console_puts("  WiFi activation failed\n");
+                klog(KLOG_WARN, "kernel: Intel WiFi activation failed");
+            }
+        } else {
+            hal_console_puts("  WiFi config not found (create wifi.conf with ssid= and passphrase=)\n");
+            klog(KLOG_INFO, "kernel: Intel WiFi ready but wifi.conf missing");
+        }
+    }
+
+    uint32_t count = driver_list(drivers, MAX_DRIVERS);
+    for (uint32_t i = 0; i < count; i++) {
+        const driver_ops_t *drv = drivers[i];
+        if (drv->category != DRIVER_CAT_NETWORK)
+            continue;
+
+        if (str_eq(drv->name, "intel_wifi") && !wifi_ready)
+            continue;
+
+        if (driver_set_active_network(drv->name) != HAL_OK)
+            continue;
+
+        hal_console_printf("Bringing up network via %s...\n", drv->name);
+        if (dhcp_init(&cfg) == HAL_OK) {
+            klog(KLOG_INFO, "kernel: network configured successfully");
+            return;
+        }
+    }
+
+    hal_console_puts("  No network link available yet\n");
+    klog(KLOG_WARN, "kernel: no network interface reached DHCP");
 }
 
 /* ── Filesystem / persistent services startup ── */
@@ -369,4 +424,65 @@ static void init_platform_services(void)
         hal_console_puts("  BMFS mount failed; continuing without persistent files\n");
         klog(KLOG_WARN, "kernel: BMFS mount failed");
     }
+}
+
+static int load_wifi_credentials(char *ssid, uint32_t ssid_max,
+                                 char *pass, uint32_t pass_max)
+{
+    char buf[256];
+    int fd = fs_open("wifi.conf");
+    if (fd < 0)
+        return -1;
+
+    int64_t rd = fs_read(fd, buf, 0, sizeof(buf) - 1);
+    fs_close(fd);
+    if (rd <= 0)
+        return -1;
+
+    buf[rd] = '\0';
+    ssid[0] = '\0';
+    pass[0] = '\0';
+
+    const char *cur = buf;
+    while (*cur) {
+        char line[96];
+        uint32_t n = 0;
+        while (cur[n] && cur[n] != '\n' && cur[n] != '\r' && n + 1 < sizeof(line)) {
+            line[n] = cur[n];
+            n++;
+        }
+        line[n] = '\0';
+
+        parse_wifi_line(line, "ssid=", ssid, ssid_max);
+        if (parse_wifi_line(line, "passphrase=", pass, pass_max) < 0)
+            parse_wifi_line(line, "password=", pass, pass_max);
+
+        cur += n;
+        while (*cur == '\n' || *cur == '\r')
+            cur++;
+    }
+
+    return (ssid[0] && pass[0]) ? 0 : -1;
+}
+
+static int parse_wifi_line(const char *line, const char *key,
+                           char *out, uint32_t out_max)
+{
+    int key_len = count_prefix_len(line, key);
+    if (key_len <= 0)
+        return -1;
+
+    str_copy(out, line + key_len, out_max);
+    return 0;
+}
+
+static int count_prefix_len(const char *a, const char *b)
+{
+    int i = 0;
+    while (b[i]) {
+        if (a[i] != b[i])
+            return -1;
+        i++;
+    }
+    return i;
 }

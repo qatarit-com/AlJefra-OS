@@ -1,18 +1,18 @@
-# AlJefra OS v0.7.3 — Production Launch Roadmap
+# AlJefra OS v0.7.4 — Production Launch Roadmap
 
 **Updated:** 2026-02-27
 **Owner:** Qatar IT (www.QatarIT.com)
-**Target:** Complete v0.7.3 production launch — ALL features in a single release
+**Target:** Complete v0.7.4 production launch — ALL features in a single release
 
 ---
 
 ## Vision
 
-AlJefra OS is the world's first AI-native, self-evolving operating system — built in Qatar for the world. Users interact through natural language. The OS understands intent, translates to system actions, and evolves itself through AI. Everything ships in v0.7.3.
+AlJefra OS is the world's first AI-native, self-evolving operating system — built in Qatar for the world. Users interact through natural language. The OS understands intent, translates to system actions, and evolves itself through AI. Everything ships in v0.7.4.
 
 ---
 
-## v0.7.3 Feature Set (All Included)
+## v0.7.4 Feature Set (All Included)
 
 ### A. Core Kernel (DONE)
 - [x] x86-64 ASM kernel (20 KB, 9,126 lines)
@@ -95,7 +95,7 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] Plugin SDK documentation (doc/plugin-sdk.md, 541 lines)
 - [x] Hardware compatibility database (doc/hardware-compatibility.md, 169 lines)
 - [x] Release process (doc/release-process.md, 179 lines)
-- [x] CHANGELOG.md (92 lines — v1.0.0 initial release)
+- [x] CHANGELOG.md (113 lines — v1.0.0 initial release)
 - [x] CODE_OF_CONDUCT.md (137 lines — Contributor Covenant)
 
 ---
@@ -135,10 +135,10 @@ Power On → HAL Init → Device Scan → Driver Load
 ├─────────┬────────────────────────────────────┤
 │  FILES  │        AI ASSISTANT                │
 │ 📄 kern │ You: Show me system info           │
-│ 📄 conf │ AI: AlJefra OS v0.7.3             │
+│ 📄 conf │ AI: AlJefra OS v0.7.4             │
 │ 📦 drv  │ CPU: x86-64 (4 cores)            │
 │ 📄 logs │ RAM: 256 MB, Disk: 128 MB        │
-│         │ Network: 192.168.1.105            │
+│         │ Network: 1113.168.1.105            │
 │ [+] New ├────────────────────────────────────┤
 │         │ > Ask anything...           [Send] │
 └─────────┴────────────────────────────────────┘
@@ -166,7 +166,7 @@ AMD GPU, Intel GPU, Audio HDA, Bluetooth
 | Boot to AI chat | < 10 seconds | Achieved |
 | Marketplace drivers | 50+ | In Progress |
 | Tested hardware | 100+ devices | In Progress |
-| Total codebase | ~87,923 lines | 87,923 lines |
+| Total codebase | ~87,1133 lines | 87,1133 lines |
 | Architectures | 3 (x86-64, ARM64, RISC-V) | All 3 boot |
 | AI Chat (English + Arabic) | 69+ command patterns | Done |
 | Desktop GUI | Framebuffer-based | Done |

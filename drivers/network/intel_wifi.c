@@ -1683,6 +1683,14 @@ hal_status_t iwl_recv(iwl_dev_t *nic, void *buf, uint32_t *len)
 
 static iwl_dev_t g_iwl_nic;
 
+hal_status_t intel_wifi_connect_saved(const char *ssid, const char *passphrase)
+{
+    if (!ssid || !ssid[0] || !passphrase || !passphrase[0])
+        return HAL_ERROR;
+
+    return iwl_connect(&g_iwl_nic, ssid, passphrase);
+}
+
 static hal_status_t iwl_drv_init(hal_device_t *dev)
 {
     return iwl_init(&g_iwl_nic, dev);

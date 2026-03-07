@@ -23,7 +23,7 @@
 
 ## Overview
 
-AlJefra OS v0.7.3 is a ground-up operating system written in **65,502 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, then uses an onboard AI agent to detect hardware, connect to the AlJefra Driver Marketplace, and automatically download, install, and configure every driver the machine needs -- all without human intervention.
+AlJefra OS v0.7.4 is a ground-up operating system written in **65,502 lines of original C and Assembly** (plus 101,889 lines of vendored BearSSL for TLS). It boots with a minimal kernel on any supported architecture, then uses an onboard AI agent to detect hardware, connect to the AlJefra Driver Marketplace, and automatically download, install, and configure every driver the machine needs -- all without human intervention.
 
 A single portable codebase compiles for all three supported architectures.
 
@@ -172,7 +172,7 @@ Download the latest pre-built image from **[os.aljefra.com](https://os.aljefra.c
 
 ```bash
 # Linux / macOS
-sudo dd if=aljefra_os_v0.7.3.iso of=/dev/sdX bs=4M status=progress
+sudo dd if=aljefra_os_v0.7.4.iso of=/dev/sdX bs=4M status=progress
 sync
 ```
 
