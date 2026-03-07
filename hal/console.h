@@ -33,6 +33,12 @@ void hal_console_write(const char *s, uint64_t len);
 /* Clear the active visible console and reset its cursor position */
 void hal_console_clear(void);
 
+/* Set active console colors (foreground/background). */
+void hal_console_set_colors(uint32_t fg, uint32_t bg);
+
+/* Restore default white-on-black console colors. */
+void hal_console_reset_colors(void);
+
 /* Formatted output (minimal printf: %s, %d, %u, %x, %p, %%) */
 void hal_console_printf(const char *fmt, ...);
 

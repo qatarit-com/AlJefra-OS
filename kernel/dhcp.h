@@ -51,4 +51,7 @@ int dhcp_lease_expired(const dhcp_config_t *cfg);
  * Returns NULL if no lease has been obtained. */
 const dhcp_config_t *dhcp_get_config(void);
 
+/* Human-readable status from the last DHCP attempt. */
+const char *dhcp_last_status_message(void);
+
 #endif /* ALJEFRA_KERNEL_DHCP_H */

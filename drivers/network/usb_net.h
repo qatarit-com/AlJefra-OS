@@ -63,6 +63,12 @@ hal_status_t usb_net_recv(usb_net_dev_t *dev, void *buf, uint16_t *length);
 /* Get MAC address */
 void usb_net_get_mac(usb_net_dev_t *dev, uint8_t mac[6]);
 
+/* Inspect the currently bound USB Ethernet adapter, if any. */
+int usb_net_is_ready(void);
+uint16_t usb_net_vendor_id(void);
+uint16_t usb_net_product_id(void);
+uint8_t usb_net_slot_id(void);
+
 /* Register the USB network driver (called from kernel/main.c) */
 void usb_net_register(void);
 

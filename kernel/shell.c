@@ -17,6 +17,10 @@
 #include "ai_chat.h"
 #include "../hal/hal.h"
 #include "../lib/string.h"
+#include "../drivers/display/lfb.h"
+#include "../drivers/network/intel_wifi.h"
+#include "../drivers/network/usb_net.h"
+#include "../drivers/input/xhci.h"
 
 /* ── Command line buffer ── */
 #define SHELL_LINE_MAX      256
@@ -62,9 +66,20 @@ static void cmd_log(void);
 static void cmd_sync(void);
 static void cmd_status(void);
 static void cmd_registry(void);
+static void cmd_wifi(char *args);
+static void cmd_setup(void);
+static void cmd_diagnostics(void);
 static void print_detected_network_hardware(void);
+static void print_detected_usb_network_hardware(void);
 static void print_bootstrap_status(void);
 static void print_text_file_or_hint(const char *name, const char *missing_hint);
+static void shell_print_ai_reply(const char *text);
+static void shell_print_statusline(void);
+static void shell_read_line(char *buf, uint32_t max, int secret);
+static int shell_load_wifi_credentials(char *ssid, uint32_t ssid_max,
+                                       char *pass, uint32_t pass_max);
+static void shell_save_wifi_credentials(const char *ssid, const char *pass);
+static void shell_mark_setup_complete(void);
 
 static void fs_list_print_cb(const char *name, uint64_t size, void *ctx);
 static void fs_list_stats_cb(const char *name, uint64_t size, void *ctx);
@@ -72,7 +87,32 @@ static void fs_list_stats_cb(const char *name, uint64_t size, void *ctx);
 /* ── Prompt ── */
 static void shell_prompt(void)
 {
+    shell_print_statusline();
+    hal_console_set_colors(LFB_COLOR_CYAN, LFB_COLOR_BLACK);
     hal_console_puts("aljefra ai> ");
+    hal_console_set_colors(LFB_COLOR_WHITE, LFB_COLOR_BLACK);
+}
+
+static void shell_print_statusline(void)
+{
+    int fs_ok = fs_list(0, 0) >= 0;
+    const driver_ops_t *net = driver_get_network();
+    const dhcp_config_t *cfg = dhcp_get_config();
+
+    hal_console_set_colors(LFB_COLOR_GRAY, LFB_COLOR_BLACK);
+    hal_console_puts("[");
+    hal_console_puts(fs_ok ? "fs:ok" : "fs:off");
+    hal_console_puts(" | ");
+    if (net && cfg && cfg->ip)
+        hal_console_puts("net:on");
+    else if (net)
+        hal_console_puts("net:driver");
+    else
+        hal_console_puts("net:off");
+    hal_console_puts(" | ai:");
+    hal_console_puts(ai_bootstrap_status_message());
+    hal_console_puts("]\n");
+    hal_console_reset_colors();
 }
 
 static const char *skip_spaces(const char *s)
@@ -80,6 +120,17 @@ static const char *skip_spaces(const char *s)
     while (*s == ' ')
         s++;
     return s;
+}
+
+static int count_prefix_len(const char *a, const char *b)
+{
+    int i = 0;
+    while (b[i]) {
+        if (a[i] != b[i])
+            return -1;
+        i++;
+    }
+    return i;
 }
 
 static void trim_trailing_spaces(char *s)
@@ -131,6 +182,119 @@ static const char *find_write_payload(const char *line)
     return p;
 }
 
+static void shell_read_line(char *buf, uint32_t max, int secret)
+{
+    uint32_t pos = 0;
+
+    if (max == 0)
+        return;
+
+    for (;;) {
+        char c = keyboard_getchar();
+
+        if (c == '\n' || c == '\r') {
+            hal_console_putc('\n');
+            break;
+        }
+
+        if (c == '\b' || c == 0x7F) {
+            if (pos > 0) {
+                pos--;
+                hal_console_putc('\b');
+                hal_console_putc(' ');
+                hal_console_putc('\b');
+            }
+            continue;
+        }
+
+        if (c >= ' ' && pos + 1 < max) {
+            buf[pos++] = c;
+            hal_console_putc(secret ? '*' : c);
+        }
+    }
+
+    buf[pos] = '\0';
+}
+
+static int shell_load_wifi_credentials(char *ssid, uint32_t ssid_max,
+                                       char *pass, uint32_t pass_max)
+{
+    char buf[256];
+    int fd = fs_open("wifi.conf");
+    int64_t rd;
+    const char *cur;
+
+    if (fd < 0)
+        return -1;
+
+    rd = fs_read(fd, buf, 0, sizeof(buf) - 1);
+    fs_close(fd);
+    if (rd <= 0)
+        return -1;
+
+    buf[rd] = '\0';
+    ssid[0] = '\0';
+    pass[0] = '\0';
+
+    cur = buf;
+    while (*cur) {
+        uint32_t n = 0;
+        char line[96];
+
+        while (cur[n] && cur[n] != '\n' && cur[n] != '\r' && n + 1 < sizeof(line)) {
+            line[n] = cur[n];
+            n++;
+        }
+        line[n] = '\0';
+
+        if (count_prefix_len(line, "ssid=") > 0)
+            str_copy(ssid, line + 5, ssid_max);
+        else if (count_prefix_len(line, "passphrase=") > 0)
+            str_copy(pass, line + 11, pass_max);
+        else if (count_prefix_len(line, "password=") > 0)
+            str_copy(pass, line + 9, pass_max);
+
+        cur += n;
+        while (*cur == '\n' || *cur == '\r')
+            cur++;
+    }
+
+    return (ssid[0] && pass[0]) ? 0 : -1;
+}
+
+static void shell_save_wifi_credentials(const char *ssid, const char *pass)
+{
+    int fd;
+    char buf[160];
+
+    if (!ssid || !pass)
+        return;
+
+    str_copy(buf, "ssid=", sizeof(buf));
+    str_copy(buf + str_len(buf), ssid, sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "\npassphrase=", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), pass, sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "\n", sizeof(buf) - str_len(buf));
+
+    fd = fs_create("wifi.conf", 1);
+    if (fd < 0)
+        return;
+
+    fs_write(fd, buf, 0, str_len(buf));
+    fs_close(fd);
+    fs_sync();
+}
+
+static void shell_mark_setup_complete(void)
+{
+    int fd = fs_create("setup-complete.flag", 1);
+    if (fd < 0)
+        return;
+    fs_write(fd, "done\n", 0, 5);
+    fs_close(fd);
+    fs_sync();
+}
+
 /* ── Execute a command ── */
 static void shell_exec(char *cmdline)
 {
@@ -172,6 +336,12 @@ static void shell_exec(char *cmdline)
     else if (str_eq(argv[0], "registry") || str_eq(argv[0], "sync-status") ||
              str_eq(argv[0], "assistant"))
         cmd_registry();
+    else if (str_eq(argv[0], "wifi"))
+        cmd_wifi(argc > 1 ? argv[1] : (char *)"");
+    else if (str_eq(argv[0], "setup") || str_eq(argv[0], "wizard"))
+        cmd_setup();
+    else if (str_eq(argv[0], "diagnostics") || str_eq(argv[0], "diag"))
+        cmd_diagnostics();
     else if (str_eq(argv[0], "ls") || str_eq(argv[0], "dir"))
         cmd_ls();
     else if (str_eq(argv[0], "cat") || str_eq(argv[0], "read")) {
@@ -204,12 +374,12 @@ static void shell_exec(char *cmdline)
     else {
         int ai_len = ai_chat_process(cmdline, g_ai_buf, sizeof(g_ai_buf));
         if (ai_len > 0 && g_ai_buf[0] != '\0') {
-            hal_console_puts(g_ai_buf);
-            if (g_ai_buf[ai_len - 1] != '\n')
-                hal_console_putc('\n');
+            shell_print_ai_reply(g_ai_buf);
         } else {
+            hal_console_set_colors(LFB_COLOR_YELLOW, LFB_COLOR_BLACK);
             hal_console_puts("I could not understand that yet.\n");
             hal_console_puts("Type 'help' for direct commands or ask in plain language.\n");
+            hal_console_reset_colors();
         }
     }
 }
@@ -223,7 +393,16 @@ void shell_run(void)
     hal_console_puts("\n");
     hal_console_puts("Welcome! AlJefra OS is ready.\n");
     hal_console_puts("Ask naturally for help, networking, files, or system actions.\n");
-    hal_console_puts("Direct commands still work: help, status, net, ls, registry.\n\n");
+    hal_console_puts("Direct commands still work: help, status, net, wifi, setup, diagnostics.\n");
+    {
+        int fd = fs_open("setup-complete.flag");
+        if (fd < 0) {
+            hal_console_puts("First-time setup is available. Type 'setup' for guided networking.\n");
+        } else {
+            fs_close(fd);
+        }
+    }
+    hal_console_puts("\n");
     shell_prompt();
 
     for (;;) {
@@ -265,6 +444,9 @@ static void cmd_help(void)
     hal_console_puts("  status         - High-level system summary\n");
     hal_console_puts("  info           - CPU, RAM, architecture\n");
     hal_console_puts("  net            - Network status and IP address\n");
+    hal_console_puts("  wifi           - Save or use Wi-Fi credentials\n");
+    hal_console_puts("  setup          - Guided first-boot network setup\n");
+    hal_console_puts("  diagnostics    - Show saved boot diagnostics\n");
     hal_console_puts("  registry       - AI registration and sync status\n");
     hal_console_puts("  pci            - Enumerate detected hardware devices\n");
     hal_console_puts("  mem            - Memory usage\n");
@@ -288,7 +470,7 @@ static void cmd_info(void)
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
 
-    hal_console_puts("AlJefra OS v0.7.7\n");
+    hal_console_puts("AlJefra OS v0.7.8\n");
     hal_console_puts("Architecture: ");
     switch (hal_arch()) {
     case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
@@ -402,7 +584,7 @@ static void cmd_reboot(void)
 
 static void cmd_ver(void)
 {
-    hal_console_puts("AlJefra OS v0.7.7\n");
+    hal_console_puts("AlJefra OS v0.7.8\n");
     hal_console_puts("AI-native operating system project by Qatar IT\n");
 }
 
@@ -413,10 +595,14 @@ static void cmd_net(void)
 
     hal_console_puts("Network Status\n");
     hal_console_puts("--------------\n");
+    hal_console_puts("DHCP:         ");
+    hal_console_puts(dhcp_last_status_message());
+    hal_console_putc('\n');
 
     if (!net) {
         hal_console_puts("Network:      No active network driver\n");
         print_detected_network_hardware();
+        print_detected_usb_network_hardware();
         return;
     }
 
@@ -435,6 +621,7 @@ static void cmd_net(void)
         hal_console_puts("IP address:   Not assigned (DHCP may not have completed)\n");
         hal_console_puts("Internet:     Not connected\n");
         print_detected_network_hardware();
+        print_detected_usb_network_hardware();
         return;
     }
 
@@ -448,6 +635,94 @@ static void cmd_net(void)
                        (cfg->dns >> 24) & 0xFF, (cfg->dns >> 16) & 0xFF,
                        (cfg->dns >> 8) & 0xFF, cfg->dns & 0xFF);
     hal_console_puts("Internet:     Connected\n");
+    print_detected_usb_network_hardware();
+}
+
+static void cmd_wifi(char *args)
+{
+    char ssid[64];
+    char pass[96];
+    dhcp_config_t cfg;
+
+    if (args && str_eq(args, "status")) {
+        cmd_net();
+        return;
+    }
+
+    if (!driver_find_by_name("intel_wifi")) {
+        hal_console_puts("Wi-Fi setup is only available for supported Intel Wi-Fi right now.\n");
+        hal_console_puts("If your internal card is unsupported, use USB Ethernet and run 'net'.\n");
+        return;
+    }
+
+    if (args && str_eq(args, "connect")) {
+        if (shell_load_wifi_credentials(ssid, sizeof(ssid), pass, sizeof(pass)) < 0) {
+            hal_console_puts("No saved wifi.conf found. Run 'wifi' or 'setup' first.\n");
+            return;
+        }
+
+        hal_console_printf("Connecting to Wi-Fi '%s'...\n", ssid);
+        if (intel_wifi_connect_saved(ssid, pass) != HAL_OK) {
+            hal_console_puts("Wi-Fi activation failed.\n");
+            return;
+        }
+
+        driver_set_active_network("intel_wifi");
+        if (dhcp_init(&cfg) == HAL_OK)
+            hal_console_puts("Wi-Fi connected and DHCP completed.\n");
+        else
+            hal_console_puts("Wi-Fi driver is active, but DHCP did not complete.\n");
+        return;
+    }
+
+    hal_console_puts("Wi-Fi setup\n");
+    hal_console_puts("---------\n");
+    hal_console_puts("SSID: ");
+    shell_read_line(ssid, sizeof(ssid), 0);
+    hal_console_puts("Passphrase: ");
+    shell_read_line(pass, sizeof(pass), 1);
+
+    if (ssid[0] == '\0' || pass[0] == '\0') {
+        hal_console_puts("Wi-Fi setup cancelled because the SSID or passphrase was empty.\n");
+        return;
+    }
+
+    shell_save_wifi_credentials(ssid, pass);
+    hal_console_puts("Saved wifi.conf. Trying the connection now...\n");
+    cmd_wifi("connect");
+}
+
+static void cmd_setup(void)
+{
+    hal_console_puts("Setup wizard\n");
+    hal_console_puts("------------\n");
+    hal_console_puts("1. We will try to get networking working.\n");
+    hal_console_puts("2. If your laptop uses supported Intel Wi-Fi, we can save credentials now.\n");
+    hal_console_puts("3. If not, plug your USB Ethernet adapter and use 'net' to inspect it.\n\n");
+
+    if (driver_get_network() && dhcp_get_config() && dhcp_get_config()->ip) {
+        hal_console_puts("Networking already looks healthy.\n");
+    } else if (driver_find_by_name("intel_wifi")) {
+        cmd_wifi((char *)"");
+    } else if (usb_net_is_ready()) {
+        hal_console_puts("USB Ethernet is detected. Run 'net' to see whether DHCP completed.\n");
+    } else {
+        hal_console_puts("No supported Wi-Fi driver is active yet. Plug USB Ethernet, then run 'net'.\n");
+    }
+
+    shell_mark_setup_complete();
+    hal_console_puts("Setup note saved. You can run 'diagnostics' any time.\n");
+}
+
+static void cmd_diagnostics(void)
+{
+    hal_console_puts("Diagnostics\n");
+    hal_console_puts("-----------\n");
+    print_text_file_or_hint("boot-diagnostics.txt",
+                            "No boot diagnostics file has been saved yet.\n");
+    hal_console_puts("Current DHCP status: ");
+    hal_console_puts(dhcp_last_status_message());
+    hal_console_putc('\n');
 }
 
 static void print_detected_network_hardware(void)
@@ -476,6 +751,60 @@ static void print_detected_network_hardware(void)
 
     if (found == 0)
         hal_console_puts("Detected NICs: none\n");
+}
+
+static void print_detected_usb_network_hardware(void)
+{
+    xhci_controller_t *hc = xhci_get_controller();
+    uint32_t found = 0;
+
+    if (usb_net_is_ready()) {
+        hal_console_printf("USB NIC:      slot %u  %04x:%04x  ready\n",
+                           usb_net_slot_id(), usb_net_vendor_id(),
+                           usb_net_product_id());
+        found = 1;
+    }
+
+    if (!hc) {
+        if (!found)
+            hal_console_puts("USB NICs:     xHCI unavailable\n");
+        return;
+    }
+
+    for (uint8_t i = 0; i < hc->max_slots; i++) {
+        xhci_slot_t *slot = &hc->slots[i];
+        usb_device_desc_t *dd;
+        int maybe_net;
+
+        if (!slot->active)
+            continue;
+
+        dd = &slot->dev_desc;
+        maybe_net = (dd->idVendor == 0x0B95 || dd->idVendor == 0x0BDA ||
+                     dd->bDeviceClass == USB_CLASS_CDC ||
+                     dd->bDeviceClass == USB_CLASS_PER_IFACE);
+        if (!maybe_net)
+            continue;
+
+        hal_console_printf("USB probe:    slot %u  %04x:%04x class %02x sub %02x\n",
+                           slot->slot_id, dd->idVendor, dd->idProduct,
+                           dd->bDeviceClass, dd->bDeviceSubClass);
+        found = 1;
+    }
+
+    if (!found)
+        hal_console_puts("USB NICs:     none detected on xHCI slots\n");
+}
+
+static void shell_print_ai_reply(const char *text)
+{
+    hal_console_set_colors(LFB_COLOR_GREEN, LFB_COLOR_BLACK);
+    hal_console_puts("aljefra> ");
+    hal_console_set_colors(LFB_COLOR_GRAY, LFB_COLOR_BLACK);
+    hal_console_puts(text);
+    hal_console_reset_colors();
+    if (text[str_len(text) - 1] != '\n')
+        hal_console_putc('\n');
 }
 
 static void fs_list_print_cb(const char *name, uint64_t size, void *ctx)
@@ -642,6 +971,7 @@ static void cmd_status(void)
 {
     const driver_ops_t *list[MAX_DRIVERS];
     uint32_t count = driver_list(list, MAX_DRIVERS);
+    const dhcp_config_t *cfg = dhcp_get_config();
 
     hal_console_puts("System Status\n");
     hal_console_puts("-------------\n");
@@ -654,10 +984,16 @@ static void cmd_status(void)
     else
         hal_console_puts("Unavailable\n");
     hal_console_puts("Network:          ");
-    if (driver_get_network())
-        hal_console_puts("Driver loaded\n");
-    else
+    if (driver_get_network()) {
+        if (cfg && cfg->ip)
+            hal_console_puts("Connected\n");
+        else
+            hal_console_puts("Driver loaded, waiting for DHCP\n");
+    } else
         hal_console_puts("No driver\n");
+    hal_console_puts("DHCP:             ");
+    hal_console_puts(dhcp_last_status_message());
+    hal_console_putc('\n');
     hal_console_puts("AI sync:          ");
     print_bootstrap_status();
 }

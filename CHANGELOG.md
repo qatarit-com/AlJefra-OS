@@ -7,6 +7,29 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.8] - 2026-03-07
+
+### Added
+
+- Guided first-boot setup via `setup`, interactive `wifi` assistance, and a
+  saved `boot-diagnostics.txt` report for easier troubleshooting.
+- Prompt status lines and color-separated chat output so users can distinguish
+  system state, prompts, and assistant replies at a glance.
+
+### Changed
+
+- The shell now exposes DHCP state, USB NIC details, and setup-oriented help
+  directly in `status`, `net`, `diagnostics`, and AI replies.
+- Network startup now remembers the last successful interface and gives USB
+  Ethernet another late rescan before DHCP.
+
+### Fixed
+
+- Reserved visible space at the bottom of the framebuffer console so the input
+  line no longer falls onto an unreadable edge row.
+- DHCP now reports clearer failure reasons instead of leaving users with a
+  generic offline state.
+
 ## [0.7.7] - 2026-03-07
 
 ### Changed

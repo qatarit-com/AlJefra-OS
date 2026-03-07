@@ -364,6 +364,26 @@ void usb_net_get_mac(usb_net_dev_t *dev, uint8_t mac[6])
 static usb_net_dev_t g_usb_nic;
 static bool          g_usb_nic_found = false;
 
+int usb_net_is_ready(void)
+{
+    return g_usb_nic_found && g_usb_nic.initialized;
+}
+
+uint16_t usb_net_vendor_id(void)
+{
+    return g_usb_nic.vendor_id;
+}
+
+uint16_t usb_net_product_id(void)
+{
+    return g_usb_nic.product_id;
+}
+
+uint8_t usb_net_slot_id(void)
+{
+    return g_usb_nic.slot_id;
+}
+
 static hal_status_t usb_net_drv_init(hal_device_t *pci_dev)
 {
     (void)pci_dev;

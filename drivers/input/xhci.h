@@ -374,6 +374,9 @@ hal_status_t xhci_bulk_recv(xhci_controller_t *hc, uint8_t slot_id,
 /* Get xHCI controller handle (for USB network driver) */
 xhci_controller_t *xhci_get_controller(void);
 
+/* Enumerate connected ports and assign slots to newly seen USB devices. */
+hal_status_t xhci_enumerate_ports(xhci_controller_t *hc);
+
 /* Enumerate and identify all USB devices (called after xhci_enumerate_ports).
  * Returns a bitmask of found device classes per slot. */
 void xhci_identify_devices(xhci_controller_t *hc);

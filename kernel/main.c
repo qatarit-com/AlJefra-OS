@@ -25,6 +25,8 @@
 #include "ai_bridge.h"
 #include "../lib/string.h"
 #include "../drivers/network/intel_wifi.h"
+#include "../drivers/network/usb_net.h"
+#include "../drivers/input/xhci.h"
 
 /* Forward declarations for subsystem init */
 static void banner(void);
@@ -33,6 +35,11 @@ static void register_builtin_drivers(void);
 static void load_builtin_drivers(void);
 static void start_network(void);
 static void init_platform_services(void);
+static void refresh_usb_network_candidates(void);
+static int network_driver_rank(const driver_ops_t *drv);
+static void load_preferred_network_driver(void);
+static void save_preferred_network_driver(const char *name);
+static void save_boot_diagnostics(void);
 static int load_wifi_credentials(char *ssid, uint32_t ssid_max,
                                  char *pass, uint32_t pass_max);
 static int parse_wifi_line(const char *line, const char *key,
@@ -58,6 +65,7 @@ extern void usb_net_register(void);
 /* ── Hardware manifest (filled by bus scan) ── */
 static hal_device_t g_devices[HAL_BUS_MAX_DEVICES];
 static uint32_t     g_device_count;
+static char         g_preferred_network[32];
 
 /* ── Kernel entry point ── */
 void kernel_main(void)
@@ -96,6 +104,7 @@ void kernel_main(void)
     hal_console_puts("Connecting to AlJefra AI services...\n");
     ai_bootstrap(g_devices, g_device_count);
     klog(KLOG_INFO, "kernel: AI bootstrap completed");
+    save_boot_diagnostics();
 
     /* Phase 6: Interactive — kernel is fully up */
     hal_console_puts("\nAll set! AlJefra OS is ready.\n");
@@ -125,7 +134,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.7 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.8 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;
@@ -381,6 +390,8 @@ static void start_network(void)
             detected_network_hw++;
     }
 
+    refresh_usb_network_candidates();
+
     if (driver_find_by_name("intel_wifi")) {
         hal_console_puts("WiFi hardware detected\n");
         if (wifi_cfg == 0) {
@@ -401,22 +412,28 @@ static void start_network(void)
 
     uint32_t count = driver_list(drivers, MAX_DRIVERS);
     uint32_t network_candidates = 0;
-    for (uint32_t i = 0; i < count; i++) {
-        const driver_ops_t *drv = drivers[i];
-        if (drv->category != DRIVER_CAT_NETWORK)
-            continue;
-        network_candidates++;
+    for (int pass = 0; pass < 4; pass++) {
+        for (uint32_t i = 0; i < count; i++) {
+            const driver_ops_t *drv = drivers[i];
+            if (drv->category != DRIVER_CAT_NETWORK)
+                continue;
+            if (network_driver_rank(drv) != pass)
+                continue;
 
-        if (str_eq(drv->name, "intel_wifi") && !wifi_ready)
-            continue;
+            network_candidates++;
 
-        if (driver_set_active_network(drv->name) != HAL_OK)
-            continue;
+            if (str_eq(drv->name, "intel_wifi") && !wifi_ready)
+                continue;
 
-        hal_console_printf("Bringing up network via %s...\n", drv->name);
-        if (dhcp_init(&cfg) == HAL_OK) {
-            klog(KLOG_INFO, "kernel: network configured successfully");
-            return;
+            if (driver_set_active_network(drv->name) != HAL_OK)
+                continue;
+
+            hal_console_printf("Bringing up network via %s...\n", drv->name);
+            if (dhcp_init(&cfg) == HAL_OK) {
+                save_preferred_network_driver(drv->name);
+                klog(KLOG_INFO, "kernel: network configured successfully");
+                return;
+            }
         }
     }
 
@@ -425,8 +442,55 @@ static void start_network(void)
         klog(KLOG_WARN, "kernel: detected network hardware but no driver became active");
     }
 
+    if (usb_net_is_ready()) {
+        hal_console_printf("  USB Ethernet is present (%04x:%04x on slot %u) but DHCP did not complete\n",
+                           usb_net_vendor_id(), usb_net_product_id(), usb_net_slot_id());
+    }
+
     hal_console_puts("  No network link available yet\n");
     klog(KLOG_WARN, "kernel: no network interface reached DHCP");
+}
+
+static void refresh_usb_network_candidates(void)
+{
+    xhci_controller_t *hc = xhci_get_controller();
+
+    if (!hc)
+        return;
+
+    xhci_enumerate_ports(hc);
+    xhci_identify_devices(hc);
+
+    if (!driver_find_by_name("usb-net")) {
+        for (uint32_t i = 0; i < g_device_count; i++) {
+            hal_device_t *d = &g_devices[i];
+            if (d->class_code == PCI_CLASS_SERIAL_BUS &&
+                d->subclass == PCI_SUBCLASS_USB &&
+                d->prog_if == 0x30) {
+                if (driver_load_builtin("usb-net", d) == HAL_OK) {
+                    klog(KLOG_INFO, "kernel: USB network adapter detected during late rescan");
+                }
+                break;
+            }
+        }
+    }
+}
+
+static int network_driver_rank(const driver_ops_t *drv)
+{
+    if (!drv)
+        return 3;
+
+    if (g_preferred_network[0] && str_eq(drv->name, g_preferred_network))
+        return 0;
+
+    if (str_eq(drv->name, "usb-net"))
+        return 1;
+
+    if (str_eq(drv->name, "intel_wifi"))
+        return 2;
+
+    return 3;
 }
 
 /* ── Filesystem / persistent services startup ── */
@@ -444,10 +508,93 @@ static void init_platform_services(void)
     if (fs_init_default() == 0) {
         hal_console_puts("  BMFS filesystem ready\n");
         klog(KLOG_INFO, "kernel: BMFS filesystem mounted");
+        load_preferred_network_driver();
     } else {
         hal_console_puts("  BMFS mount failed; continuing without persistent files\n");
         klog(KLOG_WARN, "kernel: BMFS mount failed");
     }
+}
+
+static void load_preferred_network_driver(void)
+{
+    int fd;
+    int64_t rd;
+    char buf[sizeof(g_preferred_network)];
+
+    g_preferred_network[0] = '\0';
+
+    fd = fs_open("network-choice.txt");
+    if (fd < 0)
+        return;
+
+    rd = fs_read(fd, buf, 0, sizeof(buf) - 1);
+    fs_close(fd);
+    if (rd <= 0)
+        return;
+
+    buf[rd] = '\0';
+    str_copy(g_preferred_network, buf, sizeof(g_preferred_network));
+    for (uint32_t i = 0; g_preferred_network[i] != '\0'; i++) {
+        if (g_preferred_network[i] == '\n' || g_preferred_network[i] == '\r') {
+            g_preferred_network[i] = '\0';
+            break;
+        }
+    }
+}
+
+static void save_preferred_network_driver(const char *name)
+{
+    int fd;
+
+    if (!name || name[0] == '\0' || fs_list(0, 0) < 0)
+        return;
+
+    fd = fs_create("network-choice.txt", 1);
+    if (fd < 0)
+        return;
+
+    fs_write(fd, name, 0, str_len(name));
+    fs_close(fd);
+    fs_sync();
+    str_copy(g_preferred_network, name, sizeof(g_preferred_network));
+}
+
+static void save_boot_diagnostics(void)
+{
+    int fd;
+    char buf[768];
+    const driver_ops_t *net = driver_get_network();
+    const driver_ops_t *stor = driver_get_storage();
+    const dhcp_config_t *cfg = dhcp_get_config();
+
+    if (fs_list(0, 0) < 0)
+        return;
+
+    buf[0] = '\0';
+    str_copy(buf, "AlJefra OS boot diagnostics\n", sizeof(buf));
+    str_copy(buf + str_len(buf), "Version: 0.7.8\n", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "Storage: ", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), stor ? "ready\n" : "unavailable\n", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "Network driver: ", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), net ? net->name : "none", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "\nDHCP: ", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), dhcp_last_status_message(), sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "\nMarketplace: ", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), ai_bootstrap_status_message(), sizeof(buf) - str_len(buf));
+    if (cfg && cfg->ip) {
+        str_copy(buf + str_len(buf), "\nInternet: lease acquired", sizeof(buf) - str_len(buf));
+    } else {
+        str_copy(buf + str_len(buf), "\nInternet: not configured", sizeof(buf) - str_len(buf));
+    }
+    str_copy(buf + str_len(buf), "\n", sizeof(buf) - str_len(buf));
+
+    fd = fs_create("boot-diagnostics.txt", 2);
+    if (fd < 0)
+        return;
+
+    fs_write(fd, buf, 0, str_len(buf));
+    fs_close(fd);
+    fs_sync();
 }
 
 static int load_wifi_credentials(char *ssid, uint32_t ssid_max,
