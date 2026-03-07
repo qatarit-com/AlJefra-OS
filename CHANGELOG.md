@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.10] - 2026-03-07
+
+### Changed
+
+- AX88179A USB Ethernet adapters now get a real vendor-control bring-up
+  sequence instead of being treated like generic bulk-only devices.
+
+### Fixed
+
+- Added the missing ASIX MAC, clock, PHY reset, RX/TX checksum, medium-mode,
+  and RX-control initialization needed for AX88179A-class adapters to come up
+  cleanly after xHCI enumeration.
+
 ## [0.7.9] - 2026-03-07
 
 ### Fixed

@@ -902,7 +902,7 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
         hal_cpu_info_t cpu;
         hal_cpu_get_info(&cpu);
 
-        safe_copy(output, "AlJefra OS v0.7.9\n", omax);
+        safe_copy(output, "AlJefra OS v0.7.10\n", omax);
         safe_append(output, "Architecture: ", omax);
 
         switch (hal_arch()) {
@@ -1000,7 +1000,7 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
     /* ------------------------------------------------------------------ */
     case ACTION_SYS_UPDATE: {
         safe_copy(output, "Checking for updates...\n", omax);
-        safe_append(output, "AlJefra OS v0.7.9 is the current version.\n", omax);
+        safe_append(output, "AlJefra OS v0.7.10 is the current version.\n", omax);
 
         const driver_ops_t *net = driver_get_network();
         if (net) {
@@ -1308,7 +1308,7 @@ int ai_get_context(char *buf, int size)
     safe_copy(buf,
         "You are the AlJefra OS AI assistant, embedded in a bare-metal "
         "operating system.\n"
-        "AlJefra OS v0.7.9 is a universal boot OS that runs on x86-64, "
+        "AlJefra OS v0.7.10 is a universal boot OS that runs on x86-64, "
         "ARM64, and RISC-V.\n\n",
         smax);
 

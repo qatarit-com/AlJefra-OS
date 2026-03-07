@@ -26,6 +26,51 @@
 #define RTL8153_PID     0x8153    /* USB 3.0 Gigabit */
 #define RTL8152_PID     0x8152    /* USB 2.0 100Mbps */
 
+/* ── ASIX AX88179A vendor registers ── */
+#define AX_ACCESS_MAC               0x01
+#define AX_ACCESS_PHY               0x02
+#define AX_PHYPWR_RSTCTL            0x26
+#define AX_CLK_SELECT               0x33
+#define AX_RXCOE_CTL                0x34
+#define AX_TXCOE_CTL                0x35
+#define AX_NODE_ID                  0x10
+#define AX_MONITOR_MODE             0x24
+#define AX_MEDIUM_STATUS_MODE       0x22
+#define AX_RX_CTL                   0x0B
+#define AX_RX_BULKIN_QCTRL          0x2E
+#define AX_PAUSE_WATERLVL_HIGH      0x54
+#define AX_PAUSE_WATERLVL_LOW       0x55
+
+#define AX_PHYPWR_RSTCTL_BZ         0x0010
+#define AX_PHYPWR_RSTCTL_IPRL       0x0020
+
+#define AX_CLK_SELECT_BCS           0x01
+#define AX_CLK_SELECT_ACS           0x04
+#define AX_CLK_SELECT_ULR           0x08
+#define AX_CLK_SELECT_ACSREQ        0x10
+
+#define AX_MONITOR_MODE_PMETYPE     0x0100
+#define AX_MONITOR_MODE_PMEPOL      0x0020
+#define AX_MONITOR_MODE_RWMP        0x0004
+
+#define AX_MEDIUM_RECEIVE_EN        0x0100
+#define AX_MEDIUM_TXFLOW_CTRLEN     0x0010
+#define AX_MEDIUM_RXFLOW_CTRLEN     0x0020
+#define AX_MEDIUM_FULL_DUPLEX       0x0002
+#define AX_MEDIUM_GIGAMODE          0x0001
+#define AX_MEDIUM_EN_125MHZ         0x0008
+
+#define AX_RX_CTL_START             0x00000080u
+#define AX_RX_CTL_DROPCRCERR        0x01000000u
+#define AX_RX_CTL_IPE               0x02000000u
+
+#define AX_RXCOE_DEF_CSUM           0x017F
+#define AX_TXCOE_DEF_CSUM           0x017F
+
+#define AX_MEDIUM_DEFAULT           (AX_MEDIUM_RECEIVE_EN | AX_MEDIUM_TXFLOW_CTRLEN | \
+                                     AX_MEDIUM_RXFLOW_CTRLEN | AX_MEDIUM_FULL_DUPLEX | \
+                                     AX_MEDIUM_GIGAMODE | AX_MEDIUM_EN_125MHZ)
+
 /* ── CDC ECM descriptor parsing ── */
 
 /* Parse hex digit */
@@ -74,6 +119,98 @@ static void parse_mac_string(const char *s, uint8_t mac[6])
     for (int i = 0; i < 6; i++) {
         mac[i] = (hex_digit(s[i * 2]) << 4) | hex_digit(s[i * 2 + 1]);
     }
+}
+
+static hal_status_t asix_read_cmd(usb_net_dev_t *dev, uint8_t access,
+                                  uint16_t value, uint16_t index,
+                                  uint16_t len, void *buf)
+{
+    return xhci_control_transfer(dev->hc, dev->slot_id,
+        0xC0, access, value, index, len, buf);
+}
+
+static hal_status_t asix_write_cmd(usb_net_dev_t *dev, uint8_t access,
+                                   uint16_t value, uint16_t index,
+                                   uint16_t len, const void *buf)
+{
+    return xhci_control_transfer(dev->hc, dev->slot_id,
+        0x40, access, value, index, len, (void *)buf);
+}
+
+static hal_status_t asix_write_u16(usb_net_dev_t *dev, uint16_t reg,
+                                   uint16_t value)
+{
+    return asix_write_cmd(dev, AX_ACCESS_MAC, reg, 0, sizeof(value), &value);
+}
+
+static hal_status_t asix_write_u32(usb_net_dev_t *dev, uint16_t reg,
+                                   uint32_t value)
+{
+    return asix_write_cmd(dev, AX_ACCESS_MAC, reg, 0, sizeof(value), &value);
+}
+
+static hal_status_t asix_read_mac(usb_net_dev_t *dev, uint8_t mac[6])
+{
+    return asix_read_cmd(dev, AX_ACCESS_MAC, AX_NODE_ID, 0, 6, mac);
+}
+
+/* Minimal AX88179A bring-up based on the upstream Linux init sequence. */
+static hal_status_t asix_ax88179a_init(usb_net_dev_t *dev)
+{
+    static const uint8_t bulkin_qctrl[5] = {0x07, 0x4F, 0x00, 0x18, 0x00};
+    uint16_t phypwr = AX_PHYPWR_RSTCTL_BZ | AX_PHYPWR_RSTCTL_IPRL;
+    uint16_t clk = AX_CLK_SELECT_ACS | AX_CLK_SELECT_BCS;
+    uint16_t monitor = AX_MONITOR_MODE_PMETYPE |
+                       AX_MONITOR_MODE_PMEPOL |
+                       AX_MONITOR_MODE_RWMP;
+    uint16_t medium = AX_MEDIUM_DEFAULT;
+    uint16_t rxcoe = AX_RXCOE_DEF_CSUM;
+    uint16_t txcoe = AX_TXCOE_DEF_CSUM;
+    uint8_t pause_high = 0x34;
+    uint8_t pause_low = 0x52;
+    uint32_t rxctl = AX_RX_CTL_DROPCRCERR | AX_RX_CTL_IPE | AX_RX_CTL_START;
+
+    hal_console_puts("[usb-net] AX88179A vendor init\n");
+
+    if (asix_write_u16(dev, AX_PHYPWR_RSTCTL, phypwr) != HAL_OK)
+        return HAL_ERROR;
+    hal_timer_delay_ms(2);
+
+    if (asix_write_u16(dev, AX_CLK_SELECT, clk) != HAL_OK)
+        return HAL_ERROR;
+    hal_timer_delay_ms(1);
+
+    if (asix_read_mac(dev, dev->mac) != HAL_OK)
+        return HAL_ERROR;
+
+    if (asix_write_cmd(dev, AX_ACCESS_MAC, AX_PAUSE_WATERLVL_HIGH, 0,
+                       sizeof(pause_high), &pause_high) != HAL_OK)
+        return HAL_ERROR;
+    if (asix_write_cmd(dev, AX_ACCESS_MAC, AX_PAUSE_WATERLVL_LOW, 0,
+                       sizeof(pause_low), &pause_low) != HAL_OK)
+        return HAL_ERROR;
+    if (asix_write_cmd(dev, AX_ACCESS_MAC, AX_RX_BULKIN_QCTRL, 0,
+                       sizeof(bulkin_qctrl), bulkin_qctrl) != HAL_OK)
+        return HAL_ERROR;
+    if (asix_write_u16(dev, AX_RXCOE_CTL, rxcoe) != HAL_OK)
+        return HAL_ERROR;
+    if (asix_write_u16(dev, AX_TXCOE_CTL, txcoe) != HAL_OK)
+        return HAL_ERROR;
+    if (asix_write_u16(dev, AX_MONITOR_MODE, monitor) != HAL_OK)
+        return HAL_ERROR;
+    if (asix_write_u16(dev, AX_MEDIUM_STATUS_MODE, medium) != HAL_OK)
+        return HAL_ERROR;
+
+    clk = AX_CLK_SELECT_ACS | AX_CLK_SELECT_BCS |
+          AX_CLK_SELECT_ULR | AX_CLK_SELECT_ACSREQ;
+    if (asix_write_u16(dev, AX_CLK_SELECT, clk) != HAL_OK)
+        return HAL_ERROR;
+    hal_timer_delay_ms(1);
+
+    if (asix_write_u32(dev, AX_RX_CTL, rxctl) != HAL_OK)
+        return HAL_ERROR;
+
+    return HAL_OK;
 }
 
 /* Parse CDC ECM configuration descriptor to find interfaces and endpoints */
@@ -222,9 +359,7 @@ static hal_status_t try_vendor_adapter(usb_net_dev_t *dev,
         hal_status_t st;
 
         if (dev->vendor_id == ASIX_VID) {
-            /* ASIX: read node ID (command 0x13) */
-            st = xhci_control_transfer(dev->hc, dev->slot_id,
-                0xC0, 0x13, 0, 0, 6, mac_buf);
+            st = asix_read_mac(dev, mac_buf);
         } else if (dev->vendor_id == RTL_VID) {
             /* RTL8153: read MAC from PLA registers isn't simple via control,
              * so we generate a locally-administered MAC */
@@ -323,6 +458,12 @@ hal_status_t usb_net_init(usb_net_dev_t *dev, xhci_controller_t *hc,
             1,     /* Alternate Setting 1 */
             dev->data_iface,
             0, NULL);
+    } else if (dev->vendor_id == ASIX_VID) {
+        st = asix_ax88179a_init(dev);
+        if (st != HAL_OK) {
+            hal_console_puts("[usb-net] AX88179A init failed\n");
+            return st;
+        }
     }
 
     hal_console_printf("[usb-net] MAC: %02x:%02x:%02x:%02x:%02x:%02x\n",

@@ -134,7 +134,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.9 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.10 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;
@@ -572,7 +572,7 @@ static void save_boot_diagnostics(void)
 
     buf[0] = '\0';
     str_copy(buf, "AlJefra OS boot diagnostics\n", sizeof(buf));
-    str_copy(buf + str_len(buf), "Version: 0.7.9\n", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "Version: 0.7.10\n", sizeof(buf) - str_len(buf));
     str_copy(buf + str_len(buf), "Storage: ", sizeof(buf) - str_len(buf));
     str_copy(buf + str_len(buf), stor ? "ready\n" : "unavailable\n", sizeof(buf) - str_len(buf));
     str_copy(buf + str_len(buf), "Network driver: ", sizeof(buf) - str_len(buf));
