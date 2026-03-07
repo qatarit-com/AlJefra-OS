@@ -36,6 +36,7 @@ static void load_builtin_drivers(void);
 static void start_network(void);
 static void init_platform_services(void);
 static void refresh_usb_network_candidates(void);
+static void load_usb_network_stack(void);
 static int network_driver_rank(const driver_ops_t *drv);
 static void load_preferred_network_driver(void);
 static void save_preferred_network_driver(const char *name);
@@ -47,6 +48,7 @@ static int parse_wifi_line(const char *line, const char *key,
 static int count_prefix_len(const char *a, const char *b);
 static int is_detected_network_device(const hal_device_t *dev);
 static void log_unsupported_network_device(const hal_device_t *dev);
+static int is_possible_usb_controller(const hal_device_t *dev);
 
 /* Forward declarations for built-in driver registration */
 extern void e1000_register(void);
@@ -134,7 +136,7 @@ static void banner(void)
 {
     hal_console_puts("\n");
     hal_console_puts("==============================================\n");
-    hal_console_puts("  AlJefra OS v0.7.10 is starting up...\n");
+    hal_console_puts("  AlJefra OS v0.7.11 is starting up...\n");
     hal_console_puts("==============================================\n\n");
 
     hal_cpu_info_t cpu;
@@ -276,17 +278,9 @@ static void load_builtin_drivers(void)
             if (rc == HAL_OK) loaded++;
         }
 
-        /* USB: xHCI */
-        if (d->class_code == PCI_CLASS_SERIAL_BUS && d->subclass == PCI_SUBCLASS_USB) {
-            if (d->prog_if == 0x30) { /* xHCI */
-                rc = driver_load_builtin("xhci", d);
-                if (rc == HAL_OK) {
-                    loaded++;
-                    /* After xHCI init, probe for USB network adapters */
-                    rc = driver_load_builtin("usb-net", d);
-                    if (rc == HAL_OK) loaded++;
-                }
-            }
+        /* USB controller stack — prefer explicit xHCI, but try sane fallbacks. */
+        if (is_possible_usb_controller(d)) {
+            load_usb_network_stack();
         }
 
         /* Network: Broadcom WiFi (SDIO, via Device Tree on RPi) */
@@ -455,25 +449,19 @@ static void refresh_usb_network_candidates(void)
 {
     xhci_controller_t *hc = xhci_get_controller();
 
+    if (!hc) {
+        load_usb_network_stack();
+        hc = xhci_get_controller();
+    }
+
     if (!hc)
         return;
 
     xhci_enumerate_ports(hc);
     xhci_identify_devices(hc);
 
-    if (!driver_find_by_name("usb-net")) {
-        for (uint32_t i = 0; i < g_device_count; i++) {
-            hal_device_t *d = &g_devices[i];
-            if (d->class_code == PCI_CLASS_SERIAL_BUS &&
-                d->subclass == PCI_SUBCLASS_USB &&
-                d->prog_if == 0x30) {
-                if (driver_load_builtin("usb-net", d) == HAL_OK) {
-                    klog(KLOG_INFO, "kernel: USB network adapter detected during late rescan");
-                }
-                break;
-            }
-        }
-    }
+    if (!driver_find_by_name("usb-net"))
+        load_usb_network_stack();
 }
 
 static int network_driver_rank(const driver_ops_t *drv)
@@ -491,6 +479,63 @@ static int network_driver_rank(const driver_ops_t *drv)
         return 2;
 
     return 3;
+}
+
+static int is_possible_usb_controller(const hal_device_t *dev)
+{
+    if (!dev)
+        return 0;
+
+    if (dev->class_code != PCI_CLASS_SERIAL_BUS || dev->subclass != PCI_SUBCLASS_USB)
+        return 0;
+
+    if (dev->prog_if == 0x30)
+        return 1;
+
+    return dev->bar[0] != 0;
+}
+
+static void load_usb_network_stack(void)
+{
+    hal_device_t *usb_dev = 0;
+
+    if (!driver_find_by_name("xhci")) {
+        for (uint32_t i = 0; i < g_device_count; i++) {
+            hal_device_t *d = &g_devices[i];
+
+            if (!is_possible_usb_controller(d))
+                continue;
+
+            usb_dev = d;
+            if (d->prog_if == 0x30) {
+                hal_console_printf("Trying USB 3 controller %02x:%02x.%x for networking...\n",
+                                   d->bus, d->dev, d->func);
+            } else {
+                hal_console_printf("Trying USB controller fallback %02x:%02x.%x (prog_if=%02x)...\n",
+                                   d->bus, d->dev, d->func, d->prog_if);
+            }
+
+            if (driver_load_builtin("xhci", d) == HAL_OK) {
+                klog(KLOG_INFO, "kernel: xHCI stack initialized");
+                break;
+            }
+        }
+    }
+
+    if (!usb_dev) {
+        for (uint32_t i = 0; i < g_device_count; i++) {
+            if (is_possible_usb_controller(&g_devices[i])) {
+                usb_dev = &g_devices[i];
+                break;
+            }
+        }
+    }
+
+    if (driver_find_by_name("xhci") && !driver_find_by_name("usb-net") && usb_dev) {
+        if (driver_load_builtin("usb-net", usb_dev) == HAL_OK) {
+            klog(KLOG_INFO, "kernel: USB network bundle loaded");
+        }
+    }
 }
 
 /* ── Filesystem / persistent services startup ── */
@@ -572,7 +617,7 @@ static void save_boot_diagnostics(void)
 
     buf[0] = '\0';
     str_copy(buf, "AlJefra OS boot diagnostics\n", sizeof(buf));
-    str_copy(buf + str_len(buf), "Version: 0.7.10\n", sizeof(buf) - str_len(buf));
+    str_copy(buf + str_len(buf), "Version: 0.7.11\n", sizeof(buf) - str_len(buf));
     str_copy(buf + str_len(buf), "Storage: ", sizeof(buf) - str_len(buf));
     str_copy(buf + str_len(buf), stor ? "ready\n" : "unavailable\n", sizeof(buf) - str_len(buf));
     str_copy(buf + str_len(buf), "Network driver: ", sizeof(buf) - str_len(buf));

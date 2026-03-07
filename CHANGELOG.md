@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.11] - 2026-03-07
+
+### Added
+
+- Broader USB controller fallback loading so AlJefra OS tries harder to bring
+  up a usable xHCI stack on real laptops before networking is declared offline.
+
+### Changed
+
+- The shell now reports USB controller candidates when xHCI is unavailable,
+  making USB networking failures much easier to diagnose from the live system.
+
 ## [0.7.10] - 2026-03-07
 
 ### Changed

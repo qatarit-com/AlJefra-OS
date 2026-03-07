@@ -519,7 +519,7 @@ static void cmd_info(void)
     hal_cpu_info_t cpu;
     hal_cpu_get_info(&cpu);
 
-    hal_console_puts("AlJefra OS v0.7.10\n");
+    hal_console_puts("AlJefra OS v0.7.11\n");
     hal_console_puts("Architecture: ");
     switch (hal_arch()) {
     case HAL_ARCH_X86_64:  hal_console_puts("x86-64\n");  break;
@@ -633,7 +633,7 @@ static void cmd_reboot(void)
 
 static void cmd_ver(void)
 {
-    hal_console_puts("AlJefra OS v0.7.10\n");
+    hal_console_puts("AlJefra OS v0.7.11\n");
     hal_console_puts("AI-native operating system project by Qatar IT\n");
 }
 
@@ -815,8 +815,21 @@ static void print_detected_usb_network_hardware(void)
     }
 
     if (!hc) {
-        if (!found)
+        if (!found) {
             hal_console_puts("USB NICs:     xHCI unavailable\n");
+            if (g_devices && g_device_count) {
+                for (uint32_t i = 0; i < g_device_count; i++) {
+                    hal_device_t *d = &g_devices[i];
+                    if (d->class_code == 0x0C && d->subclass == 0x03) {
+                        hal_console_printf("USB ctrl:     %02x:%02x.%x  %04x:%04x  prog_if %02x\n",
+                                           d->bus, d->dev, d->func,
+                                           d->vendor_id, d->device_id,
+                                           d->prog_if);
+                        found = 1;
+                    }
+                }
+            }
+        }
         return;
     }
 
