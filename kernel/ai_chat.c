@@ -16,6 +16,8 @@
 #include "ai_chat.h"
 #include "fs.h"
 #include "driver_loader.h"
+#include "dhcp.h"
+#include "ai_bootstrap.h"
 #include "../hal/hal.h"
 #include "../lib/string.h"
 
@@ -380,6 +382,9 @@ static const nlp_pattern_t g_patterns[] = {
     { "show network",     ACTION_NET_STATUS,  0, 0, 90, 0 },
     { "wifi status",      ACTION_NET_STATUS,  0, 0, 90, 0 },
     { "wifi",             ACTION_NET_STATUS,  0, 0, 70, 0 },
+    { "connect internet", ACTION_NET_CONNECT, 0, 0, 95, 0 },
+    { "fix network",      ACTION_NET_CONNECT, 0, 0, 90, 0 },
+    { "setup",            ACTION_NET_CONNECT, 0, 0, 75, 0 },
     { "connect",          ACTION_NET_CONNECT, 0, 0, 90, 0 },
     { "dhcp",             ACTION_NET_CONNECT, 0, 0, 90, 0 },
 
@@ -828,10 +833,12 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
     /* ------------------------------------------------------------------ */
     case ACTION_NET_STATUS: {
         const driver_ops_t *net = driver_get_network();
+        const dhcp_config_t *cfg = dhcp_get_config();
         if (!net) {
             safe_copy(output,
                 "Network: no network driver loaded.\n"
-                "No NIC detected or driver not yet initialized.", omax);
+                "No NIC detected or driver not yet initialized.\n"
+                "Try 'setup', 'net', or 'diagnostics' in the shell for guided help.", omax);
             return 0;
         }
 
@@ -858,7 +865,13 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
             safe_append(output, "\n", omax);
         }
 
-        safe_append(output, "  Status: link up (driver active)\n", omax);
+        safe_append(output, "  DHCP: ", omax);
+        safe_append(output, dhcp_last_status_message(), omax);
+        safe_append(output, "\n", omax);
+        if (cfg && cfg->ip)
+            safe_append(output, "  Status: internet connected\n", omax);
+        else
+            safe_append(output, "  Status: driver active, waiting for internet\n", omax);
         return 0;
     }
 
@@ -866,15 +879,21 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
     case ACTION_NET_CONNECT: {
         const driver_ops_t *net = driver_get_network();
         if (!net) {
-            safe_copy(output, "Error: no network driver available.", omax);
+            safe_copy(output,
+                "No network driver is active yet.\n"
+                "Use 'setup' for guided help, 'wifi' to save Intel Wi-Fi credentials,\n"
+                "or 'net' to inspect USB Ethernet and DHCP state.", omax);
             return -1;
         }
 
-        safe_copy(output, "Network connection initiated via driver '", omax);
+        safe_copy(output, "Network connection path selected via driver '", omax);
         safe_append(output, net->name ? net->name : "unknown", omax);
         safe_append(output,
-            "'.\nDHCP/IP configuration is handled by the AI bootstrap module.",
+            "'.\nDHCP/IP configuration is handled by the kernel networking module.\n"
+            "If it still does not connect, run 'diagnostics' and check boot-diagnostics.txt.\n"
+            "Current AI sync state: ",
             omax);
+        safe_append(output, ai_bootstrap_status_message(), omax);
         return 0;
     }
 
@@ -883,7 +902,7 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
         hal_cpu_info_t cpu;
         hal_cpu_get_info(&cpu);
 
-        safe_copy(output, "AlJefra OS v1.0\n", omax);
+        safe_copy(output, "AlJefra OS v0.7.11\n", omax);
         safe_append(output, "Architecture: ", omax);
 
         switch (hal_arch()) {
@@ -981,7 +1000,7 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
     /* ------------------------------------------------------------------ */
     case ACTION_SYS_UPDATE: {
         safe_copy(output, "Checking for updates...\n", omax);
-        safe_append(output, "AlJefra OS v1.0 is the current version.\n", omax);
+        safe_append(output, "AlJefra OS v0.7.11 is the current version.\n", omax);
 
         const driver_ops_t *net = driver_get_network();
         if (net) {
@@ -1214,8 +1233,10 @@ int ai_execute_action(const ai_action_t *action, char *output, int output_size)
             "  delete <name>            - Delete a file (needs confirmation)\n"
             "\n"
             "Network:\n"
-            "  network status           - Show NIC and connection info\n"
-            "  connect                  - Initiate network connection\n"
+            "  network status           - Show NIC, DHCP, and connection info\n"
+            "  connect                  - Explain the network path and next step\n"
+            "  setup                    - Guided first-boot setup in the shell\n"
+            "  diagnostics              - Read the saved boot report\n"
             "\n"
             "System:\n"
             "  system info              - CPU, RAM, architecture details\n"
@@ -1287,7 +1308,7 @@ int ai_get_context(char *buf, int size)
     safe_copy(buf,
         "You are the AlJefra OS AI assistant, embedded in a bare-metal "
         "operating system.\n"
-        "AlJefra OS v1.0 is a universal boot OS that runs on x86-64, "
+        "AlJefra OS v0.7.11 is a universal boot OS that runs on x86-64, "
         "ARM64, and RISC-V.\n\n",
         smax);
 
@@ -1332,7 +1353,15 @@ int ai_get_context(char *buf, int size)
     /* Network status */
     const driver_ops_t *net = driver_get_network();
     safe_append(buf, "Network: ", smax);
-    safe_append(buf, net ? "connected\n" : "offline\n", smax);
+    if (net && dhcp_get_config() && dhcp_get_config()->ip)
+        safe_append(buf, "connected\n", smax);
+    else if (net)
+        safe_append(buf, "driver active, waiting for DHCP\n", smax);
+    else
+        safe_append(buf, "offline\n", smax);
+    safe_append(buf, "DHCP detail: ", smax);
+    safe_append(buf, dhcp_last_status_message(), smax);
+    safe_append(buf, "\n", smax);
 
     /* Session stats */
     safe_append(buf, "Session commands executed: ", smax);

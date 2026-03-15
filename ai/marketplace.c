@@ -12,6 +12,8 @@
 #include "marketplace.h"
 #include "../hal/hal.h"
 #include "../net/tcp.h"
+#include "../net/dhcp.h"
+#include "../net/dns.h"
 #include "../lib/string.h"
 
 #ifdef MARKETPLACE_USE_TLS
@@ -318,8 +320,18 @@ hal_status_t marketplace_connect(void)
         server_ip = 0x0A000202; /* 10.0.2.2 */
     }
 #else
-    /* TODO: DNS resolve api.aljefra.com */
-    server_ip = 0x0A000202; /* placeholder */
+    const dhcp_lease_t *lease = dhcp_get_lease();
+    uint32_t dns_server = lease->dns_server;
+    if (dns_server == 0) {
+        /* Fallback to Google DNS if DHCP didn't provide one */
+        dns_server = 0x08080808; /* 8.8.8.8 */
+    }
+    hal_console_printf("[marketplace] Resolving %s...\n", MARKETPLACE_HOST);
+    hal_status_t r = dns_resolve(MARKETPLACE_HOST, dns_server, &server_ip);
+    if (r != HAL_OK) {
+        hal_console_puts("[marketplace] DNS resolution failed\n");
+        return r;
+    }
 #endif
 
     hal_console_printf("[marketplace] Connecting to %u.%u.%u.%u:%u...\n",
@@ -630,6 +642,33 @@ static int json_find_string(const char *json, uint32_t json_len,
     return 0;
 }
 
+static int json_find_uint(const char *json, uint32_t json_len, const char *key, uint32_t *out)
+{
+    uint32_t key_len = str_len(key);
+    for (uint32_t i = 0; i + key_len + 4 < json_len; i++) {
+        if (json[i] != '"') continue;
+        int match = 1;
+        for (uint32_t k = 0; k < key_len; k++) {
+            if (json[i + 1 + k] != key[k]) { match = 0; break; }
+        }
+        if (!match || json[i + 1 + key_len] != '"') continue;
+        uint32_t j = i + 1 + key_len + 1;
+        while (j < json_len && (json[j] == ':' || json[j] == ' ')) j++;
+        uint32_t val = 0;
+        int found = 0;
+        while (j < json_len && json[j] >= '0' && json[j] <= '9') {
+            val = val * 10 + (uint32_t)(json[j] - '0');
+            j++;
+            found = 1;
+        }
+        if (found) {
+            *out = val;
+            return 0;
+        }
+    }
+    return -1;
+}
+
 /* Find a JSON boolean: "key":true/false → returns 1/0, -1 if not found */
 static int json_find_bool(const char *json, uint32_t json_len, const char *key)
 {
@@ -746,6 +785,121 @@ hal_status_t marketplace_check_updates(const char *os_version,
     json_find_string(body, body_len, "download_url", update_url, url_max);
 
     hal_console_printf("[marketplace] Update available: v%s at %s\n", version, update_url);
+    return HAL_OK;
+}
+
+hal_status_t marketplace_sync_system(const hardware_manifest_t *manifest,
+                                      const char *os_version,
+                                      const char *desired_apps_csv,
+                                      char *out_summary,
+                                      uint32_t out_summary_max)
+{
+    if (!g_connected || !manifest || !os_version || !out_summary || out_summary_max == 0)
+        return HAL_ERROR;
+
+    char manifest_json[4096];
+    int manifest_len = build_json_manifest(manifest, manifest_json, sizeof(manifest_json));
+
+    char body[6144];
+    char *p = body;
+    char *end = body + sizeof(body) - 1;
+    #define APPENDC(s) do { const char *_s = (s); while (*_s && p < end) *p++ = *_s++; } while (0)
+
+    APPENDC("{\"os_version\":\"");
+    APPENDC(os_version);
+    APPENDC("\",\"desired_apps\":[");
+    if (desired_apps_csv && desired_apps_csv[0]) {
+        const char *cur = desired_apps_csv;
+        int first = 1;
+        while (*cur && p < end) {
+            while (*cur == ' ' || *cur == ',')
+                cur++;
+            if (!*cur)
+                break;
+            if (!first) APPENDC(",");
+            *p++ = '"';
+            while (*cur && *cur != ',' && p < end) {
+                if (*cur != ' ')
+                    *p++ = *cur;
+                cur++;
+            }
+            *p++ = '"';
+            first = 0;
+        }
+    }
+    APPENDC("],\"manifest\":");
+    for (int i = 0; i < manifest_len && p < end; i++)
+        *p++ = manifest_json[i];
+    APPENDC("}");
+    *p = '\0';
+    #undef APPENDC
+
+    char host_str[64];
+    build_host_str(g_tcp_conn.remote_ip, host_str);
+
+    char request[8192];
+    int req_len = build_http_request("POST", API_SYSTEM_SYNC, host_str,
+                                      body, (int)str_len(body), request, sizeof(request));
+
+    mkt_conn_t conn;
+    hal_status_t rc = mkt_connect(&conn, g_tcp_conn.remote_ip, MARKETPLACE_PORT);
+    if (rc != HAL_OK)
+        return rc;
+
+    int32_t sent = mkt_send(&conn, request, (uint32_t)req_len);
+    if (sent < 0) {
+        mkt_close(&conn);
+        return HAL_ERROR;
+    }
+
+    char response[8192];
+    int32_t resp_len = mkt_recv(&conn, response, sizeof(response) - 1, 10000);
+    mkt_close(&conn);
+    if (resp_len <= 0)
+        return HAL_TIMEOUT;
+    response[resp_len] = '\0';
+
+    int status = parse_http_status(response, (uint32_t)resp_len);
+    if (status != 200 && status != 201)
+        return HAL_ERROR;
+
+    const char *resp_body = find_http_body(response, (uint32_t)resp_len);
+    if (!resp_body)
+        return HAL_ERROR;
+
+    uint32_t body_len = (uint32_t)(resp_len - (resp_body - response));
+    char system_id[64];
+    uint32_t ready = 0, missing = 0, appq = 0;
+    json_find_string(resp_body, body_len, "system_id", system_id, sizeof(system_id));
+    json_find_uint(resp_body, body_len, "ready_driver_count", &ready);
+    json_find_uint(resp_body, body_len, "missing_driver_count", &missing);
+    json_find_uint(resp_body, body_len, "app_request_count", &appq);
+
+    char ready_s[16], missing_s[16], appq_s[16];
+    int_to_str((int)ready, ready_s);
+    int_to_str((int)missing, missing_s);
+    int_to_str((int)appq, appq_s);
+
+    out_summary[0] = '\0';
+    str_copy(out_summary, "system=", out_summary_max);
+    if (str_len(out_summary) + str_len(system_id) + 32 < out_summary_max) {
+        char *q = out_summary + str_len(out_summary);
+        str_copy(q, system_id, out_summary_max - (uint32_t)(q - out_summary));
+        q = out_summary + str_len(out_summary);
+        str_copy(q, " ready=", out_summary_max - (uint32_t)(q - out_summary));
+        q = out_summary + str_len(out_summary);
+        str_copy(q, ready_s, out_summary_max - (uint32_t)(q - out_summary));
+        q = out_summary + str_len(out_summary);
+        str_copy(q, " missing=", out_summary_max - (uint32_t)(q - out_summary));
+        q = out_summary + str_len(out_summary);
+        str_copy(q, missing_s, out_summary_max - (uint32_t)(q - out_summary));
+        q = out_summary + str_len(out_summary);
+        str_copy(q, " app_queue=", out_summary_max - (uint32_t)(q - out_summary));
+        q = out_summary + str_len(out_summary);
+        str_copy(q, appq_s, out_summary_max - (uint32_t)(q - out_summary));
+    }
+
+    hal_console_printf("[marketplace] System sync: %s\n", out_summary);
     return HAL_OK;
 }
 

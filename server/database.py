@@ -103,6 +103,33 @@ class MarketplaceDB:
                 created_at  REAL    NOT NULL DEFAULT (strftime('%s','now'))
             );
 
+            CREATE TABLE IF NOT EXISTS systems (
+                id                 INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_key         TEXT    NOT NULL UNIQUE,
+                arch               TEXT    NOT NULL DEFAULT 'x86_64',
+                cpu_vendor         TEXT    NOT NULL DEFAULT '',
+                cpu_model          TEXT    NOT NULL DEFAULT '',
+                ram_mb             INTEGER NOT NULL DEFAULT 0,
+                os_version         TEXT    NOT NULL DEFAULT '0.0.0',
+                manifest_json      TEXT    NOT NULL DEFAULT '{}',
+                desired_apps_json  TEXT    NOT NULL DEFAULT '[]',
+                desired_drivers_json TEXT  NOT NULL DEFAULT '[]',
+                last_seen          REAL    NOT NULL DEFAULT (strftime('%s','now')),
+                created_at         REAL    NOT NULL DEFAULT (strftime('%s','now'))
+            );
+
+            CREATE TABLE IF NOT EXISTS sync_requests (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                system_key    TEXT    NOT NULL,
+                request_type  TEXT    NOT NULL,
+                target_key    TEXT    NOT NULL,
+                status        TEXT    NOT NULL DEFAULT 'pending',
+                details_json  TEXT    NOT NULL DEFAULT '{}',
+                created_at    REAL    NOT NULL DEFAULT (strftime('%s','now')),
+                updated_at    REAL    NOT NULL DEFAULT (strftime('%s','now')),
+                UNIQUE(system_key, request_type, target_key)
+            );
+
             CREATE INDEX IF NOT EXISTS idx_drivers_vendor_device
                 ON drivers(vendor_id, device_id);
             CREATE INDEX IF NOT EXISTS idx_evolutions_driver
@@ -111,6 +138,10 @@ class MarketplaceDB:
                 ON reviews(driver_name);
             CREATE INDEX IF NOT EXISTS idx_metrics_driver
                 ON metrics(driver_name);
+            CREATE INDEX IF NOT EXISTS idx_systems_key
+                ON systems(system_key);
+            CREATE INDEX IF NOT EXISTS idx_sync_requests_system
+                ON sync_requests(system_key);
         """)
         self.conn.commit()
 
@@ -342,6 +373,67 @@ class MarketplaceDB:
         ))
         self.conn.commit()
         return cur.lastrowid
+
+    # ── Machine sync / demand queue ──
+
+    def upsert_system(self, system_key: str, manifest: Dict[str, Any],
+                      os_version: str, desired_apps: List[str],
+                      desired_drivers: Optional[List[str]] = None) -> int:
+        desired_drivers = desired_drivers or []
+        cur = self.conn.execute("""
+            INSERT INTO systems (system_key, arch, cpu_vendor, cpu_model, ram_mb,
+                                 os_version, manifest_json, desired_apps_json,
+                                 desired_drivers_json, last_seen)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, strftime('%s','now'))
+            ON CONFLICT(system_key) DO UPDATE SET
+                arch = excluded.arch,
+                cpu_vendor = excluded.cpu_vendor,
+                cpu_model = excluded.cpu_model,
+                ram_mb = excluded.ram_mb,
+                os_version = excluded.os_version,
+                manifest_json = excluded.manifest_json,
+                desired_apps_json = excluded.desired_apps_json,
+                desired_drivers_json = excluded.desired_drivers_json,
+                last_seen = strftime('%s','now')
+        """, (
+            system_key,
+            manifest.get("arch", "x86_64"),
+            manifest.get("cpu_vendor", ""),
+            manifest.get("cpu_model", ""),
+            int(manifest.get("ram_mb", 0)),
+            os_version,
+            json.dumps(manifest),
+            json.dumps(desired_apps),
+            json.dumps(desired_drivers),
+        ))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def queue_sync_request(self, system_key: str, request_type: str,
+                           target_key: str, details: Dict[str, Any]) -> int:
+        cur = self.conn.execute("""
+            INSERT INTO sync_requests (system_key, request_type, target_key, status, details_json, updated_at)
+            VALUES (?, ?, ?, 'pending', ?, strftime('%s','now'))
+            ON CONFLICT(system_key, request_type, target_key) DO UPDATE SET
+                details_json = excluded.details_json,
+                updated_at = strftime('%s','now')
+        """, (system_key, request_type, target_key, json.dumps(details)))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def count_sync_requests(self, system_key: str,
+                            request_type: Optional[str] = None) -> int:
+        if request_type:
+            row = self.conn.execute("""
+                SELECT COUNT(*) as cnt FROM sync_requests
+                WHERE system_key = ? AND request_type = ?
+            """, (system_key, request_type)).fetchone()
+        else:
+            row = self.conn.execute("""
+                SELECT COUNT(*) as cnt FROM sync_requests
+                WHERE system_key = ?
+            """, (system_key,)).fetchone()
+        return int(row["cnt"]) if row else 0
 
     # ── Migration: import existing catalog.json ──
 

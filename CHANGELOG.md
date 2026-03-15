@@ -7,6 +7,168 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [0.7.11] - 2026-03-07
+
+### Added
+
+- Broader USB controller fallback loading so AlJefra OS tries harder to bring
+  up a usable xHCI stack on real laptops before networking is declared offline.
+
+### Changed
+
+- The shell now reports USB controller candidates when xHCI is unavailable,
+  making USB networking failures much easier to diagnose from the live system.
+
+## [0.7.10] - 2026-03-07
+
+### Changed
+
+- AX88179A USB Ethernet adapters now get a real vendor-control bring-up
+  sequence instead of being treated like generic bulk-only devices.
+
+### Fixed
+
+- Added the missing ASIX MAC, clock, PHY reset, RX/TX checksum, medium-mode,
+  and RX-control initialization needed for AX88179A-class adapters to come up
+  cleanly after xHCI enumeration.
+
+## [0.7.9] - 2026-03-07
+
+### Fixed
+
+- Restored full framebuffer text height and fixed the prompt/status interaction
+  so the `aljefra ai>` line stays visible while typing.
+- Stopped USB NIC status from reporting bogus `0000:0000` xHCI slots by forcing
+  real descriptor reads before matching or printing candidate adapters.
+
+## [0.7.8] - 2026-03-07
+
+### Added
+
+- Guided first-boot setup via `setup`, interactive `wifi` assistance, and a
+  saved `boot-diagnostics.txt` report for easier troubleshooting.
+- Prompt status lines and color-separated chat output so users can distinguish
+  system state, prompts, and assistant replies at a glance.
+
+### Changed
+
+- The shell now exposes DHCP state, USB NIC details, and setup-oriented help
+  directly in `status`, `net`, `diagnostics`, and AI replies.
+- Network startup now remembers the last successful interface and gives USB
+  Ethernet another late rescan before DHCP.
+
+### Fixed
+
+- Reserved visible space at the bottom of the framebuffer console so the input
+  line no longer falls onto an unreadable edge row.
+- DHCP now reports clearer failure reasons instead of leaving users with a
+  generic offline state.
+
+## [0.7.7] - 2026-03-07
+
+### Changed
+
+- The offline assistant now responds like a helper instead of a dead backend,
+  giving practical next steps when the tiny local AI server is unavailable.
+- Boot-time persistence now batches filesystem syncing to reduce the extra
+  delay introduced by hardware-profile and sync-status writes.
+
+### Fixed
+
+- Replaced blunt local-AI bridge error text with human-friendly offline helper
+  responses that explain what is blocked and what to try next.
+
+## [0.7.6] - 2026-03-07
+
+### Added
+
+- A local-first AI bridge that targets an Ollama-compatible tiny model server
+  and defaults to `qwen2.5:0.5b` for laptop-friendly assistance.
+- `ai.conf.example` documenting the local assistant endpoint and model
+  override format.
+
+### Changed
+
+- The text terminal is now AI-first: plain-language requests are routed
+  through the chat engine before falling back to direct command usage.
+- Machine registration now runs for any connected system, even if all current
+  hardware already has built-in drivers.
+
+### Fixed
+
+- Registration and sync state are now persisted in plain files so users can
+  inspect hardware profile and marketplace status without manual debugging.
+
+## [0.7.5] - 2026-03-07
+
+### Changed
+
+- `clear` now performs a true console reset on the visible framebuffer/VGA
+  console instead of scrolling the shell off the bottom of the screen.
+- The shell network status path now reports detected NIC hardware when no
+  driver or DHCP lease is active, making unsupported laptops diagnosable from
+  the booted OS.
+
+### Fixed
+
+- Broadened x86 network bring-up so Intel network-class controllers are
+  attempted during boot instead of relying only on a narrow hardcoded subset.
+- Eliminated the stale-release mismatch where the website was still serving an
+  older ISO than the code on `main`.
+
+## [0.7.4] - 2026-03-07
+
+### Added
+
+- Automatic Wi-Fi activation from `wifi.conf` on BMFS for Intel AX200/AX210
+  systems, using `ssid=` and `passphrase=` entries when present.
+
+### Changed
+
+- Network bring-up now tries the loaded interfaces instead of getting stuck on
+  the first registered network driver.
+- USB Ethernet adapters loaded through xHCI can now become the active boot
+  network path during DHCP if they are the working link.
+
+### Fixed
+
+- Corrected the Intel Wi-Fi built-in driver name mismatch that prevented the
+  kernel from loading supported Intel wireless hardware at boot.
+- Added Intel AX210 alternate PCI ID `8086:4DF0` to the built-in auto-load
+  path.
+
+## [0.7.3] - 2026-03-07
+
+### Changed
+
+- Simplified the GRUB boot path for real hardware by removing broad video
+  backend probing on startup, preferring the minimum UEFI GOP setup needed for
+  laptop boot.
+- Reduced the default bootloader wait to a hidden 1-second timeout so release
+  media hands off to the kernel faster on real machines.
+
+### Fixed
+
+- Mitigated long pre-kernel boot stalls seen on some ASUS UEFI laptops before
+  AlJefra OS started.
+
+## [0.7.2] - 2026-03-07
+
+### Added
+
+- Boot-time initialization for persistent platform services after storage
+  drivers load, including BMFS filesystem mounting and kernel log startup in
+  the main kernel path.
+- A substantially more capable interactive shell with `status`, `ls`, `cat`,
+  `touch`, `write`, `rm`, `df`, `log`, and `sync` commands.
+
+### Changed
+
+- Improved the x86-64 console workflow so the OS can inspect, create, modify,
+  delete, and flush BMFS files without relying on the GUI or AI chat path.
+- Added shell-to-kernel-log reporting for file operations and reboot requests
+  to make persistent diagnostics more useful across boots.
+
 ## [1.0.0] - 2026-02-27
 
 ### Added
@@ -25,7 +187,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   transfer encoding.
 - **AI-Native Chat Interface:** Claude API integration with interactive REPL,
   SAX-style JSON parser, and HTTP client for AI communication.
-- **Driver Marketplace:** Flask REST API (9 endpoints) with .ajdrv package
+- **Driver Marketplace:** Flask REST API (10 endpoints) with .ajdrv package
   format, runtime driver loading, Ed25519 signature verification (full RFC 8032
   implementation, 1,550 lines), OTA update system with CRC32 verification.
 - **Self-Evolving Kernel:** 11 evolution generations with 200+ optimizations

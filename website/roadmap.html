@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AlJefra OS v1.0 Roadmap - The first Qatari operating system. AI chat, desktop GUI, driver marketplace, secure boot, 3-architecture support.">
+    <meta name="description" content="AlJefra OS v0.7.5 Roadmap - The first Qatari operating system. AI chat, desktop GUI, driver marketplace, secure boot, 3-architecture support.">
     <title>Roadmap - AlJefra OS</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -11,7 +11,7 @@
     <nav>
         <div class="nav-inner">
             <div class="logo">AlJefra OS</div>
-            <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active');this.classList.toggle('active')"><span></span><span></span><span></span></button>
+            <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
             <ul class="nav-links">
                 <li><a href="index.html">Home</a></li>
                 <li><a href="docs.html">Docs</a></li>
@@ -24,17 +24,17 @@
         </div>
     </nav>
 
-    <div class="page-header">
-        <h1>v1.0 Production Roadmap</h1>
-        <p>Everything shipped in one release. No half measures.</p>
-    </div>
+    <section class="page-header">
+        <h1>v0.7.5 Production Roadmap</h1>
+        <p>Everything shipped in one release. No half measures</p>
+    </section>
 
     <!-- Status Overview (auto-generated from ROADMAP.md) -->
     <section class="section">
         <h2>Launch Status</h2>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin: 1.5rem 0;">
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
-                <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">87,603</div>
+                <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">89,911</div>
                 <div style="color: var(--text-secondary); font-size: 0.85rem;">Lines of Code</div>
             </div>
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
@@ -47,7 +47,7 @@
             </div>
             <div style="background: var(--bg-secondary); border: 1px solid var(--accent-green); border-radius: 8px; padding: 1.25rem; text-align: center;">
                 <div style="font-family: var(--font-mono); font-size: 2rem; color: var(--accent-green);">100%</div>
-                <div style="color: var(--text-secondary); font-size: 0.85rem;">v1.0 Complete</div>
+                <div style="color: var(--text-secondary); font-size: 0.85rem;">v0.7.5 Complete</div>
             </div>
         </div>
     </section>
@@ -79,6 +79,9 @@
                 <tr><td>HTTP/1.1 client</td><td>chunked + content-length</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>DNS resolver</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>DHCP</td><td>kernel bootstrap path</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Active network-driver selection during boot DHCP</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>USB Ethernet auto-load via xHCI</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Intel AX200/AX210 Wi-Fi activation from `wifi.conf`</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
     </section>
@@ -100,9 +103,12 @@
         <table>
             <thead><tr><th>Feature</th><th>Details</th><th>Status</th></tr></thead>
             <tbody>
-                <tr><td>Flask REST API</td><td>9 endpoints</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Flask REST API</td><td>10 endpoints</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>.ajdrv package format with metadata + binary + signature</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Runtime driver loading framework</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Per-machine system registration and sync queue</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Queue unmet hardware as `driver_build` requests</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Queue desired software as `app_prepare` requests</td><td></td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
     </section>
@@ -133,6 +139,7 @@
                 <tr><td>Real .ajdrv packages for top 5 drivers</td><td>e1000, virtio_blk, virtio_net, nvme, ahci (10 packages, 3 architectures)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>OTA update: download &rarr; stage &rarr; verify &rarr; apply</td><td>ota.h/ota.c, 665 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Marketplace SQLite persistence</td><td>server/database.py (drivers, evolutions, reviews, metrics)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>Marketplace machine persistence</td><td>systems + sync_requests tables</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Fix 8KB driver download buffer</td><td>TCP RX 64KB + streaming chunked download (up to 1MB)</td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
@@ -200,7 +207,7 @@
                 <tr><td>Plugin SDK documentation</td><td>doc/plugin-sdk.md, 541 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Hardware compatibility database</td><td>doc/hardware-compatibility.md, 169 lines</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Release process</td><td>doc/release-process.md, 179 lines</td><td style="color: var(--accent-green);">Done</td></tr>
-                <tr><td>CHANGELOG.md (60 lines</td><td>v1.0.0 initial release)</td><td style="color: var(--accent-green);">Done</td></tr>
+                <tr><td>CHANGELOG.md (210 lines</td><td>v1.0.0 initial release)</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>CODE_OF_CONDUCT.md (137 lines</td><td>Contributor Covenant)</td><td style="color: var(--accent-green);">Done</td></tr>
             </tbody>
         </table>
@@ -217,14 +224,14 @@
     </section>
 
     <section class="section">
-        <h2>v1.0 Metrics</h2>
+        <h2>v0.7.5 Metrics</h2>
         <table>
             <thead><tr><th>Metric</th><th>Target</th><th>Status</th></tr></thead>
             <tbody>
                 <tr><td>Boot to AI chat</td><td>&lt; 10 seconds</td><td style="color: var(--accent-green);">Achieved</td></tr>
                 <tr><td>Marketplace drivers</td><td>50+</td><td style="color: var(--text-secondary);">In Progress</td></tr>
                 <tr><td>Tested hardware</td><td>100+ devices</td><td style="color: var(--text-secondary);">In Progress</td></tr>
-                <tr><td>Total codebase</td><td>~87,603 lines</td><td style="color: var(--accent-green);">87,603 lines</td></tr>
+                <tr><td>Total codebase</td><td>~89,911 lines</td><td style="color: var(--accent-green);">89,911 lines</td></tr>
                 <tr><td>Architectures</td><td>3 (x86-64, ARM64, RISC-V)</td><td style="color: var(--accent-green);">All 3 boot</td></tr>
                 <tr><td>AI Chat (English + Arabic)</td><td>69+ command patterns</td><td style="color: var(--accent-green);">Done</td></tr>
                 <tr><td>Desktop GUI</td><td>Framebuffer-based</td><td style="color: var(--accent-green);">Done</td></tr>
@@ -236,7 +243,7 @@
     </section>
 
     <footer>
-        <p>&copy; 2026 AlJefra OS v1.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p>&copy; 2026 AlJefra OS v0.7.5 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
         <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> &mdash; <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>

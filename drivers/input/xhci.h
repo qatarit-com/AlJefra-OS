@@ -159,7 +159,20 @@ typedef struct __attribute__((packed)) {
 #define USB_DESC_HID_REPORT   0x22
 
 /* ── USB Device Class Codes ── */
+#define USB_CLASS_PER_IFACE   0x00    /* Class defined per-interface */
+#define USB_CLASS_CDC         0x02    /* Communications Device Class */
 #define USB_CLASS_HID         0x03
+#define USB_CLASS_CDC_DATA    0x0A    /* CDC Data Interface */
+#define USB_CLASS_VENDOR      0xFF    /* Vendor-specific */
+
+/* CDC subclasses */
+#define USB_CDC_SUBCLASS_ECM  0x06    /* Ethernet Control Model */
+#define USB_CDC_SUBCLASS_NCM  0x0D    /* Network Control Model */
+
+/* CDC functional descriptor subtypes */
+#define USB_CDC_HEADER_TYPE   0x00
+#define USB_CDC_UNION_TYPE    0x06
+#define USB_CDC_ETHER_TYPE    0x0F    /* Ethernet Networking */
 
 /* ── USB Standard Requests ── */
 #define USB_REQ_GET_STATUS     0x00
@@ -250,6 +263,19 @@ typedef struct {
     uint8_t            int_cycle;
     uint8_t            int_ep_num;    /* Endpoint number (1-15) */
     uint8_t            int_ep_dci;    /* Device Context Index */
+    /* Transfer rings for bulk endpoints (network/storage) */
+    xhci_trb_t       *bulk_in_ring;
+    uint64_t           bulk_in_ring_phys;
+    uint16_t           bulk_in_enqueue;
+    uint8_t            bulk_in_cycle;
+    uint8_t            bulk_in_ep_num;
+    uint8_t            bulk_in_dci;
+    xhci_trb_t       *bulk_out_ring;
+    uint64_t           bulk_out_ring_phys;
+    uint16_t           bulk_out_enqueue;
+    uint8_t            bulk_out_cycle;
+    uint8_t            bulk_out_ep_num;
+    uint8_t            bulk_out_dci;
 } xhci_slot_t;
 
 /* ── xHCI Controller state ── */
@@ -330,5 +356,29 @@ hal_status_t xhci_configure_interrupt_ep(xhci_controller_t *hc, uint8_t slot_id,
  * Returns HAL_OK if data available, HAL_NO_DEVICE if none. */
 hal_status_t xhci_poll_interrupt(xhci_controller_t *hc, uint8_t slot_id,
                                   void *buf, uint16_t *length);
+
+/* Configure bulk IN and OUT endpoints for a device (network/storage) */
+hal_status_t xhci_configure_bulk_eps(xhci_controller_t *hc, uint8_t slot_id,
+                                      uint8_t in_ep_num, uint16_t in_max_pkt,
+                                      uint8_t out_ep_num, uint16_t out_max_pkt);
+
+/* Bulk OUT transfer (host → device). Returns HAL_OK on success. */
+hal_status_t xhci_bulk_send(xhci_controller_t *hc, uint8_t slot_id,
+                             const void *data, uint16_t length);
+
+/* Bulk IN transfer (device → host). Returns HAL_OK if data available.
+ * *length is set to actual received bytes. */
+hal_status_t xhci_bulk_recv(xhci_controller_t *hc, uint8_t slot_id,
+                             void *buf, uint16_t buf_len, uint16_t *length);
+
+/* Get xHCI controller handle (for USB network driver) */
+xhci_controller_t *xhci_get_controller(void);
+
+/* Enumerate connected ports and assign slots to newly seen USB devices. */
+hal_status_t xhci_enumerate_ports(xhci_controller_t *hc);
+
+/* Enumerate and identify all USB devices (called after xhci_enumerate_ports).
+ * Returns a bitmask of found device classes per slot. */
+void xhci_identify_devices(xhci_controller_t *hc);
 
 #endif /* ALJEFRA_DRV_XHCI_H */

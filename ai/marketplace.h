@@ -19,14 +19,14 @@
 #include "../kernel/ai_bootstrap.h"
 
 /* Use local server by default (gateway IP, plain HTTP) */
-#define MARKETPLACE_USE_LOCAL  1
+#define MARKETPLACE_USE_LOCAL  0
 
 #if MARKETPLACE_USE_LOCAL
 #define MARKETPLACE_PORT   8081
 #else
-#define MARKETPLACE_HOST   "api.aljefra.com"
-#define MARKETPLACE_PORT   443
-#define MARKETPLACE_USE_TLS  1
+#define MARKETPLACE_HOST   "os.aljefra.com"
+#define MARKETPLACE_PORT   80
+/* TLS disabled for now due to libc dependencies */
 #endif
 
 /* API paths */
@@ -34,6 +34,7 @@
 #define API_MANIFEST       "/v1/manifest"
 #define API_DRIVER         "/v1/drivers"
 #define API_UPDATES        "/v1/updates"
+#define API_SYSTEM_SYNC    "/v1/system/sync"
 
 /* Driver recommendation from marketplace */
 typedef struct {
@@ -57,6 +58,16 @@ void marketplace_disconnect(void);
 
 /* Send hardware manifest, receive driver recommendations. */
 hal_status_t marketplace_send_manifest(const hardware_manifest_t *manifest);
+
+/* Register a booted machine, persist its hardware profile on the marketplace,
+ * and request a machine-specific sync/build plan. The optional desired_apps_csv
+ * is a comma-separated list from local policy/config. The response summary is
+ * copied into out_summary as a human-readable one-line report. */
+hal_status_t marketplace_sync_system(const hardware_manifest_t *manifest,
+                                      const char *os_version,
+                                      const char *desired_apps_csv,
+                                      char *out_summary,
+                                      uint32_t out_summary_max);
 
 /* Download a specific driver package.
  * Allocates memory for the data; caller must free via hal_dma_free. */

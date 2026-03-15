@@ -4,7 +4,7 @@
 
 AlJefra OS is a **self-evolving exokernel** that boots on any device -- desktops, laptops, tablets, single-board computers, and servers -- across x86-64, ARM64, and RISC-V 64 architectures. The core insight is simple: we only need enough built-in drivers to establish network connectivity, then an AI agent handles everything else by downloading and installing drivers from the AlJefra Driver Marketplace.
 
-This document describes the architecture of AlJefra OS v1.0, covering the layer model, design principles, directory structure, supported platforms, boot sequence, driver model, and AI bootstrap flow.
+This document describes the architecture of AlJefra OS v0.7.5, covering the layer model, design principles, directory structure, supported platforms, boot sequence, driver model, and AI bootstrap flow.
 
 ---
 
@@ -81,9 +81,10 @@ Drivers can be loaded and unloaded at runtime without rebooting. The driver mode
 Instead of requiring the user to know their hardware and manually install drivers, AlJefra OS uses an AI agent to:
 
 1. Scan all buses (PCI, USB, platform) and build a hardware manifest.
-2. Connect to the AlJefra Driver Marketplace over the network.
-3. Send the manifest and receive a list of matching drivers.
-4. Download, verify, load, and configure each driver automatically.
+2. Connect to the AlJefra Driver Marketplace over the first working network path.
+3. Register the machine and queue missing drivers/apps.
+4. Send the manifest and receive a list of matching drivers.
+5. Download, verify, load, and configure each driver automatically.
 
 The user experience is: plug in, power on, wait, done.
 
@@ -247,7 +248,7 @@ The boot process differs per architecture at the firmware and early assembly lev
          |
          v
 +------------------+
-| AI Bootstrap     |   Build manifest -> connect store -> download drivers
+| AI Bootstrap     |   Build manifest -> sync machine -> connect store -> download drivers
 +--------+---------+
          |
          v
@@ -374,4 +375,4 @@ If the network is unavailable, the system continues with built-in drivers only a
 
 ---
 
-*AlJefra OS v1.0 -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*
+*AlJefra OS v0.7.5 -- Built in Qatar by [Qatar IT](https://www.qatarit.com)*

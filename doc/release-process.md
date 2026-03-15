@@ -48,7 +48,7 @@ dev  -->  release/1.1  -->  main  (tag: v1.1.0)
 ### Hotfix Flow
 
 ```
-main  -->  hotfix/1.0.1  -->  main  (tag: v1.0.1)
+main  -->  hotfix/0.7.2  -->  main  (tag: v0.7.2)
                           -->  dev   (cherry-pick)
 ```
 

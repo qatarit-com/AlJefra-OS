@@ -89,10 +89,10 @@ typedef struct __attribute__((packed)) {
 #define TCP_FRAME_HDR (ETH_HDR_LEN + IP_HDR_LEN + TCP_HDR_LEN)
 
 /* ── Module state ── */
-static uint32_t g_local_ip;
-static uint32_t g_gateway;
-static uint32_t g_netmask;
-static uint8_t  g_local_mac[6];
+uint32_t g_local_ip;
+uint32_t g_gateway;
+uint32_t g_netmask;
+uint8_t  g_local_mac[6];
 static uint16_t g_ip_id = 1;
 
 /* TCP pseudo-header checksum */
@@ -259,7 +259,7 @@ static int32_t recv_tcp_frame(tcp_conn_t *conn, uint8_t *out_flags,
 }
 
 /* ── ARP resolve ── */
-static hal_status_t arp_resolve(uint32_t target_ip, uint8_t *target_mac)
+hal_status_t arp_resolve(uint32_t target_ip, uint8_t *target_mac)
 {
     const driver_ops_t *net = driver_get_network();
     if (!net || !net->net_tx || !net->net_rx) return HAL_NO_DEVICE;

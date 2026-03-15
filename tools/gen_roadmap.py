@@ -163,10 +163,10 @@ def generate_html(sections, metrics, hw_tiers):
     # Status label
     if all_done:
         status_word = "shipped"
-        status_note = "Everything shipped in one release. No half measures."
+        status_note = "Everything shipped in one release. No half measures"
     else:
         status_word = "ships"
-        status_note = "Everything ships in one release. No half measures."
+        status_note = "Everything ships in one release. No half measures"
 
     lines = []
     lines.append("""<!DOCTYPE html>
@@ -174,7 +174,7 @@ def generate_html(sections, metrics, hw_tiers):
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta name="description" content="AlJefra OS v1.0 Roadmap - The first Qatari operating system. AI chat, desktop GUI, driver marketplace, secure boot, 3-architecture support.">
+    <meta name="description" content="AlJefra OS v0.7.5 Roadmap - The first Qatari operating system. AI chat, desktop GUI, driver marketplace, secure boot, 3-architecture support.">
     <title>Roadmap - AlJefra OS</title>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -182,7 +182,7 @@ def generate_html(sections, metrics, hw_tiers):
     <nav>
         <div class="nav-inner">
             <div class="logo">AlJefra OS</div>
-            <button class="nav-toggle" onclick="document.querySelector('.nav-links').classList.toggle('active');this.classList.toggle('active')"><span></span><span></span><span></span></button>
+            <button class="nav-toggle" type="button" aria-label="Toggle navigation" aria-expanded="false"><span></span><span></span><span></span></button>
             <ul class="nav-links">
                 <li><a href="index.html">Home</a></li>
                 <li><a href="docs.html">Docs</a></li>
@@ -195,10 +195,10 @@ def generate_html(sections, metrics, hw_tiers):
         </div>
     </nav>
 
-    <div class="page-header">
-        <h1>v1.0 Production Roadmap</h1>
+    <section class="page-header">
+        <h1>v0.7.5 Production Roadmap</h1>
         <p>""" + esc(status_note) + """</p>
-    </div>""")
+    </section>""")
 
     # Status cards
     arch_count = '3'
@@ -228,7 +228,7 @@ def generate_html(sections, metrics, hw_tiers):
             </div>
             <div style="background: var(--bg-secondary); border: 1px solid {green}; border-radius: 8px; padding: 1.25rem; text-align: center;">
                 <div style="font-family: var(--font-mono); font-size: 2rem; color: {green};">{pct}%</div>
-                <div style="color: var(--text-secondary); font-size: 0.85rem;">v1.0 Complete</div>
+                <div style="color: var(--text-secondary); font-size: 0.85rem;">v0.7.5 Complete</div>
             </div>
         </div>
     </section>""")
@@ -291,7 +291,7 @@ def generate_html(sections, metrics, hw_tiers):
     if metrics:
         lines.append("""
     <section class="section">
-        <h2>v1.0 Metrics</h2>
+        <h2>v0.7.5 Metrics</h2>
         <table>
             <thead><tr><th>Metric</th><th>Target</th><th>Status</th></tr></thead>
             <tbody>""")
@@ -313,7 +313,7 @@ def generate_html(sections, metrics, hw_tiers):
     # Footer
     lines.append("""
     <footer>
-        <p>&copy; 2026 AlJefra OS v1.0 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
+        <p>&copy; 2026 AlJefra OS v0.7.5 | The First Qatari Operating System | <a href="https://os.aljefra.com">os.aljefra.com</a></p>
         <p style="margin-top: 0.75rem; font-size: 0.85rem;">Developed by <a href="https://www.QatarIT.com" style="color: var(--accent-green);">Qatar IT</a> &mdash; <a href="https://www.QatarIT.com">www.QatarIT.com</a></p>
     </footer>
 </body>

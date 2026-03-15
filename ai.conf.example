@@ -1,0 +1,13 @@
+# AlJefra OS local AI bridge
+# Copy to BMFS as ai.conf to override defaults.
+#
+# Default behavior without this file:
+#   backend=ollama
+#   host=gateway
+#   port=11434
+#   model=qwen2.5:0.5b
+
+backend=ollama
+host=gateway
+port=11434
+model=qwen2.5:0.5b

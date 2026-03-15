@@ -1,18 +1,18 @@
-# AlJefra OS v1.0 — Production Launch Roadmap
+# AlJefra OS v0.7.11 — Production Launch Roadmap
 
 **Updated:** 2026-02-27
 **Owner:** Qatar IT (www.QatarIT.com)
-**Target:** Complete v1.0 production launch — ALL features in a single release
+**Target:** Complete v0.7.11 production launch — ALL features in a single release
 
 ---
 
 ## Vision
 
-AlJefra OS is the world's first AI-native, self-evolving operating system — built in Qatar for the world. Users interact through natural language. The OS understands intent, translates to system actions, and evolves itself through AI. Everything ships in v1.0.
+AlJefra OS is the world's first AI-native, self-evolving operating system — built in Qatar for the world. Users interact through natural language. The OS understands intent, translates to system actions, and evolves itself through AI. Everything ships in v0.7.11.
 
 ---
 
-## v1.0 Feature Set (All Included)
+## v0.7.11 Feature Set (All Included)
 
 ### A. Core Kernel (DONE)
 - [x] x86-64 ASM kernel (20 KB, 9,126 lines)
@@ -30,6 +30,9 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] HTTP/1.1 client (chunked + content-length)
 - [x] DNS resolver
 - [x] DHCP (kernel bootstrap path)
+- [x] Active network-driver selection during boot DHCP
+- [x] USB Ethernet auto-load via xHCI
+- [x] Intel AX200/AX210 Wi-Fi activation from `wifi.conf`
 
 ### C. Security (DONE)
 - [x] Ed25519 signature verification (2,067 lines, full RFC 8032)
@@ -37,9 +40,12 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] TLS for all external connections
 
 ### D. Driver Marketplace (DONE)
-- [x] Flask REST API (9 endpoints)
+- [x] Flask REST API (10 endpoints)
 - [x] .ajdrv package format with metadata + binary + signature
 - [x] Runtime driver loading framework
+- [x] Per-machine system registration and sync queue
+- [x] Queue unmet hardware as `driver_build` requests
+- [x] Queue desired software as `app_prepare` requests
 
 ### E. AI Evolution (DONE)
 - [x] AI-directed source optimization (Experiment A)
@@ -56,6 +62,7 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] Real .ajdrv packages for top 5 drivers — e1000, virtio_blk, virtio_net, nvme, ahci (10 packages, 3 architectures)
 - [x] OTA update: download → stage → verify → apply (ota.h/ota.c, 665 lines)
 - [x] Marketplace SQLite persistence — server/database.py (drivers, evolutions, reviews, metrics)
+- [x] Marketplace machine persistence — systems + sync_requests tables
 - [x] Fix 8KB driver download buffer — TCP RX 64KB + streaming chunked download (up to 1MB)
 
 ### G. AI Chat System (DONE)
@@ -95,7 +102,7 @@ AlJefra OS is the world's first AI-native, self-evolving operating system — bu
 - [x] Plugin SDK documentation (doc/plugin-sdk.md, 541 lines)
 - [x] Hardware compatibility database (doc/hardware-compatibility.md, 169 lines)
 - [x] Release process (doc/release-process.md, 179 lines)
-- [x] CHANGELOG.md (60 lines — v1.0.0 initial release)
+- [x] CHANGELOG.md (210 lines — v1.0.0 initial release)
 - [x] CODE_OF_CONDUCT.md (137 lines — Contributor Covenant)
 
 ---
@@ -124,8 +131,8 @@ Local SLM   AlJefra AI Cloud / Claude API
 ### Boot Flow
 ```
 Power On → HAL Init → Device Scan → Driver Load
-→ Network (DHCP) → AI Connect (SLM or LLM)
-→ Screen? → Offer GUI download → System Ready
+→ Network (DHCP) → System Sync → Queue drivers/apps
+→ AI Connect (SLM or LLM) → Screen? → Offer GUI download → System Ready
 ```
 
 ### Desktop Layout
@@ -135,10 +142,10 @@ Power On → HAL Init → Device Scan → Driver Load
 ├─────────┬────────────────────────────────────┤
 │  FILES  │        AI ASSISTANT                │
 │ 📄 kern │ You: Show me system info           │
-│ 📄 conf │ AI: AlJefra OS v1.0               │
+│ 📄 conf │ AI: AlJefra OS v0.7.11            │
 │ 📦 drv  │ CPU: x86-64 (4 cores)            │
 │ 📄 logs │ RAM: 256 MB, Disk: 128 MB        │
-│         │ Network: 192.168.1.105            │
+│         │ Network: 192.168.1.105             │
 │ [+] New ├────────────────────────────────────┤
 │         │ > Ask anything...           [Send] │
 └─────────┴────────────────────────────────────┘
@@ -166,7 +173,7 @@ AMD GPU, Intel GPU, Audio HDA, Bluetooth
 | Boot to AI chat | < 10 seconds | Achieved |
 | Marketplace drivers | 50+ | In Progress |
 | Tested hardware | 100+ devices | In Progress |
-| Total codebase | ~87,603 lines | 87,603 lines |
+| Total codebase | ~89,911 lines | 89,911 lines |
 | Architectures | 3 (x86-64, ARM64, RISC-V) | All 3 boot |
 | AI Chat (English + Arabic) | 69+ command patterns | Done |
 | Desktop GUI | Framebuffer-based | Done |

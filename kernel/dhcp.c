@@ -25,6 +25,7 @@
 /* ── Cached configuration ── */
 static dhcp_config_t g_config;
 static bool g_config_valid;
+static char g_dhcp_status[160] = "DHCP has not run yet";
 
 /* ── Helpers ── */
 
@@ -33,6 +34,12 @@ static void log_ip(const char *label, uint32_t ip)
     hal_console_printf("[dhcp] %s: %u.%u.%u.%u\n", label,
                        (ip >> 24) & 0xFF, (ip >> 16) & 0xFF,
                        (ip >> 8) & 0xFF, ip & 0xFF);
+}
+
+static void set_dhcp_status(const char *msg)
+{
+    str_copy(g_dhcp_status, msg ? msg : "DHCP status unavailable",
+             sizeof(g_dhcp_status));
 }
 
 /* ── Low-level DHCP — delegates to net/dhcp.c ── */
@@ -100,10 +107,12 @@ hal_status_t dhcp_init(dhcp_config_t *cfg)
     const driver_ops_t *net = driver_get_network();
     if (!net) {
         hal_console_puts("[dhcp] No network driver available\n");
+        set_dhcp_status("No network driver available for DHCP");
         return HAL_NO_DEVICE;
     }
 
     hal_console_puts("[dhcp] Starting DHCP client...\n");
+    set_dhcp_status("Starting DHCP handshake");
 
     memset(cfg, 0, sizeof(*cfg));
 
@@ -115,6 +124,7 @@ hal_status_t dhcp_init(dhcp_config_t *cfg)
         if (attempt > 0) {
             hal_console_printf("[dhcp] Retry %d/%d (waiting %u ms)...\n",
                                attempt + 1, DHCP_MAX_RETRIES, timeout);
+            set_dhcp_status("Retrying DHCP after timeout");
             hal_timer_delay_ms(timeout);
             timeout *= 2; /* Exponential backoff */
         }
@@ -122,11 +132,20 @@ hal_status_t dhcp_init(dhcp_config_t *cfg)
         rc = dhcp_discover_offer(cfg);
         if (rc == HAL_OK)
             break;
+
+        if (rc == HAL_TIMEOUT)
+            set_dhcp_status("DHCP timed out waiting for reply");
+        else if (rc == HAL_NO_DEVICE)
+            set_dhcp_status("Network driver is active but cannot send or receive");
+        else
+            set_dhcp_status("DHCP handshake failed before lease was assigned");
     }
 
     if (rc != HAL_OK) {
         hal_console_puts("[dhcp] All retries exhausted, DHCP failed\n");
         g_config_valid = false;
+        if (rc == HAL_TIMEOUT)
+            set_dhcp_status("DHCP failed after multiple retries");
         return rc;
     }
 
@@ -144,6 +163,7 @@ hal_status_t dhcp_init(dhcp_config_t *cfg)
     /* Cache the configuration */
     g_config = *cfg;
     g_config_valid = true;
+    set_dhcp_status("DHCP lease acquired successfully");
 
     hal_console_puts("[dhcp] Network configured successfully\n");
     return HAL_OK;
@@ -169,4 +189,9 @@ const dhcp_config_t *dhcp_get_config(void)
     if (!g_config_valid)
         return NULL;
     return &g_config;
+}
+
+const char *dhcp_last_status_message(void)
+{
+    return g_dhcp_status;
 }

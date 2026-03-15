@@ -73,6 +73,7 @@ KERNEL_SRCS = kernel/main.c kernel/sched.c kernel/syscall.c \
               kernel/driver_loader.c kernel/ai_bootstrap.c \
               kernel/fs.c kernel/ai_chat.c kernel/keyboard.c \
               kernel/dhcp.c kernel/ota.c kernel/panic.c \
+              kernel/ai_bridge.c \
               kernel/klog.c kernel/memprotect.c kernel/secboot.c \
               kernel/shell.c
 
@@ -82,7 +83,10 @@ DRIVER_SRCS = $(wildcard drivers/storage/*.c) \
               $(wildcard drivers/display/*.c) \
               $(wildcard drivers/bus/*.c)
 
-NET_SRCS = net/dhcp.c net/tcp.c
+# Network stack
+NET_SRCS = net/dhcp.c net/tcp.c net/dns.c
+
+# AI / Marketplace
 AI_SRCS = ai/marketplace.c
 STORE_SRCS = store/verify.c store/install.c store/catalog.c
 GUI_SRCS = gui/gui.c gui/widgets.c gui/desktop.c

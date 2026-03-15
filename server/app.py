@@ -70,6 +70,7 @@ def index():
         "endpoints": {
             "catalog":  "GET  /v1/catalog",
             "manifest": "POST /v1/manifest",
+            "system_sync": "POST /v1/system/sync",
             "driver":   "GET  /v1/drivers/<vendor>/<device>/<arch>",
             "upload":   "POST /v1/drivers",
             "updates":  "GET  /v1/updates/<os_version>",
@@ -161,6 +162,103 @@ def post_manifest():
         "recommendations": recommendations,
         "os_update_available": False,
     })
+
+
+@app.route("/v1/system/sync", methods=["POST"])
+def system_sync():
+    """Register a machine, persist its manifest, and queue unmet work.
+
+    Body:
+        {
+            "os_version": "0.7.5",
+            "desired_apps": ["browser", "terminal"],
+            "manifest": { ... same payload as /v1/manifest ... }
+        }
+    """
+    body = request.get_json(silent=True)
+    if body is None:
+        return jsonify({"error": "Invalid JSON body"}), 400
+
+    manifest_body = body.get("manifest", body)
+    manifest = HardwareManifest.from_json(manifest_body)
+    desired_apps = body.get("desired_apps", [])
+    os_version = body.get("os_version", "0.0.0")
+
+    manifest_key_src = {
+        "arch": manifest.arch,
+        "cpu_vendor": manifest.cpu_vendor,
+        "cpu_model": manifest.cpu_model,
+        "ram_mb": manifest.ram_mb,
+        "devices": [
+            {
+                "vendor": d.vendor,
+                "device": d.device,
+                "class_code": d.class_code,
+                "subclass": d.subclass,
+            } for d in manifest.devices
+        ],
+    }
+    system_key = hashlib.sha256(
+        json.dumps(manifest_key_src, sort_keys=True).encode("utf-8")
+    ).hexdigest()[:16]
+
+    store.db.upsert_system(system_key, manifest_body, os_version, desired_apps)
+
+    ready_driver_count = 0
+    missing_driver_count = 0
+    recommendations = []
+
+    for dev in manifest.devices:
+        rec = store.recommend(
+            vendor_id=dev.vendor,
+            device_id=dev.device,
+            arch=manifest.arch,
+            has_driver=dev.has_driver,
+        )
+        if rec is not None:
+            recommendations.append(rec)
+            ready_driver_count += 1
+            store.db.queue_sync_request(
+                system_key,
+                "driver_fetch",
+                f"{dev.vendor.lower()}:{dev.device.lower()}:{manifest.arch}",
+                rec,
+            )
+        elif not dev.has_driver:
+            missing_driver_count += 1
+            store.db.queue_sync_request(
+                system_key,
+                "driver_build",
+                f"{dev.vendor.lower()}:{dev.device.lower()}:{manifest.arch}",
+                {
+                    "vendor_id": dev.vendor.lower(),
+                    "device_id": dev.device.lower(),
+                    "arch": manifest.arch,
+                    "class_code": dev.class_code,
+                    "subclass": dev.subclass,
+                },
+            )
+
+    for app_name in desired_apps:
+        app_name = str(app_name).strip()
+        if not app_name:
+            continue
+        store.db.queue_sync_request(
+            system_key,
+            "app_prepare",
+            app_name,
+            {"app_name": app_name, "arch": manifest.arch, "os_version": os_version},
+        )
+
+    return jsonify({
+        "status": "queued",
+        "system_id": system_key,
+        "ready_driver_count": ready_driver_count,
+        "missing_driver_count": missing_driver_count,
+        "app_request_count": len([a for a in desired_apps if str(a).strip()]),
+        "recommendations": recommendations,
+        "sync_message": "Hardware registered and marketplace queue updated",
+    }), 201
 
 
 @app.route("/v1/drivers/<vendor>/<device>/<arch>", methods=["GET"])

@@ -22,6 +22,7 @@ static struct {
     int                 active;
 } g_loaded[MAX_DRIVERS];
 static uint32_t g_loaded_count;
+static int32_t  g_active_network = -1;
 
 void driver_register_builtin(const driver_ops_t *ops)
 {
@@ -199,7 +200,19 @@ const driver_ops_t *driver_find_by_name(const char *name)
 
 const driver_ops_t *driver_get_network(void)
 {
-    return driver_find(DRIVER_CAT_NETWORK);
+    if (g_active_network >= 0 &&
+        (uint32_t)g_active_network < g_loaded_count &&
+        g_loaded[g_active_network].active &&
+        g_loaded[g_active_network].ops->category == DRIVER_CAT_NETWORK) {
+        return g_loaded[g_active_network].ops;
+    }
+
+    for (uint32_t i = 0; i < g_loaded_count; i++) {
+        if (g_loaded[i].active && g_loaded[i].ops->category == DRIVER_CAT_NETWORK)
+            return g_loaded[i].ops;
+    }
+
+    return NULL;
 }
 
 const driver_ops_t *driver_get_storage(void)
@@ -220,4 +233,23 @@ uint32_t driver_list(const driver_ops_t **out, uint32_t max)
             out[count++] = g_loaded[i].ops;
     }
     return count;
+}
+
+hal_status_t driver_set_active_network(const char *name)
+{
+    if (!name)
+        return HAL_ERROR;
+
+    for (uint32_t i = 0; i < g_loaded_count; i++) {
+        if (!g_loaded[i].active || g_loaded[i].ops->category != DRIVER_CAT_NETWORK)
+            continue;
+
+        if (str_eq(g_loaded[i].ops->name, name)) {
+            g_active_network = (int32_t)i;
+            hal_console_printf("[driver] Active network driver: %s\n", name);
+            return HAL_OK;
+        }
+    }
+
+    return HAL_NO_DEVICE;
 }

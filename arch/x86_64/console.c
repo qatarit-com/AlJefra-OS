@@ -127,6 +127,12 @@ static void serial_putc(char c)
     outb(COM1_DATA, (uint8_t)c);
 }
 
+static void serial_puts(const char *s)
+{
+    while (s && *s)
+        serial_putc(*s++);
+}
+
 static int serial_has_data(void)
 {
     return (inb(COM1_LSR) & LSR_DATA_READY) != 0;
@@ -147,6 +153,41 @@ static char serial_getc(void)
 #define VGA_TEXT_ROWS 25
 static bool vga_text_available = false;
 static int  vga_text_pos = 0;
+static uint8_t vga_text_attr = 0x0F;
+
+static uint8_t vga_attr_from_rgb(uint32_t fg, uint32_t bg)
+{
+    uint8_t fg_attr = 0x0F;
+    uint8_t bg_attr = 0x00;
+
+    if (fg == LFB_COLOR_RED)
+        fg_attr = 0x0C;
+    else if (fg == LFB_COLOR_GREEN)
+        fg_attr = 0x0A;
+    else if (fg == LFB_COLOR_BLUE)
+        fg_attr = 0x09;
+    else if (fg == LFB_COLOR_YELLOW)
+        fg_attr = 0x0E;
+    else if (fg == LFB_COLOR_CYAN)
+        fg_attr = 0x0B;
+    else if (fg == LFB_COLOR_GRAY)
+        fg_attr = 0x07;
+
+    if (bg == LFB_COLOR_RED)
+        bg_attr = 0x40;
+    else if (bg == LFB_COLOR_GREEN)
+        bg_attr = 0x20;
+    else if (bg == LFB_COLOR_BLUE)
+        bg_attr = 0x10;
+    else if (bg == LFB_COLOR_YELLOW)
+        bg_attr = 0x60;
+    else if (bg == LFB_COLOR_CYAN)
+        bg_attr = 0x30;
+    else if (bg == LFB_COLOR_GRAY)
+        bg_attr = 0x70;
+
+    return (uint8_t)(bg_attr | fg_attr);
+}
 
 static void vga_text_putc(char c)
 {
@@ -156,12 +197,23 @@ static void vga_text_putc(char c)
         vga_text_pos = (vga_text_pos / VGA_TEXT_COLS) * VGA_TEXT_COLS;
     } else {
         if (vga_text_pos < VGA_TEXT_COLS * VGA_TEXT_ROWS)
-            VGA_TEXT_BUF[vga_text_pos] = (uint16_t)((0x0F << 8) | (uint8_t)c);
+            VGA_TEXT_BUF[vga_text_pos] = (uint16_t)((vga_text_attr << 8) | (uint8_t)c);
         vga_text_pos++;
     }
-    /* Simple scroll: wrap around */
-    if (vga_text_pos >= VGA_TEXT_COLS * VGA_TEXT_ROWS)
-        vga_text_pos = 0;
+
+    /* Scroll: if we hit or exceed the end of the buffer */
+    if (vga_text_pos >= VGA_TEXT_COLS * VGA_TEXT_ROWS) {
+        /* Move rows 1..N up to 0..(N-1) */
+        for (int i = 0; i < VGA_TEXT_COLS * (VGA_TEXT_ROWS - 1); i++) {
+            VGA_TEXT_BUF[i] = VGA_TEXT_BUF[i + VGA_TEXT_COLS];
+        }
+        /* Clear the last row */
+        for (int i = VGA_TEXT_COLS * (VGA_TEXT_ROWS - 1); i < VGA_TEXT_COLS * VGA_TEXT_ROWS; i++) {
+            VGA_TEXT_BUF[i] = (uint16_t)((vga_text_attr << 8) | ' ');
+        }
+        /* Set position to the beginning of the last row */
+        vga_text_pos = VGA_TEXT_COLS * (VGA_TEXT_ROWS - 1);
+    }
 }
 
 /* Raw framebuffer paint — writes directly to framebuffer memory to produce
@@ -341,6 +393,10 @@ void hal_console_putc(char c)
     if (vga_text_available) {
         vga_text_putc(c);
     }
+
+    /* Flush after each character so typed text is immediately visible */
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 void hal_console_puts(const char *s)
@@ -351,6 +407,10 @@ void hal_console_puts(const char *s)
         hal_console_putc(*s);
         s++;
     }
+
+    /* Flush back buffer to VRAM after complete string */
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 void hal_console_write(const char *s, uint64_t len)
@@ -359,6 +419,76 @@ void hal_console_write(const char *s, uint64_t len)
 
     for (uint64_t i = 0; i < len; i++)
         hal_console_putc(s[i]);
+
+    if (lfb_available)
+        lfb_flush(&lfb_con);
+}
+
+void hal_console_clear(void)
+{
+    if (serial_available) {
+        serial_putc('\x1B');
+        serial_putc('[');
+        serial_putc('2');
+        serial_putc('J');
+        serial_putc('\x1B');
+        serial_putc('[');
+        serial_putc('H');
+    }
+
+    if (lfb_available)
+        lfb_clear(&lfb_con, LFB_COLOR_BLACK);
+
+    if (vga_text_available) {
+        for (int i = 0; i < VGA_TEXT_COLS * VGA_TEXT_ROWS; i++)
+            VGA_TEXT_BUF[i] = (uint16_t)((vga_text_attr << 8) | ' ');
+        vga_text_pos = 0;
+    }
+}
+
+void hal_console_set_colors(uint32_t fg, uint32_t bg)
+{
+    if (serial_available) {
+        serial_putc('\x1B');
+        serial_putc('[');
+        if (fg == LFB_COLOR_RED)
+            serial_puts("31");
+        else if (fg == LFB_COLOR_GREEN)
+            serial_puts("32");
+        else if (fg == LFB_COLOR_YELLOW)
+            serial_puts("33");
+        else if (fg == LFB_COLOR_BLUE)
+            serial_puts("34");
+        else if (fg == LFB_COLOR_CYAN)
+            serial_puts("36");
+        else if (fg == LFB_COLOR_GRAY)
+            serial_puts("37");
+        else
+            serial_puts("97");
+        serial_putc('m');
+    }
+
+    if (lfb_available)
+        lfb_set_colors(&lfb_con, fg, bg);
+
+    if (vga_text_available)
+        vga_text_attr = vga_attr_from_rgb(fg, bg);
+}
+
+void hal_console_reset_colors(void)
+{
+    if (serial_available) {
+        serial_putc('\x1B');
+        serial_putc('[');
+        serial_putc('0');
+        serial_putc('m');
+    }
+
+    if (lfb_available)
+        lfb_set_colors(&lfb_con, LFB_COLOR_WHITE, LFB_COLOR_BLACK);
+
+    if (vga_text_available)
+        vga_text_attr = 0x0F;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -526,6 +656,9 @@ void hal_console_printf(const char *fmt, ...)
 
 done:
     va_end(args);
+
+    if (lfb_available)
+        lfb_flush(&lfb_con);
 }
 
 char hal_console_getc(void)
